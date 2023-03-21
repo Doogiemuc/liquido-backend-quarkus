@@ -1,0 +1,10 @@
+greeting:
+  message: "Hello from Liquido"
+quarkus:
+  hibernate-orm:
+    database:
+      generation: "drop-and-create"
+
+  datasource:
+    devservices:
+      port: 2222
