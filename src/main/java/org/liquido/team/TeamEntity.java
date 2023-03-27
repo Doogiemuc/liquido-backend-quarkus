@@ -2,6 +2,7 @@ package org.liquido.team;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 //import io.smallrye.common.constraint.NotNull;
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
@@ -102,10 +103,18 @@ public class TeamEntity extends PanacheEntity {
 	*/
 
 
-	private Optional<TeamMember> getFirstAdmin() {
-		if (this.members == null) return Optional.empty();
-		return this.members.stream().filter(teamMember -> teamMember.role == TeamMember.Role.ADMIN).findFirst();
+	public UserEntity getFirstAdmin() {
+		if (this.members == null) throw new RuntimeException("team has no member HashSet. Should have been initialized.");
+		Optional<TeamMember> member = this.members.stream().filter(teamMember -> teamMember.role == TeamMember.Role.ADMIN).findFirst();
+		return member.orElseThrow().getUser();
 	}
+
+	// =================== Active Record - query methods ================
+
+	public static Optional<TeamEntity> findByTeamName(String teamName) {
+		return find("teamName", teamName).firstResultOptional();
+	}
+
 
   @Override
   public String toString() {

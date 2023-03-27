@@ -12,6 +12,9 @@ import javax.persistence.Entity;
 import javax.persistence.OneToOne;
 import java.time.LocalDateTime;
 
+/**
+ * Link between a Team and its members and admins.
+ */
 @Data
 @NoArgsConstructor                              // Lombok's Data does NOT include a default no args constructor!
 @RequiredArgsConstructor
