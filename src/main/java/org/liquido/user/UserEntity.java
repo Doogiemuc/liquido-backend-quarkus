@@ -5,12 +5,14 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
+import org.eclipse.microprofile.graphql.DefaultValue;
 import org.eclipse.microprofile.graphql.Ignore;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.validation.constraints.NotNull;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 /**
  * One user / voter / citizen / member of a team
@@ -83,7 +85,8 @@ public class UserEntity extends PanacheEntity {
 	public long authyId = -1;
 
 	/** Last team the user was logged in. This is used when user is member of multiple teams. */
-	public long lastTeamId = -1;
+	@DefaultValue(value = "-1")  // for graphQL
+	public long lastTeamId;  // MUST init, so that GraphQL will not put this field into UserModelInput
 
 	/** timestamp of last login */
 	LocalDateTime lastLogin = null;
@@ -92,6 +95,17 @@ public class UserEntity extends PanacheEntity {
 	public void setEmail(String email) {
 		if (email == null || email.trim().length() == 0) throw new RuntimeException("A user's email must not be null!");
 		this.email = email.toLowerCase();
+	}
+
+
+	// ====================== Active Record - query methods ===================
+
+	public static Optional<UserEntity> findByEmail(String email) {
+		return UserEntity.find("email", email).firstResultOptional();
+	}
+
+	public static Optional<UserEntity> findByMobilephone(String mobilephone) {
+		return UserEntity.find("mobilephone", mobilephone).firstResultOptional();
 	}
 
 	@Override

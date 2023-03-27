@@ -43,23 +43,17 @@ public class DoogiesUtil {
 			if (o1.equals(o2)) {
 				return true;
 			} else {
-				return o1.getClass().isArray() && o2.getClass().isArray() &&
-						arrayEquals(o1, o2);
+				return o1.getClass().isArray() && o2.getClass().isArray() ? arrayEquals(o1, o2) : false;
 			}
 		} else {
 			return false;
 		}
 	}
 
-	/**
-	 * Check if all elements in two arrays are equal
-	 * @param o1 a java array
-	 * @param o2 a second java array (which should be of the same type)
-	 * @return true if and only if
-	 *   the two arrays are of the same type,
-	 *   they have the same length
-	 *   and each element in the arrays are equal
-	 */
+	public static boolean notEqual(Object o1, Object o2) {
+  	return !isEqual(o1, o2);
+	}
+
 	public static boolean arrayEquals(Object o1, Object o2) {
 		if (o1 instanceof Object[] && o2 instanceof Object[]) {
 			return Arrays.equals((Object[])((Object[])o1), (Object[])((Object[])o2));
@@ -77,15 +71,15 @@ public class DoogiesUtil {
 			return Arrays.equals((int[])((int[])o1), (int[])((int[])o2));
 		} else if (o1 instanceof long[] && o2 instanceof long[]) {
 			return Arrays.equals((long[])((long[])o1), (long[])((long[])o2));
-		} else if (o1 instanceof short[] && o2 instanceof short[]) {
-			return Arrays.equals((short[])((short[])o1), (short[])((short[])o2));
 		} else {
-			return false;
+			return o1 instanceof short[] && o2 instanceof short[] ? Arrays.equals((short[])((short[])o1), (short[])((short[])o2)) : false;
 		}
 	}
 
 	public static final String eMailRegEx = "\\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,64}\\b";
   public static final Pattern p = Pattern.compile(eMailRegEx);
+
+
 
 	/**
 	 * Check if s looks like an email adress.
@@ -161,7 +155,7 @@ public class DoogiesUtil {
   }
 
   static final Random rand = new Random();
-  /** There is deliberately no  0/O/o 1/I/i/j/l/L in this array, because they can be confused so easily in many fonts. */
+  /** There is deliberately no number 0/O/o 1/I/i/j/l/L this array, because they can be confused so easily in many fonts. */
   private static final char[] EASY_CHARS = "234567890ABCDEFGHKLMNPQRSTUVWXYZabcdefghkmnpqrstuvwxyz".toCharArray();
 
   /**
@@ -188,9 +182,6 @@ public class DoogiesUtil {
     long number = min + (Math.abs(rand.nextLong()) % (max-min));  // 100 + [0...899]  = [100...999]
     return String.valueOf(number);
   }
-
-
-	//Wanna generate a real UUID? There is java.util.UUID.randomUUID().toString()
 
 
 
@@ -235,7 +226,7 @@ public class DoogiesUtil {
 	public static <T> void printTreeRec(T node, Function<T, List<T>> getChildrenFunc) {
 		if (getChildrenFunc == null) throw new IllegalArgumentException("need getChildrenFunc to printTreeRec");
 		if (node == null) return;
-		BiConsumer<String, T> printer = (prefix, n) -> System.out.println(prefix + n.toString());
+		BiConsumer printer = (prefix, n) -> System.out.println(prefix + n.toString());
 		printTreeRec("", node, printer, getChildrenFunc, false);
 	}
 
