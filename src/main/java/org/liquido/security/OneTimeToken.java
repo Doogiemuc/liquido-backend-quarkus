@@ -1,6 +1,7 @@
 package org.liquido.security;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import lombok.*;
 import org.liquido.user.UserEntity;
 
@@ -8,6 +9,7 @@ import javax.persistence.Entity;
 import javax.persistence.OneToOne;
 import javax.validation.constraints.NotNull;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 /**
  * One time token that is used for login without a password.
@@ -35,4 +37,8 @@ public class OneTimeToken extends PanacheEntity {
 	@NonNull
 	@NotNull
 	LocalDateTime validUntil;
+
+	public static Optional<OneTimeToken> findByNonce(String nonce) {
+		return OneTimeToken.find("nonce", nonce).firstResultOptional();
+	}
 }

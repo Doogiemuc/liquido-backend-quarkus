@@ -2,6 +2,9 @@ package org.liquido;
 
 import io.quarkus.runtime.LaunchMode;
 import io.quarkus.runtime.Startup;
+import org.liquido.util.LiquidoConfig;
+
+import javax.inject.Inject;
 
 @Startup
 //@ApplicationScoped

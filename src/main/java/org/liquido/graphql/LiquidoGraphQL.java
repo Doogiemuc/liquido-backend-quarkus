@@ -2,13 +2,13 @@ package org.liquido.graphql;
 
 import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.Mailer;
-import io.vertx.ext.mail.MailMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.graphql.*;
 import org.liquido.security.JwtTokenUtils;
 import org.liquido.security.OneTimeToken;
 import org.liquido.team.TeamEntity;
+import org.liquido.team.TeamMember;
 import org.liquido.user.UserEntity;
 import org.liquido.util.DoogiesUtil;
 import org.liquido.util.LiquidoException;
@@ -16,6 +16,7 @@ import org.liquido.util.LiquidoException;
 import javax.inject.Inject;
 import javax.transaction.Transactional;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -31,6 +32,9 @@ public class LiquidoGraphQL {
 
     @ConfigProperty(name = "liquido.frontendUrl")
     String frontendUrl;
+
+    @ConfigProperty(name = "liquido.loginLinkExpirationHours")
+    Long loginLinkExpirationHours;
 
     @Query
     @Description("Ping for API")
@@ -56,7 +60,7 @@ public class LiquidoGraphQL {
         if (TeamEntity.findByTeamName(teamName).isPresent())
             throw new LiquidoException(LiquidoException.Errors.TEAM_WITH_SAME_NAME_EXISTS, "Cannot create new team: A team with that name ('"+teamName+"') already exists");
 
-        Optional<UserEntity> currentUserOpt = Optional.empty();      //TODO: authUtil.getCurrentUserFromDB();
+        Optional<UserEntity> currentUserOpt = Optional.empty();      //TODO: authUtil.getCurrentUserFromDB(); ======================================
         boolean emailExists = UserEntity.findByEmail(admin.email).isPresent();
         boolean mobilePhoneExists = UserEntity.findByMobilephone(admin.mobilephone).isPresent();
 
@@ -82,20 +86,11 @@ public class LiquidoGraphQL {
             }
         }
 
-
-        admin.persistAndFlush();
-
+        admin.persistAndFlush();  // TODO: Do I need this?
         TeamEntity team = new TeamEntity(teamName, admin);
         team.persist();
         log.info("Created new team: " + team);
-
-        String jwt = jwtTokenUtils.generateToken(admin.id, team.id);
-
-        TeamDataResponse res = new TeamDataResponse();
-        res.team = team;
-        res.user = admin;
-        res.jwt  = jwt;
-        return res;
+        return loginUserIntoTeam(admin, team);
     }
 
 
@@ -133,7 +128,7 @@ public class LiquidoGraphQL {
 
         // Create new email login link with a token time token in it.
         UUID tokenUUID = UUID.randomUUID();
-        LocalDateTime validUntil = LocalDateTime.now(); //.plusHours(conf.loginLinkExpirationHours());
+        LocalDateTime validUntil = LocalDateTime.now().plusHours(loginLinkExpirationHours);
         OneTimeToken oneTimeToken = new OneTimeToken(tokenUUID.toString(), user, validUntil);
         oneTimeToken.persist();
         log.info("User " + user.getEmail() + " may login via email link.");
@@ -161,5 +156,52 @@ public class LiquidoGraphQL {
         return "{ \"message\": \"Email successfully sent.\" }";
     }
 
+    @Query
+    public TeamDataResponse loginWithEmailToken(
+        @Name("email") String email,
+        @Name("authToken") String authToken
+    ) throws LiquidoException {
+        email = cleanEmail(email);
+        OneTimeToken ott = OneTimeToken.findByNonce(authToken)
+            .orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_LOGIN_TOKEN_INVALID, "This email token is invalid!"));
+        if (LocalDateTime.now().isAfter(ott.getValidUntil())) {
+            ott.delete();
+            throw new LiquidoException(LiquidoException.Errors.CANNOT_LOGIN_TOKEN_INVALID, "Token is expired!");
+        }
+        if (!DoogiesUtil.isEqual(email, ott.getUser().getEmail()))
+            throw new LiquidoException(LiquidoException.Errors.CANNOT_LOGIN_TOKEN_INVALID, "This token is not valid for that email!");
 
+        return loginUserIntoTeam(ott.getUser(), null);
+    }
+
+    /**
+     * Login a user into his team.
+     * If team is not given and user is member of multiple teams, then he will be logged into the last one he was using,
+     * or otherwise the first team in his list.
+     * @param user a user that want's to log in
+     * @return CreateOrJoinTeamResponse
+     * @throws LiquidoException when user has no teams (which should never happen)
+     *   or when user with that email is not member of this team
+     */
+    private TeamDataResponse loginUserIntoTeam(UserEntity user, TeamEntity team) throws LiquidoException {
+        if (team == null) {
+            List<TeamEntity> teams = TeamMember.findTeamsByMember(user);
+            if (teams.size() == 0) {
+                log.warn("User ist not member of any team. This should not happen: "+user);
+                throw new LiquidoException(LiquidoException.Errors.UNAUTHORIZED, "Cannot login. User is not member of any team "+user);
+            } else if (teams.size() == 1) {
+                team = teams.get(0);
+            } else {
+                team = teams.stream().filter(t -> t.id == user.lastTeamId).findFirst().orElse(teams.get(0));
+            }
+        }
+        if (team.getMemberByEmail(user.email, null).isEmpty()) {
+            throw new LiquidoException(LiquidoException.Errors.UNAUTHORIZED, "Cannot login. User is not member of this team! "+user);
+        }
+
+        log.debug("Login " + user.toStringShort() + " into team '" + team.getTeamName()+"'");
+        String jwt = jwtTokenUtils.generateToken(user.id, team.id);
+        //authUtil.authenticateInSecurityContext(user.getId(), team.getId(), jwt);
+        return new TeamDataResponse(team, user, jwt);
+    }
 }
