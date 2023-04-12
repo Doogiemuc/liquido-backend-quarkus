@@ -19,7 +19,6 @@ public class LsonTests {
 		Lson l = new Lson();
 		l.put("parent.child.attribute", dummyValue);
 		Object res = l.get("parent.child.attribute");
-		System.out.println("==============" + res.toString());
 
 		assertTrue(res instanceof String);
 

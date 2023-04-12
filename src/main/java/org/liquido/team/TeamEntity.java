@@ -92,15 +92,23 @@ public class TeamEntity extends PanacheEntity {
 		return this.members.stream().anyMatch(member -> member.mobilephone != null && member.mobilephone.equals(mobilephone));
 	}
 
-	/**
-	 * Check if a user or admin with that email exists and return it
-	 * @param email email of a user or admin in this team
-	 * @return the user or admin if it is part of this team
+	 */
 
-	public Optional<UserEntity> getAdminOrMemberByEmail(String email) {
-		return Stream.concat(this.admins.stream(), this.members.stream()).filter(u -> u.email.equals(email)).findFirst();
+	/**
+	 * Check if a user with that email is a member or admin of this team.
+	 * @param email email of a user or admin in this team
+	 * @param role filter by TeamMember.Role (optional, may be null)
+	 * @return the user or admin if it is part of this team
+  */
+	public Optional<UserEntity> getMemberByEmail(String email, TeamMember.Role role) {
+		if (email == null) return Optional.empty();
+		return this.<TeamMember>getMembers().stream()
+				.filter(tm -> role == null || tm.role.equals(role))
+				.map(tm -> tm.getUser())
+				.filter(u -> email.equals(u.email) )
+				.findFirst();
 	}
-	*/
+
 
 
 	public UserEntity getFirstAdmin() {
@@ -111,6 +119,11 @@ public class TeamEntity extends PanacheEntity {
 
 	// =================== Active Record - query methods ================
 
+	/**
+	 * Find one team by its name.
+	 * @param teamName name  of team
+	 * @return TeamEntity or Optional.empty() if not found.
+	 */
 	public static Optional<TeamEntity> findByTeamName(String teamName) {
 		return find("teamName", teamName).firstResultOptional();
 	}

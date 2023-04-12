@@ -10,6 +10,7 @@ import org.eclipse.microprofile.graphql.Ignore;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.OneToOne;
 import javax.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -20,7 +21,7 @@ import java.util.Optional;
  * A user may also join other teams. Then he is a member in those teams.
  */
 @Data
-@EqualsAndHashCode(of={}, callSuper = true)
+@EqualsAndHashCode(of={"name"}, callSuper = true)  // compare teams by their IDs and teamName
 @NoArgsConstructor
 @RequiredArgsConstructor
 @Entity
@@ -90,6 +91,14 @@ public class UserEntity extends PanacheEntity {
 
 	/** timestamp of last login */
 	LocalDateTime lastLogin = null;
+
+	/* non-owning side, so we can add more credentials later */
+	@Ignore  // ignore in Graphql
+	@OneToOne(mappedBy = "user")
+	//public WebAuthnCredential webAuthnCredential;
+
+
+
 
 	/** Email will always be stored in lowercase. This will be handled by quarkus-panache. */
 	public void setEmail(String email) {

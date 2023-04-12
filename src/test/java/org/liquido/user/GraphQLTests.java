@@ -1,12 +1,13 @@
 package org.liquido.user;
 
+import io.quarkus.mailer.Mail;
+import io.quarkus.mailer.Mailer;
 import io.quarkus.mailer.MockMailbox;
+import io.quarkus.mailer.reactive.ReactiveMailer;
+import io.quarkus.mailer.runtime.MutinyMailerImpl;
 import io.quarkus.test.junit.QuarkusTest;
 import lombok.extern.slf4j.Slf4j;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.*;
 import org.liquido.util.Lson;
 
 import javax.inject.Inject;
@@ -16,8 +17,12 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Date;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @Slf4j
 @QuarkusTest
@@ -26,7 +31,7 @@ public class GraphQLTests {
 	@Inject
 	MockMailbox mailbox;
 
-	public static final String GRAPHQL_URI = "http://localhost:8080/graphql";
+	public static final String GRAPHQL_URI = "http://localhost:8081/graphql";
 
 	// GraphQL queries
 	public static final String JQL_USER =
@@ -56,15 +61,14 @@ public class GraphQLTests {
 
 	@BeforeEach
 	public void beforeEachTest(TestInfo testInfo) {
-		log.info("========== Starting Test: " + testInfo.getDisplayName());
-		mailbox.clear();
+		log.info("========== Starting: " + testInfo.getDisplayName());
+		//mailbox.clear();
 	}
 
 	@AfterEach
 	public void afterEachTest(TestInfo testInfo) {
-		log.info("========== Finished Test: " + testInfo.getDisplayName());
+		log.info("========== Finished: " + testInfo.getDisplayName());
 	}
-
 
 
 	@Transactional
@@ -81,7 +85,6 @@ public class GraphQLTests {
 
 	@Test
 	public void testCreateNewTeam() throws Exception {
-
 		// GIVEN a test team
 		Long now = new Date().getTime();
 		String teamName = "testTeam" + now;
@@ -104,15 +107,44 @@ public class GraphQLTests {
 	}
 
 	@Test
+	//@Disabled   //TODO: receiving mocked email does work :-(
 	public void testLoginViaEmail() throws Exception {
+		// GIVEN a test user
 		UserEntity testUser = createTestUser();
+
+		//  WHEN requesting and email token for this user
 		String query = "query reqEmail($email: String) { requestEmailToken(email: $email) }";
 		HttpResponse<String> res = this.sendGraphQL(query, Lson.builder("email", testUser.email));
+
+		// THEN login link is sent via email
 		assertEquals(200, res.statusCode(), "Could not requestEmailToken");
+
+		//  AND an email with a one time password (nonce) is received
+		List<Mail> mails = mailbox.getMessagesSentTo(testUser.email.toLowerCase());
+		assertEquals(1, mails.size());
+		String html = mails.get(0).getHtml();
+		log.info("Received login email:");
+		log.info(html);
+
+		// AND the email contains a login link with a one time password ("nonce")
+		// Format of login link in HTML:   "<a id='loginLink' style='font-size: 20pt;' href='http://localhost:3001/login?email=testuser1681280391428@liquido.vote&emailToken=c199e7c2-fd13-423e-8648-ec4ae4375608'>Login TestUser1681280391428</a>"
+		Pattern p = Pattern.compile(".*<a.*id='loginLink'.*href='.+/login\\?email=(.+?)&emailToken=(.+?)'>.*", Pattern.DOTALL);
+		Matcher matcher = p.matcher(html);
+		log.info("Regex Pattern Matches: "+matcher.matches());
+		String email = matcher.group(1);
+		String token = matcher.group(2);
+		assertNotNull(email);
+		assertNotNull(token);
+		log.info("Successfully received login link for email: " + email+ " with token: "+token);
 	}
 
-
-
+	/**
+	 * send a GraphQL request to our backend
+	 * @param query the GraphQL query string
+	 * @param variables (optional) variables for the query
+	 * @return the HttpResponse with the GraphQL result in its String body
+	 * @throws Exception
+	 */
 	private HttpResponse<String> sendGraphQL(String query, Lson variables) throws Exception {
 		if (variables == null) variables = new Lson();
 		String body = String.format("{ \"query\": \"%s\", \"variables\": %s }", query, variables);

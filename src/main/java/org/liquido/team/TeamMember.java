@@ -11,6 +11,8 @@ import org.liquido.user.UserEntity;
 import javax.persistence.Entity;
 import javax.persistence.OneToOne;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 
 /**
  * Link between a Team and its members and admins.
@@ -38,5 +40,14 @@ public class TeamMember extends PanacheEntity {
 	enum Role {
 		MEMBER,
 		ADMIN
+	}
+
+	/**
+	 * Find all teams that a user is member (or admin) of.
+	 * @param user a user (team member or admin)
+	 * @return List of teams that this user is a member of
+	 */
+	public static List<TeamEntity> findTeamsByMember(UserEntity user) {
+		return TeamMember.<TeamMember>find("user", user).stream().map(tm -> tm.getTeam()).toList();
 	}
 }
