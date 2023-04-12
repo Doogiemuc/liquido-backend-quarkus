@@ -1,5 +1,9 @@
 package org.liquido.user;
 
+import com.twilio.Twilio;
+import com.twilio.base.ResourceSet;
+import com.twilio.rest.verify.v2.service.entity.Factor;
+import com.twilio.rest.verify.v2.service.entity.NewFactor;
 import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.Mailer;
 import io.quarkus.mailer.MockMailbox;
@@ -7,6 +11,7 @@ import io.quarkus.mailer.reactive.ReactiveMailer;
 import io.quarkus.mailer.runtime.MutinyMailerImpl;
 import io.quarkus.test.junit.QuarkusTest;
 import lombok.extern.slf4j.Slf4j;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.junit.jupiter.api.*;
 import org.liquido.util.Lson;
 
@@ -18,6 +23,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Date;
 import java.util.List;
+import java.util.Scanner;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -61,13 +68,13 @@ public class GraphQLTests {
 
 	@BeforeEach
 	public void beforeEachTest(TestInfo testInfo) {
-		log.info("========== Starting: " + testInfo.getDisplayName());
+		log.info("==========> Starting: " + testInfo.getDisplayName());
 		//mailbox.clear();
 	}
 
 	@AfterEach
 	public void afterEachTest(TestInfo testInfo) {
-		log.info("========== Finished: " + testInfo.getDisplayName());
+		log.info("<========== Finished: " + testInfo.getDisplayName());
 	}
 
 
@@ -81,6 +88,13 @@ public class GraphQLTests {
 		);
 		user.persist();
 		return user;
+	}
+
+
+	@Test
+	public void dummyTest() {
+		int res = 3 * 2;
+		assertEquals(6, res);
 	}
 
 	@Test
@@ -107,7 +121,6 @@ public class GraphQLTests {
 	}
 
 	@Test
-	//@Disabled   //TODO: receiving mocked email does work :-(
 	public void testLoginViaEmail() throws Exception {
 		// GIVEN a test user
 		UserEntity testUser = createTestUser();
@@ -118,24 +131,102 @@ public class GraphQLTests {
 
 		// THEN login link is sent via email
 		assertEquals(200, res.statusCode(), "Could not requestEmailToken");
+		log.info("Successfully sent login email.");
 
 		//  AND an email with a one time password (nonce) is received
 		List<Mail> mails = mailbox.getMessagesSentTo(testUser.email.toLowerCase());
 		assertEquals(1, mails.size());
 		String html = mails.get(0).getHtml();
-		log.info("Received login email:");
+		assertNotNull(html);
+		log.info("Received (mock) login email.");
 		log.info(html);
 
 		// AND the email contains a login link with a one time password ("nonce")
 		// Format of login link in HTML:   "<a id='loginLink' style='font-size: 20pt;' href='http://localhost:3001/login?email=testuser1681280391428@liquido.vote&emailToken=c199e7c2-fd13-423e-8648-ec4ae4375608'>Login TestUser1681280391428</a>"
-		Pattern p = Pattern.compile(".*<a.*id='loginLink'.*href='.+/login\\?email=(.+?)&emailToken=(.+?)'>.*", Pattern.DOTALL);
+		Pattern p = Pattern.compile(".*<a.*?id='loginLink'.*?href='.+/login\\?email=(.+?)&emailToken=(.+?)'>.*", Pattern.DOTALL);
 		Matcher matcher = p.matcher(html);
-		log.info("Regex Pattern Matches: "+matcher.matches());
+		boolean matches = matcher.matches();
 		String email = matcher.group(1);
 		String token = matcher.group(2);
 		assertNotNull(email);
 		assertNotNull(token);
 		log.info("Successfully received login link for email: " + email+ " with token: "+token);
+	}
+
+	@ConfigProperty(name = "liquido.twilio.accountSID")
+	String ACCOUNT_SID;   // "ACXXXXX..."
+
+	@ConfigProperty(name = "liquido.twilio.authToken")
+	String AUTH_TOKEN;    /// hex
+
+	@ConfigProperty(name = "liquido.twilio.serviceSID")
+	String SERVICE_SID;   // "VAXXXXX..."
+
+	@Test
+	@Disabled
+	public void testCreateTotpFactor() {
+		log.info("Twilio ACCOUNT_SID=" + ACCOUNT_SID);
+		long now = new Date().getTime();
+		String userUUID = UUID.randomUUID().toString();
+		String username = "TwilioUser" + now;
+
+		Twilio.init(ACCOUNT_SID, AUTH_TOKEN);
+
+		// 1. Create a new TOTP Factor  https://www.twilio.com/docs/verify/quickstarts/totp#create-a-new-totp-factor
+		NewFactor newFactor = NewFactor.creator(
+						SERVICE_SID,
+						userUUID,
+						username,
+						NewFactor.FactorTypes.TOTP)
+				.create();
+
+		String FACTOR_SID = newFactor.getSid();
+
+		System.out.println("========================");
+		System.out.println(newFactor);
+		System.out.println("========================");
+		System.out.println("TOTP URL           " + newFactor.getBinding().get("uri"));
+		System.out.println("Twilio Username:   " + username);
+		System.out.println("Twilio userUUID:   " + userUUID);
+		System.out.println("Twilio Factor_SID: " + FACTOR_SID);
+		System.out.println("========================");
+	}
+
+	// 2. Verify that TOTP factor
+	@Test
+	@Disabled    // <==== This CANNOT be tested automatically. (That's the whole reason for 2FA in the first place! :-)
+	public void testVerifyTotpFactor() {
+		// Manually set these parameters as returned by the previous test:  testCreateTotpFactor()
+		String userUUID    = "8766ff14-f81a-4087-8f6d-8eb5d32d601c";
+		String FACTOR_SID  = "YF0264366f99f5ba32e818bd93604241d4";
+		String authToken   = "841661";    // <==== the current token as shown in the Authy App
+
+		Twilio.init(ACCOUNT_SID, AUTH_TOKEN);
+
+		System.out.println("===========================");
+		System.out.println("Available TOTP Factors (FACTOR_SID) for Twilio authentication:");
+		// List available factors
+		ResourceSet<Factor> factors = Factor.reader(
+					SERVICE_SID,
+					userUUID)
+			//.limit(20)
+		  .read();
+		for(Factor record : factors) {
+			System.out.println(record);
+		}
+		System.out.println("===========================");
+
+		// Update a factor
+		Factor factor = Factor.updater(
+						SERVICE_SID,
+						userUUID,
+						FACTOR_SID)
+				.setAuthPayload(authToken).update();
+		System.out.println(factor);
+
+		assertEquals(Factor.FactorStatuses.VERIFIED, factor.getStatus(), "Factor should  now be verified");
+
+		log.info("Successfully verified TOTP factor");
 	}
 
 	/**
