@@ -2,6 +2,7 @@ package org.liquido.user;
 
 import com.twilio.Twilio;
 import com.twilio.base.ResourceSet;
+import com.twilio.rest.verify.v2.service.entity.Challenge;
 import com.twilio.rest.verify.v2.service.entity.Factor;
 import com.twilio.rest.verify.v2.service.entity.NewFactor;
 import io.quarkus.mailer.Mail;
@@ -28,8 +29,7 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 @Slf4j
 @QuarkusTest
@@ -162,34 +162,102 @@ public class GraphQLTests {
 	@ConfigProperty(name = "liquido.twilio.serviceSID")
 	String SERVICE_SID;   // "VAXXXXX..."
 
+	/**
+	 * Twilio + Authy App =  time based one time password (TOTP) authentication
+	 *
+	 * General Doc
+	 * https://www.twilio.com/docs/verify/quickstarts/totp
+	 *
+	 * Technical Doc with sequence diagrams
+	 * https://www.twilio.com/docs/verify/totp/technical-overview
+	 *
+	 * "The Authy API has been replaced with the Twilio Verify API."
+	 * (Source: https://github.com/twilio/authy-java)
+	 */
 	@Test
-	@Disabled
+	@Disabled  // Don't want to flood the API.
 	public void testCreateTotpFactor() {
 		log.info("Twilio ACCOUNT_SID=" + ACCOUNT_SID);
-		long now = new Date().getTime();
-		String userUUID = UUID.randomUUID().toString();
-		String username = "TwilioUser" + now;
+
+		String userUUID = "TwilioTestUserUUID";
+		String username = "Twilio TestUser";
 
 		Twilio.init(ACCOUNT_SID, AUTH_TOKEN);
 
-		// 1. Create a new TOTP Factor  https://www.twilio.com/docs/verify/quickstarts/totp#create-a-new-totp-factor
+		// 1. Register: Create a new TOTP Factor  https://www.twilio.com/docs/verify/quickstarts/totp#create-a-new-totp-factor
 		NewFactor newFactor = NewFactor.creator(
 						SERVICE_SID,
 						userUUID,
 						username,
 						NewFactor.FactorTypes.TOTP)
+				//.setConfigAppId("org.liquido")
+				//.setConfigCodeLength(6)
+				//.setConfigSkew(1)
+				//.setConfigTimeStep(60)
 				.create();
 
-		String FACTOR_SID = newFactor.getSid();
+		String factorUri = (String)newFactor.getBinding().get("uri");
+		String factorSid = newFactor.getSid();
 
-		System.out.println("========================");
+		System.out.println("=== Newly created twilio authentication Factor =====");
 		System.out.println(newFactor);
 		System.out.println("========================");
-		System.out.println("TOTP URL           " + newFactor.getBinding().get("uri"));
+		System.out.println("TOTP URL           " + factorUri);
 		System.out.println("Twilio Username:   " + username);
 		System.out.println("Twilio userUUID:   " + userUUID);
-		System.out.println("Twilio Factor_SID: " + FACTOR_SID);
+		System.out.println("Twilio Factor_SID: " + factorSid);
 		System.out.println("========================");
+
+		assertTrue(factorUri.contains("LIQUIDO"));
+
+		System.out.println("Available TOTP Factors (FACTOR_SID) for Twilio authentication:");
+		// List available factors
+		ResourceSet<Factor> factors = Factor.reader(
+						SERVICE_SID,
+						userUUID)
+				//.limit(20)
+				.read();
+		for(Factor record : factors) {
+			System.out.println(record);
+		}
+		System.out.println("========================");
+
+
+
+		/*
+		// Step 2.  Verify the Factor (finish registration)
+		//
+		// Before a factor is used it must be verified once to proove the user can create authTokens.
+		//
+		// This part cannot be tested automatically. You have to manually enter your TOTP.
+		// That's the whole reason for 2FA in the first place, that human interaction is necessary! :-)
+		// But you can run this in a debugger in your IDE:
+
+		String authToken = "";        // <===== SET A BREAKPOINT HERE AND UPDATE THIS VALUE MANUALLY IN YOUR DEBUGGER !!!!!
+		System.out.println("AuthToken:         " + authToken);
+
+		// Update a factor  (verify it)
+		Factor factor = Factor.updater(
+						SERVICE_SID,
+						userUUID,
+						factorSid)
+				.setAuthPayload(authToken)
+				.update();
+		System.out.println(factor);
+		assertEquals(Factor.FactorStatuses.VERIFIED, factor.getStatus(), "Factor should  now be verified");
+		 */
+
+		/*
+		// Step 3: Challenge: Login via TOTP
+		String authToken = "";        // <===== SET ANOTHER BREAKPOINT HERE AND UPDATE THIS VALUE MANUALLY IN YOUR DEBUGGER !!!!!
+		Challenge challenge = Challenge.creator(
+						SERVICE_SID,
+						userUUID,
+						factorSid)
+				.setAuthPayload(authToken).create();
+		System.out.println(challenge.toString());
+		assertEquals(Challenge.ChallengeStatuses.APPROVED, challenge.getStatus(), "Challenge denied. Maybe authToken was wrong.");
+		 */
 	}
 
 	// 2. Verify that TOTP factor
@@ -197,31 +265,21 @@ public class GraphQLTests {
 	@Disabled    // <==== This CANNOT be tested automatically. (That's the whole reason for 2FA in the first place! :-)
 	public void testVerifyTotpFactor() {
 		// Manually set these parameters as returned by the previous test:  testCreateTotpFactor()
-		String userUUID    = "8766ff14-f81a-4087-8f6d-8eb5d32d601c";
-		String FACTOR_SID  = "YF0264366f99f5ba32e818bd93604241d4";
-		String authToken   = "841661";    // <==== the current token as shown in the Authy App
+		String userUUID    = "TwilioTestUserUUID";
+		String FACTOR_SID  = "YF026437b7708c5b99ef9a9881f3ecb651";
+		String authToken   = "516527";    // <==== the current token as shown in the Authy App
 
 		Twilio.init(ACCOUNT_SID, AUTH_TOKEN);
 
-		System.out.println("===========================");
-		System.out.println("Available TOTP Factors (FACTOR_SID) for Twilio authentication:");
-		// List available factors
-		ResourceSet<Factor> factors = Factor.reader(
-					SERVICE_SID,
-					userUUID)
-			//.limit(20)
-		  .read();
-		for(Factor record : factors) {
-			System.out.println(record);
-		}
-		System.out.println("===========================");
+
 
 		// Update a factor
 		Factor factor = Factor.updater(
 						SERVICE_SID,
 						userUUID,
 						FACTOR_SID)
-				.setAuthPayload(authToken).update();
+				.setAuthPayload(authToken)
+				.update();
 		System.out.println(factor);
 
 		assertEquals(Factor.FactorStatuses.VERIFIED, factor.getStatus(), "Factor should  now be verified");
