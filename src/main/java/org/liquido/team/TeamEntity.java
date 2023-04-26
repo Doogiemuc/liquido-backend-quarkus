@@ -1,5 +1,6 @@
 package org.liquido.team;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 //import io.smallrye.common.constraint.NotNull;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
@@ -110,12 +111,13 @@ public class TeamEntity extends PanacheEntity {
 	}
 
 
-
 	public UserEntity getFirstAdmin() {
 		if (this.members == null) throw new RuntimeException("team has no member HashSet. Should have been initialized.");
 		Optional<TeamMember> member = this.members.stream().filter(teamMember -> teamMember.role == TeamMember.Role.ADMIN).findFirst();
 		return member.orElseThrow().getUser();
 	}
+
+
 
 	// =================== Active Record - query methods ================
 

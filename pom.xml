@@ -70,11 +70,21 @@
       <version>1.18.26</version>
       <scope>compile</scope>
     </dependency>
+
+    <!-- JSON Web token  (DEPRECATE. Replaced by
     <dependency>
       <groupId>io.jsonwebtoken</groupId>
       <artifactId>jjwt</artifactId>
       <version>0.9.1</version>
+    </dependency>   -->
+
+    <!-- for building JSON Web Tokens https://quarkus.io/guides/security-jwt-build -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-smallrye-jwt-build</artifactId>
     </dependency>
+
+    <!-- for sending emails -->
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-mailer</artifactId>
@@ -87,6 +97,30 @@
       <artifactId>twilio</artifactId>
       <version>9.3.0</version>
     </dependency>
+
+    <!-- For generating QR codes -->
+    <dependency>
+      <groupId>com.google.zxing</groupId>
+      <artifactId>core</artifactId>
+      <version>3.5.1</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-security</artifactId>
+    </dependency>
+
+
+    <!-- TEST dependencies -->
+
+    <!-- REST assured, also for testing GraphQL -->
+    <dependency>
+      <groupId>io.rest-assured</groupId>
+      <artifactId>rest-assured</artifactId>
+      <version>5.3.0</version>
+      <scope>test</scope>
+    </dependency>
+
 
   </dependencies>
   <build>
