@@ -4,11 +4,9 @@ import io.jsonwebtoken.*;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.liquido.util.LiquidoConfig;
 import org.liquido.util.LiquidoException;
 
 import javax.enterprise.context.ApplicationScoped;
-import javax.inject.Inject;
 import java.time.Instant;
 import java.util.Date;
 
@@ -27,6 +25,8 @@ public class JwtTokenUtils {
 	Long expirationSecs;
 
 	public static final String TEAM_ID_CLAIM = "teamId";
+
+
 
 	/**
 	 * This generates a new JWT. This needs jwtSecret as input, so that only the server can

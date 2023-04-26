@@ -1,5 +1,6 @@
 package org.liquido.graphql;
 
+import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.liquido.team.TeamEntity;
 import org.liquido.user.UserEntity;
@@ -7,6 +8,7 @@ import org.liquido.user.UserEntity;
 /**
  * GraphQL response for createNewTeam, joinTeam and login mutation.
  */
+@NoArgsConstructor
 @RequiredArgsConstructor
 public class TeamDataResponse {
 

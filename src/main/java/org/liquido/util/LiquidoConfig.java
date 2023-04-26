@@ -4,6 +4,8 @@ import io.quarkus.runtime.annotations.StaticInitSafe;
 import io.smallrye.config.ConfigMapping;
 import org.eclipse.microprofile.config.inject.ConfigProperties;
 
+//TODO: typesafe configuration
+
 @StaticInitSafe
 //DEPRECATED @ConfigProperties(prefix = "liquido")
 @ConfigMapping(prefix = "liquido")

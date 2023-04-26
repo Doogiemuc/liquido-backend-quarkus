@@ -1,5 +1,6 @@
 package org.liquido.user;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -10,7 +11,6 @@ import org.eclipse.microprofile.graphql.Ignore;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
-import javax.persistence.OneToOne;
 import javax.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -79,33 +79,35 @@ public class UserEntity extends PanacheEntity {
 	public String picture = null;
 
 	/**
-	 * www.twilio.com Authy user id for 2FA authentication.
-	 * NO PASSWORD!  Passwords are soooo old fashioned :-)
+	 * Time based one time password (TOTP) URI
+	 * This URI contains a secret!
+	 * Used for generating a QR code that can then be scanned with the Authy App.
 	 */
 	@Ignore  // ignore in GraphQL
-	public long authyId = -1;
+	@JsonIgnore
+	public String totpFactorUri;
+
+	/**
+	 * SID of this user's authy Factor ("YF......")
+	 */
+	@Ignore  // ignore in GraphQL
+	@JsonIgnore
+	public String totpFactorSid;
 
 	/** Last team the user was logged in. This is used when user is member of multiple teams. */
 	@DefaultValue(value = "-1")  // for graphQL
-	public long lastTeamId;  // MUST init, so that GraphQL will not put this field into UserModelInput
+	public long lastTeamId = -1;  // MUST init, so that GraphQL will not put this field into UserModelInput
 
 	/** timestamp of last login */
 	LocalDateTime lastLogin = null;
 
-	/* non-owning side, so we can add more credentials later */
-	@Ignore  // ignore in Graphql
-	@OneToOne(mappedBy = "user")
-	//public WebAuthnCredential webAuthnCredential;
-
-
-
+	// ====================== Getters and setters (only where logic is necessary)  ===================
 
 	/** Email will always be stored in lowercase. This will be handled by quarkus-panache. */
 	public void setEmail(String email) {
 		if (email == null || email.trim().length() == 0) throw new RuntimeException("A user's email must not be null!");
 		this.email = email.toLowerCase();
 	}
-
 
 	// ====================== Active Record - query methods ===================
 
