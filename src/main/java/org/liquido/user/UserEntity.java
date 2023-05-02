@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.eclipse.microprofile.graphql.DefaultValue;
 import org.eclipse.microprofile.graphql.Ignore;
+import org.liquido.util.DoogiesUtil;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -90,7 +91,7 @@ public class UserEntity extends PanacheEntity {
 	/**
 	 * SID of this user's authy Factor ("YF......")
 	 */
-	@Ignore  // ignore in GraphQL
+	@Ignore  // ignore in GraphQL and JSON
 	@JsonIgnore
 	public String totpFactorSid;
 
@@ -111,11 +112,18 @@ public class UserEntity extends PanacheEntity {
 
 	// ====================== Active Record - query methods ===================
 
+	/**
+	 * Find a user by email
+	 * @param email will be converted to lowercase
+	 * @return the found user or Optional.empty()
+	 */
 	public static Optional<UserEntity> findByEmail(String email) {
-		return UserEntity.find("email", email).firstResultOptional();
+		if (email == null) return Optional.empty();
+		return UserEntity.find("email", email.toLowerCase()).firstResultOptional();
 	}
 
 	public static Optional<UserEntity> findByMobilephone(String mobilephone) {
+		mobilephone = DoogiesUtil.cleanMobilephone(mobilephone);
 		return UserEntity.find("mobilephone", mobilephone).firstResultOptional();
 	}
 

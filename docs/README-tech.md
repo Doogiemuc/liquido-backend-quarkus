@@ -1,6 +1,13 @@
 # LIQUIDO - Technical Reference
 
 
+### Changes to the Spring version of the backend
+
+ * New entity TeamMember
+ * JWT contains email as subject instead of user.id
+
+
+
 ### ORM Database mapping
 
 We use Quarkus-Panache

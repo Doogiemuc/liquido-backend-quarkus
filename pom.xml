@@ -71,7 +71,7 @@
       <scope>compile</scope>
     </dependency>
 
-    <!-- JSON Web token  (DEPRECATE. Replaced by
+    <!-- JSON Web token  (DEPRECATE. Replaced by quarkus-smallrye-jwt
     <dependency>
       <groupId>io.jsonwebtoken</groupId>
       <artifactId>jjwt</artifactId>
@@ -79,6 +79,10 @@
     </dependency>   -->
 
     <!-- for building JSON Web Tokens https://quarkus.io/guides/security-jwt-build -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-smallrye-jwt</artifactId>
+    </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-smallrye-jwt-build</artifactId>

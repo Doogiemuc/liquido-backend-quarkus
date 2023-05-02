@@ -1,47 +1,36 @@
 package org.liquido.user;
 
-import com.twilio.Twilio;
-import com.twilio.base.ResourceSet;
-import com.twilio.rest.verify.v2.service.entity.Challenge;
-import com.twilio.rest.verify.v2.service.entity.Factor;
-import com.twilio.rest.verify.v2.service.entity.NewFactor;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.MockMailbox;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
-import io.smallrye.jwt.algorithm.SignatureAlgorithm;
 import io.smallrye.jwt.build.Jwt;
-import io.smallrye.jwt.build.JwtClaimsBuilder;
-import io.smallrye.jwt.util.KeyUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.junit.jupiter.api.*;
+import org.liquido.TestDataCreator;
 import org.liquido.graphql.TeamDataResponse;
 import org.liquido.services.TwilioVerifyClient;
 import org.liquido.util.LiquidoException;
 import org.liquido.util.Lson;
 
-import javax.crypto.SecretKey;
 import javax.inject.Inject;
-import javax.transaction.Transactional;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.security.InvalidAlgorithmParameterException;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static io.restassured.RestAssured.*;
-import static io.restassured.matcher.RestAssuredMatchers.*;
+import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 @Slf4j
 @QuarkusTest
@@ -51,6 +40,8 @@ public class GraphQLTests {
 	MockMailbox mailbox;
 
 	public static final String GRAPHQL_URI = "http://localhost:8081/graphql";
+
+	public static final String LIQUIDO_ISSUER = "LIQUIDO"; // JWT issuer
 
 	// GraphQL queries
 	public static final String JQL_USER =
@@ -97,7 +88,7 @@ public class GraphQLTests {
 				"testuser" + now + "@liquido.vote",
 				"+49 555 " + now
 		);
-		user.persist();
+		user.persistAndFlush();  // MUST flush!
 		return user;
 	}
 
@@ -143,8 +134,9 @@ public class GraphQLTests {
 
 		String JWT = Jwt.issuer("https://www.LIQUIDO.vote")
 				.subject("liquidoTestUser11@liquido.vote")
-				.upn("upn@liquido.vote")
-				.groups(Collections.singleton("LIQUIDO_USER"))
+				//.upn("upn@liquido.vote")  // if upn is set, this will be used instead of subject   see JWTCallerPrincipal.getName()
+				.issuer(LIQUIDO_ISSUER)
+				.groups(Collections.singleton("LIQUIDO_USER"))  // role
 				//.expiresIn(9000)
 				//.jws().algorithm(SignatureAlgorithm.HS256)
 				.sign();
@@ -153,9 +145,9 @@ public class GraphQLTests {
 
 
 		given().log().all()
-				.body(body)
 				.header(HttpHeaderNames.AUTHORIZATION.toString(), "Bearer "+JWT)
 				.contentType(ContentType.JSON)
+				.body(body)
 				.when()
 				.post(GRAPHQL_URI)
 				.then().log().all()
@@ -212,18 +204,22 @@ public class GraphQLTests {
 	@TestTransaction
 	public void testLoginViaEmail() throws Exception {
 		// GIVEN a test user
-		UserEntity testUser = createTestUser();
+		log.info("=================== all users in DB ==================");
+		UserEntity.findAll().stream().forEach(user -> {
+			log.info(user.toString());
+		});
+		log.info("=================== all users in DB ==================");
 
 		//  WHEN requesting and email token for this user
 		String query = "query reqEmail($email: String) { requestEmailToken(email: $email) }";
-		HttpResponse<String> res = this.sendGraphQL(query, Lson.builder("email", testUser.email));
+		HttpResponse<String> res = this.sendGraphQL(query, Lson.builder("email", TestDataCreator.ADMIN_EMAIL));
 
 		// THEN login link is sent via email
-		assertEquals(200, res.statusCode(), "Could not requestEmailToken");
+		assertTrue(res.body().contains("successfully"), "Could not requestEmailToken");   // GraphQL responses are always HTTP status 200
 		log.info("Successfully sent login email.");
 
 		//  AND an email with a one time password (nonce) is received
-		List<Mail> mails = mailbox.getMessagesSentTo(testUser.email.toLowerCase());
+		List<Mail> mails = mailbox.getMessagesSentTo(TestDataCreator.ADMIN_EMAIL.toLowerCase());
 		assertEquals(1, mails.size());
 		String html = mails.get(0).getHtml();
 		assertNotNull(html);
@@ -242,6 +238,14 @@ public class GraphQLTests {
 		log.info("Successfully received login link for email: " + email + " with token: " + token);
 	}
 
+
+
+
+
+
+
+
+
 	@ConfigProperty(name = "liquido.twilio.accountSID")
 	String ACCOUNT_SID;   // "ACXXXXX..."
 
@@ -253,6 +257,8 @@ public class GraphQLTests {
 
 	@Inject
 	TwilioVerifyClient twilioVerifyClient;
+
+	//TODO: test this via GraphQL
 
 	/**
 	 * Twilio + Authy App =  time based one time password (TOTP) authentication
@@ -288,6 +294,10 @@ public class GraphQLTests {
 		assertTrue(approved, "Cannot login with Authy token");
 
 		log.info("====== LOGGED IN SUCCESSFULLY with Authy Token");
+
+
+
+
 
 		/*   This was the original test by hand. Now moved to TwillioVerifyClient implementation.
 
@@ -377,10 +387,8 @@ public class GraphQLTests {
 	}
 
 
-
-
-
 	@Test
+	@Disabled
 	public void testVerifyAuthFactorViaGraphQL() {
 		String authToken = "";
 
@@ -397,33 +405,6 @@ public class GraphQLTests {
 	}
 
 
-
-	// 2. Verify that TOTP factor
-	@Test
-	@Disabled    // <==== This CANNOT be tested automatically. (That's the whole reason for 2FA in the first place! :-)
-	public void testVerifyTotpFactor() {
-		// Manually set these parameters as returned by the previous test:  testCreateTotpFactor()
-		String userUUID = "TwilioTestUserUUID";
-		String FACTOR_SID = "YF026437b7708c5b99ef9a9881f3ecb651";
-		String authToken = "516527";    // <==== the current token as shown in the Authy App
-
-		Twilio.init(ACCOUNT_SID, AUTH_TOKEN);
-
-
-		// Update a factor
-		Factor factor = Factor.updater(
-						SERVICE_SID,
-						userUUID,
-						FACTOR_SID)
-				.setAuthPayload(authToken)
-				.update();
-		System.out.println(factor);
-
-		assertEquals(Factor.FactorStatuses.VERIFIED, factor.getStatus(), "Factor should  now be verified");
-
-		log.info("Successfully verified TOTP factor");
-	}
-
 	/**
 	 * send a GraphQL request to our backend
 	 * @param query the GraphQL query string
@@ -434,10 +415,7 @@ public class GraphQLTests {
 	private HttpResponse<String> sendGraphQL(String query, Lson variables) throws Exception {
 		if (variables == null) variables = new Lson();
 		String body = String.format("{ \"query\": \"%s\", \"variables\": %s }", query, variables);
-		log.info("Sending GraphQL request:\n" + body);
-		if (variables.size() > 0) {
-			log.info("  Variables: " + variables.toString());
-		}
+		log.info("Sending GraphQL request:\n     " + body);
 		try {
 			HttpRequest request = HttpRequest.newBuilder()
 					.uri(new URI(GRAPHQL_URI))
