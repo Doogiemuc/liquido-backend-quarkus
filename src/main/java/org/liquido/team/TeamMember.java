@@ -37,7 +37,7 @@ public class TeamMember extends PanacheEntity {
 	@CreationTimestamp
 	LocalDateTime joinedAt;
 
-	enum Role {
+	public enum Role {
 		MEMBER,
 		ADMIN
 	}

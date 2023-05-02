@@ -1,0 +1,9 @@
+{
+  "keys": [
+    {
+      "kty":"oct",
+      "kid":"secretKey",
+      "k":"AyM1SysPpbyDfgZld3umj1qzKObwVMkoqQ-EstJQLr_T-1qS0gasdasdf0iPS4hcgUuTwjAzZr1Z9CAow"
+    }
+  ]
+}

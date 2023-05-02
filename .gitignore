@@ -39,8 +39,10 @@ nb-configuration.xml
 # Local environment
 .env
 
+# Exclude configurations with secrets
 application-prod.yml
-
 /config/application-test.properties
 /config/application-local.properties
 /config/application-prod.properties
+/config/application-dev.properties
+/config/application-*.properties

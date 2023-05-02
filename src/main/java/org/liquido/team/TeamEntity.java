@@ -130,6 +130,16 @@ public class TeamEntity extends PanacheEntity {
 		return find("teamName", teamName).firstResultOptional();
 	}
 
+	public static Optional<TeamEntity> findByInviteCode(String inviteCode) {
+		return find("inviteCode", inviteCode).firstResultOptional();
+	}
+
+	public TeamEntity addMember(UserEntity member, TeamMember.Role role) {
+		TeamMember tm = new TeamMember(this, member, role);
+		tm.persist();
+		members.add(tm);
+		return this;
+	}
 
   @Override
   public String toString() {

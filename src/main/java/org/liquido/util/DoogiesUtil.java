@@ -263,4 +263,25 @@ public class DoogiesUtil {
 	}
 
 
+	/**
+	 * Clean mobile phone number: Replace everything except plus('+') and number (0-9).
+	 * Specifically spaces will be removed.
+	 * This is a very simple thing. Have a look at google phone lib for sophisticated phone number parsing
+	 * @param mobile a non formatted phone numer
+	 * @return the cleaned up phone number
+	 */
+	public static String cleanMobilephone(String mobile) {
+		if (mobile == null) return null;
+		return mobile.replaceAll("[^\\+0-9]", "");
+	}
+
+	/**
+	 * emails a case IN-sensitive. So store and compare them in lowercase
+	 * @param email an email address
+	 * @return the email in lowercase
+	 */
+	public static String cleanEmail(String email) {
+		if (email == null) return null;
+		return email.toLowerCase();
+	}
 }
