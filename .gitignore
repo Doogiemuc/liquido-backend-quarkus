@@ -46,3 +46,4 @@ application-prod.yml
 /config/application-prod.properties
 /config/application-dev.properties
 /config/application-*.properties
+/import-testData.sql

@@ -148,7 +148,7 @@ public class TeamEntity extends PanacheEntity {
 		buf.append("id=" + id);
 		buf.append(", teamName='" + this.teamName + '\'');
 		//buf.append(", firstAdmin='" + this.getFirstAdmin().orElse(null) + "'");
-		//buf.append(", numAdminAndMembers=" + (this.admins.size() + this.members.size()));
+		buf.append(", numMembers=" + this.members.size());
 		buf.append(']');
 		return buf.toString();
   }
