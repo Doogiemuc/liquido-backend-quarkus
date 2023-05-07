@@ -24,38 +24,12 @@ import java.util.List;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
+import static org.liquido.TestFixtures.CREATE_OR_JOIN_TEAM_RESULT;
+import static org.liquido.TestFixtures.GRAPHQL_URI;
 
 @Slf4j
 @QuarkusTest
 public class TestDataCreator {
-
-	public static final String GRAPHQL_URI = "http://localhost:8081/graphql";
-
-	// GraphQL queries
-	public static final String JQL_USER =
-			"{ id name email mobilephone picture website }";
-	public static final String JQL_TEAM_MEMBER =
-			"{ id role joinedAt user " + JQL_USER + "}";
-	public static final String JQL_PROPOSAL =
-			"{ id title description icon status createdAt numSupporters isLikedByCurrentUser createdBy " + JQL_USER + "}";
-	public static final String JQL_POLL =
-			"{ id title status votingStartAt votingEndAt proposals " + JQL_PROPOSAL +
-					" winner " + JQL_PROPOSAL +
-					" numBallots " +
-					" duelMatrix { data } " +
-					"}";
-	public static final String JQL_TEAM =
-			"{ id teamName inviteCode " +
-					" members " + JQL_TEAM_MEMBER +
-					// " polls " + JQL_POLL +
-					"}";
-	public static final String CREATE_OR_JOIN_TEAM_RESULT =
-			"{ " +
-					" team " + JQL_TEAM +
-					" user " + JQL_USER +
-					" jwt" +
-					"}";
-
 
 	// TEST FIXTURES
 	public static final String TEAM_NAME    = "Creator Team";

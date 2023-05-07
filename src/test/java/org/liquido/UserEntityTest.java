@@ -1,10 +1,11 @@
-package org.liquido.user;
+package org.liquido;
 
 import io.quarkus.test.junit.QuarkusTest;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.liquido.team.TeamEntity;
+import org.liquido.user.UserEntity;
 
 import javax.transaction.Transactional;
 import java.util.Date;
