@@ -34,7 +34,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @Slf4j
 @QuarkusTest
-public class GraphQLTests {
+public class UserGraphQLTests {
 
 	@Inject
 	MockMailbox mailbox;
@@ -133,7 +133,7 @@ public class GraphQLTests {
 		 */
 
 		String JWT = Jwt.issuer("https://www.LIQUIDO.vote")
-				.subject("liquidoTestUser11@liquido.vote")
+				.subject(TestDataCreator.ADMIN_EMAIL)
 				//.upn("upn@liquido.vote")  // if upn is set, this will be used instead of subject   see JWTCallerPrincipal.getName()
 				.issuer(LIQUIDO_ISSUER)
 				.groups(Collections.singleton("LIQUIDO_USER"))  // role
@@ -176,12 +176,13 @@ public class GraphQLTests {
 				.put("admin", admin);
 		String body = String.format("{ \"query\": \"%s\", \"variables\": %s }", query, variables);
 
-		TeamDataResponse res = given().log().all()
+		TeamDataResponse res = given() //.log().all()
 				.contentType(ContentType.JSON)
 				.body(body)
 				.when()
 				.post(GRAPHQL_URI)
-				.then().log().all()
+				.then() //.log().all()
+				.body("errors", nullValue())
 				.body("data.createNewTeam.team.teamName", is(teamName))
 				.body("data.createNewTeam.user.id", greaterThan(0))
 				.body("data.createNewTeam.user.email", is(email))
@@ -237,13 +238,6 @@ public class GraphQLTests {
 		assertNotNull(token);
 		log.info("Successfully received login link for email: " + email + " with token: " + token);
 	}
-
-
-
-
-
-
-
 
 
 	@ConfigProperty(name = "liquido.twilio.accountSID")

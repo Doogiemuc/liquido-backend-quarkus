@@ -21,7 +21,7 @@ import java.util.Set;
 
 /**
  * This Team entity is the data model of a team in the backend database.
- * See TeamGraphQL for the representation of a Team in the GraphQL API.
+ * See UserGraphQL for the representation of a Team in the GraphQL API.
  */
 @Data
 @NoArgsConstructor             									// Lombok's Data does NOT include a default no args constructor!

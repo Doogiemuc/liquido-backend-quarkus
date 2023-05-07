@@ -28,7 +28,7 @@ import java.util.UUID;
 
 @GraphQLApi
 @Slf4j
-public class LiquidoGraphQL {
+public class UserGraphQL {
 
 	@Inject
 	JwtTokenUtils jwtTokenUtils;
