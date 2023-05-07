@@ -4,9 +4,14 @@ import io.smallrye.jwt.build.Jwt;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.jwt.JsonWebToken;
+import org.liquido.user.UserEntity;
+import org.liquido.util.DoogiesUtil;
 
 import javax.enterprise.context.ApplicationScoped;
+import javax.inject.Inject;
 import java.util.Collections;
+import java.util.Optional;
 
 /**
  * Utility class to generate and then validate JsonWebTokens for Liquido.
@@ -22,6 +27,9 @@ public class JwtTokenUtils {
 
 	@ConfigProperty(name = "liquido.jwt.expirationSecs")
 	Long expirationSecs;
+
+	@Inject
+	JsonWebToken jwt;
 
 	public static final String TEAM_ID_CLAIM = "teamId";
 
@@ -85,5 +93,17 @@ public class JwtTokenUtils {
 	}
 
 	 */
+
+
+	/**
+	 * Get the currently logged in user
+	 * @return Optional UserEntity if logged in
+	 */
+	public Optional<UserEntity> getCurrentUserFromDB() {
+		if (jwt == null || DoogiesUtil.isEmpty(jwt.getName())) return Optional.empty();
+		String email = jwt.getName();
+		return UserEntity.findByEmail(email);
+	}
+
 
 }

@@ -1,6 +1,7 @@
 package org.liquido;
 
 import io.agroal.api.AgroalDataSource;
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
@@ -8,9 +9,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
 import org.liquido.graphql.TeamDataResponse;
 import org.liquido.team.TeamEntity;
+import org.liquido.team.TeamMember;
+import org.liquido.user.UserEntity;
 import org.liquido.util.Lson;
 
 import javax.inject.Inject;
+import javax.transaction.Transactional;
 import java.io.*;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -19,8 +23,7 @@ import java.util.Date;
 import java.util.List;
 
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.greaterThan;
-import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.*;
 
 @Slf4j
 @QuarkusTest
@@ -55,25 +58,30 @@ public class TestDataCreator {
 
 
 	// TEST FIXTURES
-	public static final String TEAM_NAME   = "Creator Team";
-	public static final String ADMIN_EMAIL = "ttt_admin@liquido.vote";
+	public static final String TEAM_NAME    = "Creator Team";
+	public static final String ADMIN_EMAIL  = "ttt_admin@liquido.vote";
 	public static final String MEMBER_EMAIL = "ttt_member@liquido.vote";
 
 
 	@Inject
 	AgroalDataSource dataSource;
 
+
   String sampleDbFile = "import-testData.sql";
 
-
-
+	boolean deleteAndRecreateTestdata = true;
 
 
 	@Test
 	public void createTestData() throws SQLException {
 		RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
+
+		if (deleteAndRecreateTestdata) {
+			purgeDb();
+		}
+
 		TeamDataResponse res = createTeam(TEAM_NAME , ADMIN_EMAIL, 5);
-		addMemberToTeam(res.team.inviteCode, MEMBER_EMAIL);
+		joinTeam(res.team.inviteCode, MEMBER_EMAIL);
 		extractSql();
 	}
 
@@ -101,6 +109,8 @@ public class TestDataCreator {
 				.when()
 				.post(GRAPHQL_URI)
 				.then()
+				.statusCode(200)  // But be careful: GraphQL always returns 200, so we need to
+				.body("errors", anyOf(nullValue(), hasSize(0)))		// check for no GraphQL errors: []
 				.body("data.createNewTeam.team.teamName", is(teamName))
 				.body("data.createNewTeam.user.id", greaterThan(0))
 				.body("data.createNewTeam.user.email", is(adminEmail))
@@ -108,13 +118,13 @@ public class TestDataCreator {
 
 		// Add further members that join this team
 		for (int i = 0; i < numMembers; i++) {
-			addMemberToTeam(res.team.inviteCode, "created_membr"+i+"@liquido.vote");
+			joinTeam(res.team.inviteCode, "created_membr"+i+"@liquido.vote");
 		}
 
 		return res;
 	}
 
-	public void addMemberToTeam(String inviteCode, String memberEmail) {
+	public void joinTeam(String inviteCode, String memberEmail) {
 		Long now = new Date().getTime();
 		if (memberEmail == null) memberEmail = "member" + now + "@liquido.vote";
 		Lson member = Lson.builder()
@@ -140,7 +150,16 @@ public class TestDataCreator {
 				.body("data.joinTeam.user.id", greaterThan(0))
 				.body("data.joinTeam.user.email", is(memberEmail))
 				.extract().jsonPath().getObject("data.joinTeam", TeamDataResponse.class);
+
+		log.debug("User joined team " + res.team.getTeamName() + ": " + res.user.toStringShort());
 	}
+
+
+
+
+
+
+
 
 	public void extractSql() throws SQLException {
 		// The `SCRIPT TO` command only works for H2 in-memory DB
@@ -214,4 +233,15 @@ public class TestDataCreator {
 			throw new RuntimeException("Could not remove Quarts statements from Schema: " + e.getMessage(), e);
 		}
 	}
+
+	@Transactional
+	void purgeDb() {
+		// order is important!
+		//BUGFIX: Must delete each instance individually!  https://github.com/quarkusio/quarkus/issues/13941
+		TeamMember.findAll().stream().forEach(PanacheEntityBase::delete);
+		TeamEntity.findAll().stream().forEach(PanacheEntityBase::delete);
+		UserEntity.findAll().stream().forEach(PanacheEntityBase::delete);
+
+	}
+
 }

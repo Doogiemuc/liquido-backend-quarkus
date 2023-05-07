@@ -12,6 +12,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.junit.jupiter.api.*;
 import org.liquido.TestDataCreator;
 import org.liquido.graphql.TeamDataResponse;
+import org.liquido.security.JwtTokenUtils;
 import org.liquido.services.TwilioVerifyClient;
 import org.liquido.util.LiquidoException;
 import org.liquido.util.Lson;
@@ -109,7 +110,7 @@ public class UserGraphQLTests {
 	}
 
 	@Test
-	public void testAuthenticatedRequest() throws InvalidAlgorithmParameterException {
+	public void testAuthenticatedRequest() {
 		String body = "{ \"query\": \"{ requireUser }\" }";
 
 		/*
@@ -136,7 +137,7 @@ public class UserGraphQLTests {
 				.subject(TestDataCreator.ADMIN_EMAIL)
 				//.upn("upn@liquido.vote")  // if upn is set, this will be used instead of subject   see JWTCallerPrincipal.getName()
 				.issuer(LIQUIDO_ISSUER)
-				.groups(Collections.singleton("LIQUIDO_USER"))  // role
+				.groups(Collections.singleton(JwtTokenUtils.LIQUIDO_USER_ROLE))  // role
 				//.expiresIn(9000)
 				//.jws().algorithm(SignatureAlgorithm.HS256)
 				.sign();
@@ -188,7 +189,7 @@ public class UserGraphQLTests {
 				.body("data.createNewTeam.user.email", is(email))
 				.extract().jsonPath().getObject("data.createNewTeam", TeamDataResponse.class);
 
-		log.info("Successfully created " + res.team.toString());
+		log.info("Successfully created " + res.team);
 		log.info("TOTP Factor URI = " + res.user.totpFactorUri);
 
 		/*
@@ -380,7 +381,7 @@ public class UserGraphQLTests {
 
 	}
 
-
+	//TODO: test the full login flow incl. activating your Authy token via GraphQL
 	@Test
 	@Disabled
 	public void testVerifyAuthFactorViaGraphQL() {
