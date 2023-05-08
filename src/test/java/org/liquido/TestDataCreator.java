@@ -43,21 +43,24 @@ public class TestDataCreator {
 
   String sampleDbFile = "import-testData.sql";
 
-	boolean deleteAndRecreateTestdata = true;
+	boolean purgeDb = false;
+	boolean recreateTestData = false;
 
 
 	@Test
 	public void createTestData() throws SQLException {
 		RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
 
-		if (deleteAndRecreateTestdata) {
+		if (purgeDb) {
 			purgeDb();
 		}
-
-		TeamDataResponse res = createTeam(TEAM_NAME , ADMIN_EMAIL, 5);
-		joinTeam(res.team.inviteCode, MEMBER_EMAIL);
-		extractSql();
+		if (recreateTestData) {
+			TeamDataResponse res = createTeam(TEAM_NAME, ADMIN_EMAIL, 5);
+			joinTeam(res.team.inviteCode, MEMBER_EMAIL);
+			extractSql();
+		}
 	}
+
 
 	public TeamDataResponse createTeam(String teamName, String adminEmail, int numMembers) {
 		Long now = new Date().getTime();
@@ -139,7 +142,7 @@ public class TestDataCreator {
 		// The `SCRIPT TO` command only works for H2 in-memory DB
 		PreparedStatement ps = dataSource.getConnection().prepareStatement("SCRIPT TO '" + sampleDbFile + "'");
 		ps.execute();
-		adjustDbInitializationScript();
+		//adjustDbInitializationScript();
 		log.info("===== Successfully stored test data in file: " + sampleDbFile);
 	}
 

@@ -8,7 +8,7 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.liquido.user.UserEntity;
 import org.liquido.util.DoogiesUtil;
 
-import javax.enterprise.context.ApplicationScoped;
+import javax.enterprise.context.RequestScoped;
 import javax.inject.Inject;
 import java.util.Collections;
 import java.util.Optional;
@@ -18,8 +18,12 @@ import java.util.Optional;
  * Each JWT contains the user's <b>ID</b> as JWT "subject" claim.
  */
 @Slf4j
-@ApplicationScoped
+@RequestScoped
 public class JwtTokenUtils {
+
+  // https://quarkus.io/guides/security-authentication-mechanisms-concept#smallrye-jwt-authentication
+	// https://quarkus.io/guides/security-architecture-concept
+
 
 	public static final String LIQUIDO_ISSUER = "https://www.LIQUIDO.vote";
 
@@ -94,15 +98,20 @@ public class JwtTokenUtils {
 
 	 */
 
+	private UserEntity currentUser = null;
 
-	/**
-	 * Get the currently logged in user
-	 * @return Optional UserEntity if logged in
-	 */
-	public Optional<UserEntity> getCurrentUserFromDB() {
+	public Optional<UserEntity> getCurrentUser() {
+		if (this.currentUser != null) return Optional.of(currentUser);
 		if (jwt == null || DoogiesUtil.isEmpty(jwt.getName())) return Optional.empty();
 		String email = jwt.getName();
-		return UserEntity.findByEmail(email);
+		log.debug("Loading current user from DB ... " + email);
+		Optional<UserEntity> userOpt = UserEntity.findByEmail(email);
+		if (userOpt.isEmpty()) {
+			log.warn("Valid JWT, but user <" + email + "> not found in DB!");
+			return userOpt;
+		}
+		this.currentUser = userOpt.get();
+		return userOpt;
 	}
 
 

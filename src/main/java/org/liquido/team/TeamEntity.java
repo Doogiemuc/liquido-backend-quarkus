@@ -1,6 +1,7 @@
 package org.liquido.team;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 //import io.smallrye.common.constraint.NotNull;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
@@ -9,6 +10,7 @@ import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.liquido.poll.PollEntity;
 import org.liquido.user.UserEntity;
 import org.liquido.util.DoogiesUtil;
 
@@ -53,9 +55,9 @@ public class TeamEntity extends PanacheEntity {
 	/** The polls in this team */
 	//This is the one side of a bidirectional OneToMany relationship. Keep in mind that you then MUST add mappedBy to map the reverse direction.
 	//And don't forget the @JsonBackReference on the many-side of the relation (in PollModel) to prevent StackOverflowException when serializing a TeamModel
-	//OneToMany(mappedBy = "team", cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)  // when a team is loaded, then do not immediately also load all polls
-	//@JsonManagedReference
-	//TODO: Set<PollModel> polls = new HashSet<>();   //BUGFIX: Changed from List to Set https://stackoverflow.com/questions/4334970/hibernate-throws-multiplebagfetchexception-cannot-simultaneously-fetch-multipl
+	@OneToMany(/*mappedBy = "team", */cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)  // when a team is loaded, then do not immediately also load all polls
+	@JsonManagedReference
+	Set<PollEntity> polls = new HashSet<>();   //BUGFIX: Changed from List to Set https://stackoverflow.com/questions/4334970/hibernate-throws-multiplebagfetchexception-cannot-simultaneously-fetch-multipl
 
 	//TODO: move these to a base class
 	@CreationTimestamp
