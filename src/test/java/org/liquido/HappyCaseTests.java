@@ -9,9 +9,11 @@ import io.restassured.response.ValidatableResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.*;
 import org.liquido.graphql.TeamDataResponse;
+import org.liquido.team.TeamEntity;
 import org.liquido.util.Lson;
 
 import javax.inject.Inject;
+import javax.transaction.Transactional;
 import java.util.Date;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -24,11 +26,40 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @Slf4j
 @QuarkusTest
-//@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class HappyCaseTests {
 
 	@Inject
 	MockMailbox mailbox;
+
+	String teamName;
+	String teamInviteCode;
+
+	String adminEmail;
+	String adminName;
+	String adminMobile;
+
+	String memberEmail;
+	String memberName;
+	String memberMobile;
+
+
+
+	@BeforeAll
+	public void initTests() {
+		Long now = new Date().getTime();
+		teamName = "testTeam" + now;
+
+		adminName   = "TestAdmin " + now;
+		adminEmail  = "testadmin" + now + "@liquido.vote";
+		adminMobile = "+49 555 " + now%1000000;
+
+		memberName   = "TestMember " + now;
+		memberEmail  = "testmember" + now + "@liquido.vote";
+		memberMobile = "+49 666 " + now%1000000;
+
+	}
 
 	@BeforeEach
 	public void beforeEachTest(TestInfo testInfo) {
@@ -48,20 +79,14 @@ public class HappyCaseTests {
 	 * Just Happy.
 	 */
 	@Test
-	//@Order(100)
-	@TestTransaction   // run test with transaction but rollback after test
-	public void HappyCase() {
-
-		// =========== Create a new team
-
+	@Order(100)
+	@Transactional   // run test with transaction but rollback after test
+	public void createNewTeam() {
 		// GIVEN a test team
-		Long now = new Date().getTime();
-		String teamName = "testTeam" + now;
-		String adminEmail = "testadmin" + now + "@liquido.vote";
 		Lson admin = Lson.builder()
-				.put("name", "TestAdmin " + now)
+				.put("name", adminName)
 				.put("email", adminEmail)
-				.put("mobilephone", "0151 555 " + now);
+				.put("mobilephone", adminMobile);
 
 		// WHEN creating a new team via GraphQL
 		String query = "mutation createNewTeam($teamName: String, $admin: UserEntityInput) { " +
@@ -78,27 +103,29 @@ public class HappyCaseTests {
 				.body("data.createNewTeam.user.email", is(adminEmail))
 				.extract().jsonPath().getObject("data.createNewTeam", TeamDataResponse.class);
 
+
 		log.info("======================== Successfully created " + res.team);
 		log.info("TOTP Factor URI = " + res.user.totpFactorUri);
+		this.teamInviteCode = res.team.inviteCode;
+	}
 
-
-
-
-		// =============== another user joins that team
+	@Test
+	@Order(200)
+	@Transactional
+	public void joinTeam() {
+		assertNotNull(this.teamInviteCode, "Need teamInviteCode to test joinTeam!");
 
 		// GIVEN a new member
-		now = new Date().getTime();
-		String memberEmail = "testmember" + now + "@liquido.vote";
 		Lson member = Lson.builder()
-				.put("name", "TestMember " + now)
+				.put("name", memberName)
 				.put("email", memberEmail)
-				.put("mobilephone", "0151 555 " + now);
+				.put("mobilephone", memberMobile);
 
 		// WHEN joining the team that was created above
 		String joinQuery = "mutation joinTeam($inviteCode: String, $member: UserEntityInput) { " +
 				" joinTeam(inviteCode: $inviteCode, member: $member) " + TestFixtures.CREATE_OR_JOIN_TEAM_RESULT + "}";
 		Lson joinVars = Lson.builder()
-				.put("inviteCode", res.team.inviteCode)
+				.put("inviteCode", this.teamInviteCode)
 				.put("member", member);
 
 		// THEN the team with that new member is returned
@@ -106,19 +133,21 @@ public class HappyCaseTests {
 				.body("data.joinTeam.team.teamName", is(teamName))
 				.body("data.joinTeam.user.id", greaterThan(0))
 				.body("data.joinTeam.user.email", is(memberEmail))
-				.extract().jsonPath().getObject("data.createNewTeam", TeamDataResponse.class);
+				.extract().jsonPath().getObject("data.joinTeam", TeamDataResponse.class);
 
 		log.info("===========" + joinRes.user.toStringShort() + " successfully joined " + joinRes.team);
+	}
 
-
-		// ========== Admin logs in via email
-
+	@Test
+	@Order(300)
+	@Transactional
+	public void loginViaEmail() {
 		//  WHEN requesting and email token for this user
-		String loginQuery = "query reqEmail($email: String) { requestEmailToken(email: $email) }";
-		ValidatableResponse loginRes = TestFixtures.sendGraphQL(loginQuery, Lson.builder("email", adminEmail));
+		String reqEmailQuery = "query reqEmail($email: String) { requestEmailToken(email: $email) }";
+		ValidatableResponse reqEmailResponse = TestFixtures.sendGraphQL(reqEmailQuery, Lson.builder("email", adminEmail));
 
 		// THEN login link is sent via email
-		loginRes.body(containsString("successfully"));
+		reqEmailResponse.body(containsString("successfully"));
 		log.info("Successfully sent login email.");
 
 		//  AND an email with a one time password (nonce) is received
@@ -141,7 +170,22 @@ public class HappyCaseTests {
 		assertNotNull(resToken);
 		log.info("Successfully received login link for email: " + adminEmail + " with token: " + resToken);
 
+		// ========= Admin: Login with token from email
 
+		String loginQuery = "query loginWithEmailToken($email: String, $authToken: String) {" +
+				"loginWithEmailToken(email: $email, authToken: $authToken)" + TestFixtures.CREATE_OR_JOIN_TEAM_RESULT + "}";
+		Lson loginVars = new Lson().put("email", adminEmail).put("authToken", resToken);
+		ValidatableResponse loginRes = TestFixtures.sendGraphQL(loginQuery, loginVars);
+		TeamDataResponse teamDataResponse = loginRes.extract().jsonPath().getObject("data.loginWithEmailToken", TeamDataResponse.class);
+		log.info("Successfully logged in with email token into team " + teamDataResponse.team + " as user " + teamDataResponse.user);
+	}
+
+
+	@Test
+	@Order(300)
+	@Transactional
+	public void adminCreatesPoll() {
+		
 	}
 
 
@@ -163,17 +207,6 @@ public class HappyCaseTests {
 				.body("message", is(""));
 
 	}
-
-
-	//TODO: test join Team via GraphQL
-
-
-
-
-
-
-
-
 
 
 

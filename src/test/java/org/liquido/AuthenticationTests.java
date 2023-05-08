@@ -29,7 +29,7 @@ import static org.liquido.security.JwtTokenUtils.LIQUIDO_ISSUER;
 @Slf4j
 @QuarkusTest
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-public class AuthyTests {
+public class AuthenticationTests {
 
 	@Inject
 	MockMailbox mailbox;
@@ -62,31 +62,12 @@ public class AuthyTests {
 	}
 
 
+	/** Send an reqeust authenticated with a JWT */
 	@Test
 	public void testAuthenticatedRequest() {
-		String body = "{ \"query\": \"{ requireUser }\" }";
-
-		/*
-		// secret MUST have at least 120 bytes
-		SecretKey secretKey = KeyUtils.createSecretKeyFromSecret("secret3453qegegetlk3q4htlkqehrglkadhglkadfgj");
-
-		//SecretKey secretKey = KeyUtils.generateSecretKey(SignatureAlgorithm.HS256);
-
-		String JWT2222 = Jwt.subject("liquidoTestUser11@liquido.vote")
-				.audience("LIQUIDO")
-				.expiresIn(3600 * 1000)
-				.sign(secretKey);
-
 		// https://quarkus.io/guides/security-customization#registering-security-providers
 		// https://quarkus.io/guides/security-jwt#dealing-with-the-verification-keys
-
-		String key = new String(secretKey.getEncoded());
-		System.out.println("======= secretKey Format" + secretKey.getFormat());
-		System.out.println("======= secretKey" + key);
-
-		 */
-
-		String JWT = Jwt.issuer("https://www.LIQUIDO.vote")
+		String JWT = Jwt
 				.subject(TestDataCreator.ADMIN_EMAIL)
 				//.upn("upn@liquido.vote")  // if upn is set, this will be used instead of subject   see JWTCallerPrincipal.getName()
 				.issuer(LIQUIDO_ISSUER)
@@ -97,7 +78,7 @@ public class AuthyTests {
 
 		System.out.println("======= JWT: "+JWT);
 
-
+		String body = "{ \"query\": \"{ requireUser }\" }";
 		given().log().all()
 				.header(HttpHeaderNames.AUTHORIZATION.toString(), "Bearer "+JWT)
 				.contentType(ContentType.JSON)
@@ -108,9 +89,6 @@ public class AuthyTests {
 				.statusCode(200)
 				.body("errors", nullValue());
 	}
-
-
-
 
 
 	@ConfigProperty(name = "liquido.twilio.accountSID")

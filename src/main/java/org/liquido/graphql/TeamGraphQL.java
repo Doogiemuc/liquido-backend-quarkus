@@ -4,6 +4,7 @@ import io.smallrye.common.constraint.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.graphql.*;
 import org.eclipse.microprofile.jwt.JsonWebToken;
+import org.liquido.poll.PollEntity;
 import org.liquido.security.JwtTokenUtils;
 import org.liquido.team.TeamEntity;
 import org.liquido.team.TeamMember;
@@ -40,7 +41,7 @@ public class TeamGraphQL {
 	@Query()
 	@Transactional
 	public TeamEntity team() throws LiquidoException {
-		Long teamId = jwt.getClaim("teamId");
+		Long teamId = jwt.getClaim(JwtTokenUtils.TEAM_ID_CLAIM);
 		Optional<TeamEntity> teamOpt = TeamEntity.findByIdOptional(teamId);
 		return teamOpt.orElseThrow(LiquidoException.supply(Errors.UNAUTHORIZED, "Cannot get team. User must be logged into a team!"));
 	}
@@ -63,7 +64,7 @@ public class TeamGraphQL {
 		if (TeamEntity.findByTeamName(teamName).isPresent())
 			throw new LiquidoException(Errors.TEAM_WITH_SAME_NAME_EXISTS, "Cannot create new team: A team with that name ('" + teamName + "') already exists");
 
-		Optional<UserEntity> currentUserOpt = jwtTokenUtils.getCurrentUserFromDB();
+		Optional<UserEntity> currentUserOpt = jwtTokenUtils.getCurrentUser();
 		boolean emailExists = UserEntity.findByEmail(admin.email).isPresent();
 		boolean mobilePhoneExists = UserEntity.findByMobilephone(admin.mobilephone).isPresent();
 
@@ -97,8 +98,10 @@ public class TeamGraphQL {
 		team.persist();
 		log.info("Created new team: " + team);
 		String jwt = jwtTokenUtils.generateToken(admin.email, team.id);
+
 		//BUGFIX: Authenticate new user in spring's security context, so that access restricted attributes such as isLikeByCurrentUser can be queried via GraphQL.
 		//authUtil.authenticateInSecurityContext(member.id, team.id, jwt);
+
 		return new TeamDataResponse(team, admin, jwt);
 	}
 
@@ -128,7 +131,7 @@ public class TeamGraphQL {
 
 		//TODO: make it configurable so that join team requests must be confirmed by an admin first.
 
-		Optional<UserEntity> currentUserOpt = jwtTokenUtils.getCurrentUserFromDB();
+		Optional<UserEntity> currentUserOpt = jwtTokenUtils.getCurrentUser();
 		if (currentUserOpt.isPresent()) {
 			// IF user is already logged in, then he CAN join another team, but he MUST provide his already registered email and mobilephone.
 			if (!DoogiesUtil.isEqual(currentUserOpt.get().email, member.email) ||

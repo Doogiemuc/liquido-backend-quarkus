@@ -3,6 +3,7 @@ package org.liquido;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.ValidatableResponse;
+import org.apache.http.HttpHeaders;
 import org.liquido.util.Lson;
 
 import static io.restassured.RestAssured.given;
@@ -39,7 +40,11 @@ public class TestFixtures {
 
 
 	public static ValidatableResponse sendGraphQL(String query) {
-		return sendGraphQL(query, null);
+		return sendGraphQL(query, null, null);
+	}
+
+	public static ValidatableResponse sendGraphQL(String query, Lson vars) {
+		return sendGraphQL(query, vars, null);
 	}
 
 	/**
@@ -50,20 +55,33 @@ public class TestFixtures {
 	 * @return the HttpResponse with the GraphQL result in its String body
 	 * @throws Exception
 	 */
-	public static ValidatableResponse sendGraphQL(String query, Lson variables) {
+	public static ValidatableResponse sendGraphQL(String query, Lson variables, String jwt) {
 		RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
 		if (variables == null) variables = new Lson();
 		String body = String.format("{ \"query\": \"%s\", \"variables\": %s }", query, variables);
 		//log.info("Sending GraphQL request:\n     " + body);
-		return given() //.log().all()
-				.contentType(ContentType.JSON)
-				.body(body)
-				.when()
-				.post(TestFixtures.GRAPHQL_URI)
-				.then() //.log().all()
-				.statusCode(200)  // But be careful: GraphQL always returns 200, so we need to
-				.body("errors", anyOf(nullValue(), hasSize(0)));		// check for no GraphQL errors: []
 
+		if (jwt == null) {
+
+			return given() //.log().all()
+					.contentType(ContentType.JSON)
+					.body(body)
+					.when()
+					.post(TestFixtures.GRAPHQL_URI)
+					.then() //.log().all()
+					.statusCode(200)  // But be careful: GraphQL always returns 200, so we need to
+					.body("errors", anyOf(nullValue(), hasSize(0)));    // check for no GraphQL errors: []
+		} else {
+			return given() //.log().all()
+					.contentType(ContentType.JSON)
+					.header(HttpHeaders.AUTHORIZATION, "Bearer " + jwt)
+					.body(body)
+					.when()
+					.post(TestFixtures.GRAPHQL_URI)
+					.then() //.log().all()
+					.statusCode(200)  // But be careful: GraphQL always returns 200, so we need to
+					.body("errors", anyOf(nullValue(), hasSize(0)));    // check for no GraphQL errors: []
+		}
 		/*
 
 		try {

@@ -1,11 +1,13 @@
 package org.liquido.graphql;
 
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.Mailer;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.graphql.*;
 import org.eclipse.microprofile.jwt.JsonWebToken;
+import org.liquido.poll.PollEntity;
 import org.liquido.security.JwtTokenUtils;
 import org.liquido.security.OneTimeToken;
 import org.liquido.services.TwilioVerifyClient;
@@ -19,8 +21,11 @@ import javax.annotation.security.PermitAll;
 import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
 import javax.transaction.Transactional;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.SecurityContext;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.liquido.util.LiquidoException.Errors;
@@ -71,18 +76,26 @@ public class UserGraphQL {
 		return "Liquido GraphQL API";
 	}
 
+	@Context SecurityContext ctx;
+
 	@Query
 	//@Authenticated
+	@Transactional
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)  // <= this already authenticates the JWT claim "groups"
-	public String requireUser() {
-		//log.info("SecurityContext=" + securityContext);
-		//log.info("Context="+ smallryeContext);
+	public String requireUser() throws LiquidoException {
+		log.info("SecurityContext="+ ctx);
 		//log.info("VertexRequest="+request);
 		//log.info("SecurityIdentity="+securityIdentity);
 		log.info("JsonWebToken="+jwt);
-		log.info("name="+jwt.getName());  // UPN
+		log.info("jwt.getName="+jwt.getName());  // UPN
 		String email = jwt.getSubject();
 		log.info("jwt.subject="+email);  // user's email
+
+		UserEntity currentUser = jwtTokenUtils.getCurrentUser()
+				.orElseThrow(LiquidoException.supply(Errors.UNAUTHORIZED, "Valid JWT but user email not found in DB."));
+
+		log.info("requireUser(): currentUser = " + currentUser);
+
 		return "{\"message\": \"Hello " + email + "\" }";
 	}
 
@@ -183,7 +196,9 @@ public class UserGraphQL {
 		if (!DoogiesUtil.isEqual(email, ott.getUser().getEmail()))
 			throw new LiquidoException(Errors.CANNOT_LOGIN_TOKEN_INVALID, "This token is not valid for that email!");
 
-		return loginUserIntoTeam(ott.getUser(), null);
+		TeamEntity team = TeamEntity.findById(ott.getUser().getLastTeamId());
+		//TODO: team may be null
+		return loginUserIntoTeam(ott.getUser(), team);
 	}
 
 
