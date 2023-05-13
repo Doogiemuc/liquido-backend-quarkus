@@ -4,7 +4,6 @@ import io.smallrye.common.constraint.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.graphql.*;
 import org.eclipse.microprofile.jwt.JsonWebToken;
-import org.liquido.poll.PollEntity;
 import org.liquido.security.JwtTokenUtils;
 import org.liquido.team.TeamEntity;
 import org.liquido.team.TeamMember;
@@ -20,8 +19,8 @@ import java.util.Optional;
 
 import static org.liquido.util.LiquidoException.Errors;
 
-@GraphQLApi
 @Slf4j
+@GraphQLApi
 public class TeamGraphQL {
 
 	@Inject
@@ -38,7 +37,7 @@ public class TeamGraphQL {
 	 * @throws LiquidoException when not logged
 	 */
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
-	@Query()
+	@Query
 	@Transactional
 	public TeamEntity team() throws LiquidoException {
 		Long teamId = jwt.getClaim(JwtTokenUtils.TEAM_ID_CLAIM);

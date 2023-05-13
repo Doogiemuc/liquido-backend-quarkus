@@ -22,7 +22,7 @@ import java.util.Optional;
  * A user may also join other teams. Then he is a member in those teams.
  */
 @Data
-@EqualsAndHashCode(of={"name"}, callSuper = true)  // compare teams by their IDs and teamName
+@EqualsAndHashCode(of={"id"}, callSuper = true)  // compare Users by their ID (names may change)
 @NoArgsConstructor
 @RequiredArgsConstructor
 @Entity

@@ -3,10 +3,7 @@ package org.liquido.poll;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.smallrye.common.constraint.Nullable;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
-import lombok.NonNull;
+import lombok.*;
 import org.liquido.user.UserEntity;
 
 import javax.persistence.*;
@@ -18,6 +15,7 @@ import java.util.Set;
 
 @Data
 @NoArgsConstructor      // Lombok's Data does NOT include a default no args constructor!
+@RequiredArgsConstructor
 @EqualsAndHashCode()
 @Entity
 public class ProposalEntity extends BaseEntity {

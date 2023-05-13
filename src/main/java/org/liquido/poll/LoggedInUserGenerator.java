@@ -10,18 +10,21 @@ import javax.enterprise.context.RequestScoped;
 import javax.enterprise.inject.spi.CDI;
 import java.util.Optional;
 
+/**
+ * Generator for the currently logged in user.
+ * Uses for setting createdAt in {@link BaseEntity}
+ *
+ * by Vlad:  https://vladmihalcea.com/how-to-emulate-createdby-and-lastmodifiedby-from-spring-data-using-the-generatortype-hibernate-annotation/
+ */
 @Slf4j
 @RequestScoped
 public class LoggedInUserGenerator implements ValueGenerator<UserEntity> {
-
-	//by Vlad:  https://vladmihalcea.com/how-to-emulate-createdby-and-lastmodifiedby-from-spring-data-using-the-generatortype-hibernate-annotation/
-
 
 	@Override
 	public UserEntity generateValue(Session session, Object owner) {
 		// owner is the Entity that we are creating
 
-		// Cannot simply @Inject
+		// Cannot simply @Inject JwtTokenUtils   must there is a cool workaround
 		//https://stackoverflow.com/questions/61154494/dependency-injection-does-not-work-in-restclientbuilderlistener
 		JwtTokenUtils jwtTokenUtils = CDI.current().select(JwtTokenUtils.class).get();
 

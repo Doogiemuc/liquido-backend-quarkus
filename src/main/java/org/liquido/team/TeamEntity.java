@@ -1,10 +1,7 @@
 package org.liquido.team;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
-//import io.smallrye.common.constraint.NotNull;
-import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
@@ -14,7 +11,10 @@ import org.liquido.poll.PollEntity;
 import org.liquido.user.UserEntity;
 import org.liquido.util.DoogiesUtil;
 
-import javax.persistence.*;
+import javax.persistence.CascadeType;
+import javax.persistence.Entity;
+import javax.persistence.FetchType;
+import javax.persistence.OneToMany;
 import javax.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -55,11 +55,11 @@ public class TeamEntity extends PanacheEntity {
 	/** The polls in this team */
 	//This is the one side of a bidirectional OneToMany relationship. Keep in mind that you then MUST add mappedBy to map the reverse direction.
 	//And don't forget the @JsonBackReference on the many-side of the relation (in PollModel) to prevent StackOverflowException when serializing a TeamModel
-	@OneToMany(/*mappedBy = "team", */cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)  // when a team is loaded, then do not immediately also load all polls
+	@OneToMany(/*mappedBy = "team", */cascade = CascadeType.PERSIST, fetch = FetchType.EAGER)
 	@JsonManagedReference
 	Set<PollEntity> polls = new HashSet<>();   //BUGFIX: Changed from List to Set https://stackoverflow.com/questions/4334970/hibernate-throws-multiplebagfetchexception-cannot-simultaneously-fetch-multipl
 
-	//TODO: move these to a base class
+	//TODO: move these to a base class: Problem with createdBy :-(
 	@CreationTimestamp
 	public LocalDateTime createdAt;
 
@@ -73,11 +73,17 @@ public class TeamEntity extends PanacheEntity {
 		this.inviteCode = DoogiesUtil.easyToken(8);
 	}
 
-	/*
+	/**
+	 * Check if the passed user is an admin of this t eam
+	 * @param admin any user
+	 * @return true if admin actually is an admin of this team
+	 */
 	public boolean isAdmin(UserEntity admin) {
-		return this.admins.contains(admin);
+		return members.stream().filter(tm -> tm.role.equals(TeamMember.Role.ADMIN)).anyMatch(tm -> admin.id == tm.user.id);
+
 	}
 
+	/*
 	public boolean emailIsAdmin(String email) {
 		return this.admins.stream().anyMatch(admin -> admin.email != null && admin.email.equals(email));
 	}
