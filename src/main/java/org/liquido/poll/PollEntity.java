@@ -5,11 +5,13 @@ import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.GenerationTime;
 import org.hibernate.annotations.GeneratorType;
 import org.liquido.team.TeamEntity;
 import org.liquido.user.UserEntity;
+import org.liquido.util.LiquidoException;
 
 import javax.persistence.*;
 import javax.validation.constraints.NotNull;
@@ -23,6 +25,7 @@ import java.util.Set;
  */
 @Data
 @NoArgsConstructor             									// Lombok's Data does NOT include a default no args constructor!
+@RequiredArgsConstructor                        // And then does not create a required args constructor :-(  https://stackoverflow.com/questions/37671467/lombok-requiredargsconstructor-is-not-working
 @EqualsAndHashCode(of={}, callSuper = true)    	// Compare teams by their Id only. teamName may change.
 @Entity
 public class PollEntity extends BaseEntity {
@@ -54,8 +57,8 @@ public class PollEntity extends BaseEntity {
 	   To make that work, the content of the HashSet, ie. the URI will be deserialized with LawModelDeserializer.class
 	*/
 	@OneToMany(cascade = CascadeType.MERGE, mappedBy="poll", fetch = FetchType.EAGER) //, orphanRemoval = true/false ?? Should a proposals be removed when the poll is deleted? => NO. Liquido Proposals may join other polls ...
-		//@JsonDeserialize(contentUsing = LawModelDeserializer.class)  //  If I do this then deserialization of LawModels does not work anymore ?????? Why ?????
-		Set<ProposalEntity> proposals = new HashSet<>();
+	//@JsonDeserialize(contentUsing = LawModelDeserializer.class)  //  If I do this then deserialization of LawModels does not work anymore ?????? Why ?????
+	Set<ProposalEntity> proposals = new HashSet<>();
 
 	// Some older notes, when proposals still was a SortedSet.  Not relevant anymore, but still very interesting reads!
 	// https://vladmihalcea.com/2017/03/29/the-best-way-to-map-a-onetomany-association-with-jpa-and-hibernate/
@@ -113,6 +116,7 @@ public class PollEntity extends BaseEntity {
 				.append(", status=").append(status)
 				.append(", title='").append(title).append("'")
 				.append(", numProposals=").append(proposals != null ? proposals.size() : "0")
+				//.append(", createdBy=").append(this.createdBy.getEmail())
 				.append(']');
 		return sb.toString();
 	}

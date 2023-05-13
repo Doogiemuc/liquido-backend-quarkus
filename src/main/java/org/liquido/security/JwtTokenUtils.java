@@ -5,6 +5,7 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.jwt.JsonWebToken;
+import org.liquido.team.TeamEntity;
 import org.liquido.user.UserEntity;
 import org.liquido.util.DoogiesUtil;
 
@@ -28,6 +29,7 @@ public class JwtTokenUtils {
 	public static final String LIQUIDO_ISSUER = "https://www.LIQUIDO.vote";
 
 	public static final String LIQUIDO_USER_ROLE = "LIQUIDO_USER";
+	public static final String LIQUIDO_ADMIN_ROLE = "LIQUIDO_ADMIN";
 
 	@ConfigProperty(name = "liquido.jwt.expirationSecs")
 	Long expirationSecs;
@@ -98,8 +100,17 @@ public class JwtTokenUtils {
 
 	 */
 
+
 	private UserEntity currentUser = null;
 
+	private TeamEntity currentTeam = null;
+
+	/**
+	 * Get the currently logged-in user.
+	 * The UserEntity will lazily be loaded the first time you call this
+	 * and then cached for succeeding calls.
+	 * @return Optional.of(UserEntity) or Optional.empty() if not logged in
+	 */
 	public Optional<UserEntity> getCurrentUser() {
 		if (this.currentUser != null) return Optional.of(currentUser);
 		if (jwt == null || DoogiesUtil.isEmpty(jwt.getName())) return Optional.empty();
@@ -112,6 +123,26 @@ public class JwtTokenUtils {
 		}
 		this.currentUser = userOpt.get();
 		return userOpt;
+	}
+
+
+
+	// I could also augment the Quarkus SecurityIdentity:  https://quarkus.io/guides/security-customization#security-identity-customization
+	// and add my LIQUIDO UserEntity as attribute
+
+
+
+	public Optional<TeamEntity> getCurrentTeam() {
+		Optional<UserEntity> userOpt = getCurrentUser();
+		if (userOpt.isEmpty()) return Optional.empty();
+		String teamId = jwt.getClaim(JwtTokenUtils.TEAM_ID_CLAIM);
+		Optional<TeamEntity> teamOpt = TeamEntity.findByIdOptional(teamId);
+		if (teamOpt.isEmpty()) {
+			log.warn("Valid JWT for " + userOpt.get().toStringShort() + ", but not logged into any team");
+			return teamOpt;
+		}
+		this.currentTeam = teamOpt.get();
+		return teamOpt;
 	}
 
 
