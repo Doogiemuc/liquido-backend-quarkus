@@ -6,7 +6,7 @@ import org.eclipse.microprofile.graphql.*;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.liquido.security.JwtTokenUtils;
 import org.liquido.team.TeamEntity;
-import org.liquido.team.TeamMember;
+import org.liquido.team.TeamMemberEntity;
 import org.liquido.user.UserEntity;
 import org.liquido.util.DoogiesUtil;
 import org.liquido.util.LiquidoException;
@@ -96,7 +96,7 @@ public class TeamGraphQL {
 		TeamEntity team = new TeamEntity(teamName, admin);
 		team.persist();
 		log.info("Created new team: " + team);
-		String jwt = jwtTokenUtils.generateToken(admin.email, team.id);
+		String jwt = jwtTokenUtils.generateToken(admin.email, team.id, true);
 
 		//BUGFIX: Authenticate new user in spring's security context, so that access restricted attributes such as isLikeByCurrentUser can be queried via GraphQL.
 		//authUtil.authenticateInSecurityContext(member.id, team.id, jwt);
@@ -148,10 +148,10 @@ public class TeamGraphQL {
 
 		try {
 			member.persist();
-			team.addMember(member, TeamMember.Role.MEMBER);   // Add to java.util.Set. Will never add duplicate.
+			team.addMember(member, TeamMemberEntity.Role.MEMBER);   // Add to java.util.Set. Will never add duplicate.
 			team.persist();
 			log.info("User <" + member.email + "> joined team: " + team);
-			String jwt = jwtTokenUtils.generateToken(member.email, team.id);
+			String jwt = jwtTokenUtils.generateToken(member.email, team.id, false);
 			//BUGFIX: Authenticate new user in spring's security context, so that access restricted attributes such as isLikeByCurrentUser can be queried via GraphQL.
 			//authUtil.authenticateInSecurityContext(member.id, team.id, jwt);
 			return new TeamDataResponse(team, member, jwt);

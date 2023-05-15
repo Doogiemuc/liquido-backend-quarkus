@@ -27,22 +27,22 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @RequiredArgsConstructor
 @EqualsAndHashCode(of = "hashedVoterToken")
-@Entity
-//TODO: @Table(name = "rightToVote", uniqueConstraints= {
-//		@UniqueConstraint(columnNames = {"public_proxy_id"})  // A proxy cannot be public proxy more than once in one area.
+@Entity(name = "righttovote")
+//@Table(name = "rightToVote", uniqueConstraints= {
+//TODO:		@UniqueConstraint(columnNames = {"public_proxy_id"})  // A proxy cannot be public proxy more than once in one area.
 //})
 public class RightToVoteEntity {
 
 	/**
-	 * A checksum validates a voter token.
-	 * checksumModel = hash(voterToken)
-	 * The checksum field is also the ID of this entity.  ("Fachlicher Schlüssel")
+	 * A checksum that validates a voter token.
+	 * hashedVotertoken = hash(voterToken)
+	 * This is also the ID of this entity.  ("Fachlicher Schlüssel")
 	 */
 	@Id
 	@NonNull
 	public String hashedVoterToken;
 
-	/** Checksums are only valid for a given time */
+	/** A RightToVote are only valid for a given time */
 	LocalDateTime expiresAt;
 
 	/**
@@ -65,12 +65,12 @@ public class RightToVoteEntity {
   */
 
 	/**
-	 * If a user want's to be a public proxy, then he CAN store his user together with his checksum.
+	 * If a user want's to be a public proxy, then he CAN link his user to his righttovote.
 	 * Then voters can automatically delegate their vote to this proxy.
 	 * Then the proxy does not need to accept delegations. They can automatically be delegated.
 	 */
 	@OneToOne
-	UserEntity publicProxy = null;		// by default no username is stored together with a checksum!!!
+	UserEntity publicProxy = null;		// by default no username is stored together with a hashedVoterToken!!!
 
 	public String toString() {
 		StringBuffer buf = new StringBuffer();

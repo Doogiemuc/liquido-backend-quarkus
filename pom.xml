@@ -13,9 +13,9 @@
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
     <quarkus.platform.version>2.16.5.Final</quarkus.platform.version>
-    <webauthn4j.version>0.21.1.RELEASE</webauthn4j.version>
     <skipITs>true</skipITs>
     <surefire-plugin.version>3.0.0-M7</surefire-plugin.version>
+    <webauthn4j.version>0.21.1.RELEASE</webauthn4j.version>
   </properties>
   <dependencyManagement>
     <dependencies>
@@ -59,26 +59,23 @@
     </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-jdbc-postgresql</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
       <artifactId>quarkus-junit5</artifactId>
       <scope>test</scope>
     </dependency>
-
-    <!-- LOMBOK - you use it once you will never want to work without it ... but java 17 records are coming ... :-) -->
     <dependency>
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
       <version>1.18.26</version>
       <scope>compile</scope>
     </dependency>
-
-    <!-- JSON Web token  (DEPRECATE. Replaced by quarkus-smallrye-jwt
-    <dependency>
-      <groupId>io.jsonwebtoken</groupId>
-      <artifactId>jjwt</artifactId>
-      <version>0.9.1</version>
-    </dependency>   -->
-
-    <!-- for building JSON Web Tokens https://quarkus.io/guides/security-jwt-build -->
+    <!-- dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+    </dependency -->
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-smallrye-jwt</artifactId>
@@ -87,45 +84,31 @@
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-smallrye-jwt-build</artifactId>
     </dependency>
-
-    <!-- for sending emails -->
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-mailer</artifactId>
       <scope>compile</scope>
     </dependency>
-
-    <!-- Twilio.com SDK for OneTimePasswords  TOTP -->
     <dependency>
       <groupId>com.twilio.sdk</groupId>
       <artifactId>twilio</artifactId>
       <version>9.3.0</version>
     </dependency>
-
-    <!-- For generating QR codes -->
     <dependency>
       <groupId>com.google.zxing</groupId>
       <artifactId>core</artifactId>
       <version>3.5.1</version>
     </dependency>
-
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-security</artifactId>
     </dependency>
-
-
-    <!-- TEST dependencies -->
-
-    <!-- REST assured, also for testing GraphQL -->
     <dependency>
       <groupId>io.rest-assured</groupId>
       <artifactId>rest-assured</artifactId>
       <version>5.3.0</version>
       <scope>test</scope>
     </dependency>
-
-
   </dependencies>
   <build>
     <plugins>
@@ -159,7 +142,6 @@
         <configuration>
           <systemPropertyVariables>
             <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
-            <!-- maven.home>${maven.home}</maven.home -->
           </systemPropertyVariables>
         </configuration>
       </plugin>
@@ -176,25 +158,11 @@
               <systemPropertyVariables>
                 <native.image.path>${project.build.directory}/${project.build.finalName}-runner</native.image.path>
                 <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
-                <!-- maven.home>${maven.home}</maven.home -->
               </systemPropertyVariables>
             </configuration>
           </execution>
         </executions>
       </plugin>
-      <!-- plugin>
-        <groupId>io.smallrye</groupId>
-        <artifactId>jandex-maven-plugin</artifactId>
-        <version>3.0.5</version>
-        <executions>
-          <execution>
-            <id>make-index</id>
-            <goals>
-              <goal>jandex</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin -->
     </plugins>
   </build>
   <profiles>

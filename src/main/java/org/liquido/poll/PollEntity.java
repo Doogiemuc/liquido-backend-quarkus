@@ -1,17 +1,12 @@
 package org.liquido.poll;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.GenerationTime;
-import org.hibernate.annotations.GeneratorType;
 import org.liquido.team.TeamEntity;
-import org.liquido.user.UserEntity;
-import org.liquido.util.LiquidoException;
+import org.liquido.vote.BallotEntity;
 
 import javax.persistence.*;
 import javax.validation.constraints.NotNull;
@@ -27,7 +22,7 @@ import java.util.Set;
 @NoArgsConstructor             									// Lombok's Data does NOT include a default no args constructor!
 @RequiredArgsConstructor                        // And then does not create a required args constructor :-(  https://stackoverflow.com/questions/37671467/lombok-requiredargsconstructor-is-not-working
 @EqualsAndHashCode(of={}, callSuper = true)    	// Compare teams by their Id only. teamName may change.
-@Entity
+@Entity(name = "polls")
 public class PollEntity extends BaseEntity {
 
 	/**
@@ -91,16 +86,19 @@ public class PollEntity extends BaseEntity {
 
 	/**
 	 * The calculated duelMatrix when the voting phase is finished.
-	 * This is set in {@link org.doogie.liquido.services.PollService#finishVotingPhase(PollModel)}
 	 * This attribute is serialized as JSON array of arrays and then stored as VARCHAR
-
-	//TODO: duelMatrix
-	@Convert(converter = MatrixConverter.class)
-	Matrix duelMatrix = null;
-	*/
+	 * <p>
+	 * //TODO: duelMatrix
+	 *
+	 * @Convert(converter = MatrixConverter.class)
+	 * Matrix duelMatrix = null;
+	 */
 
 	//Implementation note: A poll does not contain a link to its BallotModels. We do not want to expose the ballots while the voting phase is still running.
 	// But clients can get the number of already casted ballots.
+	public long getNumBallots() {
+		return BallotEntity.count("poll", this);
+	}
 
 	/** return the number of competing proposals */
 	public int getNumCompetingProposals() {
@@ -111,7 +109,7 @@ public class PollEntity extends BaseEntity {
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder()
-				.append("PollModel[")
+				.append("Poll[")
 				.append("id=").append(id)
 				.append(", status=").append(status)
 				.append(", title='").append(title).append("'")

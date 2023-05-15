@@ -68,7 +68,7 @@ public class AuthenticationTests {
 		// https://quarkus.io/guides/security-customization#registering-security-providers
 		// https://quarkus.io/guides/security-jwt#dealing-with-the-verification-keys
 		String JWT = Jwt
-				.subject(TestDataCreator.ADMIN_EMAIL)
+				.subject(TestFixtures.memberEmail)
 				//.upn("upn@liquido.vote")  // if upn is set, this will be used instead of subject   see JWTCallerPrincipal.getName()
 				.issuer(LIQUIDO_ISSUER)
 				.groups(Collections.singleton(JwtTokenUtils.LIQUIDO_USER_ROLE))  // role

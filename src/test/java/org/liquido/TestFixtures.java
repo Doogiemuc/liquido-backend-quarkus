@@ -6,30 +6,46 @@ import io.restassured.response.ValidatableResponse;
 import org.apache.http.HttpHeaders;
 import org.liquido.util.Lson;
 
+import java.util.Date;
+
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
 
+/**
+ * This is used throughout all tests.
+ */
 public class TestFixtures {
 
-	public static final String GRAPHQL_URI = "http://localhost:8081/graphql";
+	// Test Data
+	public static Long now = new Date().getTime();
+	public static String teamName    = "testTeam" + now;
+	public static String adminName   = "TestAdmin " + now;
+	public static String adminEmail  = "testadmin" + now + "@liquido.vote";
+	public static String adminMobile = "+49 555 " + now%1000000;
+	public static String memberName   = "TestMember " + now;
+	public static String memberEmail  = "testmember" + now + "@liquido.vote";
+	public static String memberMobile = "+49 666 " + now%1000000;
+	public static String pollTitle = "TestPoll " + now;
 
+	// GraphQL
+	public static final String GRAPHQL_URI = "http://localhost:8081/graphql";
 
 	public static final String JQL_USER =
 			"{ id name email mobilephone picture website }";
 	public static final String JQL_TEAM_MEMBER =
 			"{ id role joinedAt user " + JQL_USER + "}";
 	public static final String JQL_PROPOSAL =
-			"{ id title description icon status createdAt numSupporters isLikedByCurrentUser createdBy " + JQL_USER + "}";
+			"{ id title description icon status createdAt numSupporters createdBy " + JQL_USER + "}";  //TODO: isLikedByCurrentUser
 	public static final String JQL_POLL =
 			"{ id title status votingStartAt votingEndAt proposals " + JQL_PROPOSAL +
 					" winner " + JQL_PROPOSAL +
-					" numBallots " +
-					" duelMatrix { data } " +
+					//TODO:" numBallots " +
+					//TODO:" duelMatrix { data } " +
 					"}";
 	public static final String JQL_TEAM =
 			"{ id teamName inviteCode " +
 					" members " + JQL_TEAM_MEMBER +
-					// " polls " + JQL_POLL +
+					" polls " + JQL_POLL +
 					"}";
 	public static final String CREATE_OR_JOIN_TEAM_RESULT =
 			"{ " +
@@ -62,7 +78,6 @@ public class TestFixtures {
 		//log.info("Sending GraphQL request:\n     " + body);
 
 		if (jwt == null) {
-
 			return given() //.log().all()
 					.contentType(ContentType.JSON)
 					.body(body)
