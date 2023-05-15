@@ -1,9 +1,8 @@
 package org.liquido.poll;
 
 import lombok.extern.slf4j.Slf4j;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.graphql.*;
-import org.liquido.poll.PollEntity;
-import org.liquido.poll.ProposalEntity;
 import org.liquido.security.JwtTokenUtils;
 import org.liquido.team.TeamEntity;
 import org.liquido.user.UserEntity;
@@ -14,6 +13,8 @@ import org.liquido.vote.CastVoteResponse;
 import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
 import javax.transaction.Transactional;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -24,6 +25,9 @@ public class PollsGraphQL {
 
 	@Inject
 	JwtTokenUtils jwtTokenUtils;
+
+	@ConfigProperty(name = "liquido.durationOfVotingPhase")
+	Long durationOfVotingPhase;
 
 	/**
 	 * Get one poll by its ID
@@ -36,21 +40,6 @@ public class PollsGraphQL {
 		Optional<PollEntity> pollOpt = PollEntity.findByIdOptional(pollId);
 		return pollOpt.orElseThrow(LiquidoException.notFound("Poll.id=" + pollId + " not found."));
 	}
-
-	/**
-	 * GraphQL client can request the number of already casted ballots for a poll in voting.
-	 * This is not an attribute in PollEntity, but a calculated attribute "numBallots" that can then be
-	 * returned to the GraphQL query.
-	 * @param poll the poll of the current GraphQL context
-	 * @return number of already casted ballots in this poll
-	 */
-	/*
-	//TOOD: numBallots
-	@Query
-	public Long numBallots(@Source PollEntity poll) {   // this was @GraphQLContext in spring-data-graphql
-		return BallotEntity.countByPoll(poll.id);
-	}
-	 */
 
 	/**
 	 * Get all polls of currently logged in user's team.
@@ -81,8 +70,10 @@ public class PollsGraphQL {
 		TeamEntity team = jwtTokenUtils.getCurrentTeam()
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.UNAUTHORIZED, "Cannot create poll: Must be logged into a team!"));
 		PollEntity poll = new PollEntity(title);
+		poll.setTeam(team);
 		poll.persist();
-		log.info("createPoll: Admin " + poll.createdBy.toStringShort() + " created new " + poll + " in " + team);
+		//TODO: createdBy is NULL here. Why?
+		log.info("createPoll: Admin created new " + poll + " in " + team);
 		return poll;
 	}
 
@@ -100,7 +91,7 @@ public class PollsGraphQL {
 	@Description("Add a new proposal to a poll")
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
 	@Transactional
-	public PollEntity addProposalToPoll(
+	public PollEntity addProposal(
 			@NonNull long pollId,
 			@NonNull String title,
 			@NonNull String description,
@@ -117,17 +108,18 @@ public class PollsGraphQL {
 		if (poll.getProposals().stream().anyMatch(prop -> prop.title.equals(title)))
 			throw new LiquidoException(LiquidoException.Errors.CANNOT_ADD_PROPOSAL, "Poll.id="+poll.id+" already contains a proposal with the same title="+title);
 		
-		// Create a new proposal and add it to the poll (via PollService)
+		// Create a new proposal and add it to the poll
 		ProposalEntity proposal = new ProposalEntity(title, description);
 		proposal.setIcon(icon);
 		proposal.setStatus(ProposalEntity.LawStatus.PROPOSAL);
+		proposal.setPoll(poll);  // Don't forget to set both sides of the relation!
 		proposal.persist();
 		poll.getProposals().add(proposal);
 		poll.persist();
 
 		//poll = pollService.addProposalToPoll(proposal, poll);
 		//BUGFIX: proposal.getCreatedBy() is not yet filled here
-		log.info("addProposalToPoll: " + user.toStringShort() + " adds proposal '" + proposal.getTitle() + "' to poll.id="+poll.id);
+		log.info("addProposal: " + user.toStringShort() + " adds proposal '" + proposal.getTitle() + "' to poll.id="+poll.id);
 		return poll;
 	}
 
@@ -218,6 +210,35 @@ public class PollsGraphQL {
 		return proposal != null && user.isPresent() && user.get().equals(proposal.createdBy);
 	}
 
+	/**
+	 * Start the voting Phase of a poll
+	 * @param pollId poll.id
+	 * @return the poll in VOTING
+	 * @throws LiquidoException when voting phase cannot yet be started
+	 */
+	@Mutation
+	@Description("Start voting phase of a poll")
+	@RolesAllowed(JwtTokenUtils.LIQUIDO_ADMIN_ROLE)
+	@Transactional
+	public PollEntity startVotingPhase(@NonNull long pollId) throws LiquidoException {
+		PollEntity poll = PollEntity.<PollEntity>findByIdOptional(pollId)
+				.orElseThrow(LiquidoException.notFound("Cannot start voting phase. Poll(id="+pollId+") not found!"));
+
+		if (poll.getStatus() != PollEntity.PollStatus.ELABORATION)
+			throw new LiquidoException(LiquidoException.Errors.CANNOT_START_VOTING_PHASE, "Poll(id="+poll.id+") must be in status ELABORATION");
+		if (poll.getProposals().size() < 2)
+			throw new LiquidoException(LiquidoException.Errors.CANNOT_START_VOTING_PHASE, "Poll(id="+poll.id+") must have at least two alternative proposals");
+
+		for (ProposalEntity proposal : poll.getProposals()) {
+			proposal.setStatus(ProposalEntity.LawStatus.VOTING);
+		}
+		poll.setStatus(PollEntity.PollStatus.VOTING);
+		LocalDateTime votingStart = LocalDateTime.now();			// LocalDateTime is without a timezone
+		poll.setVotingStartAt(votingStart);   //record the exact datetime when the voting phase started.
+		poll.setVotingEndAt(votingStart.truncatedTo(ChronoUnit.DAYS).plusDays(durationOfVotingPhase));     //voting ends in n days at midnight
+		poll.persist();
+		return poll;
+	}
 
 	/**
 	 * Cast a vote in a poll
@@ -232,6 +253,7 @@ public class PollsGraphQL {
 	 */
 	@Mutation
 	@Description("Cast a vote in a poll with ballot")
+	@Transactional
 	public CastVoteResponse castVote(
 			@NonNull long pollId,
 			@NonNull List<Long> voteOrderIds,
@@ -245,22 +267,6 @@ public class PollsGraphQL {
 	}
 
 	/**
-	 * Start the voting Phase of a poll
-	 * @param pollId poll.id
-	 * @return the poll in VOTING
-	 * @throws LiquidoException when voting phase cannot yet be started
-	 */
-	@Mutation
-	@Description("Start voting phase of a poll")
-	@RolesAllowed(JwtTokenUtils.LIQUIDO_ADMIN_ROLE)
-	public PollEntity startVotingPhase(@NonNull long pollId) throws LiquidoException {
-		PollEntity poll = PollEntity.<PollEntity>findByIdOptional(pollId)
-				.orElseThrow(LiquidoException.notFound("Cannot start voting phase. Poll(id="+pollId+") not found!"));
-		//TODO: return pollService.startVotingPhase(poll);
-		return null;
-	}
-
-	/**
 	 * Finish the voting phase of a poll
 	 * @param pollId poll.id
 	 * @return the winning law
@@ -269,6 +275,7 @@ public class PollsGraphQL {
 	@Mutation
 	@Description("Finish voting phase of a poll")
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_ADMIN_ROLE)
+	@Transactional
 	public ProposalEntity finishVotingPhase(@NonNull long pollId) throws LiquidoException {
 		PollEntity poll = PollEntity.<PollEntity>findByIdOptional(pollId)
 				.orElseThrow(LiquidoException.notFound("Cannot start voting phase. Poll(id="+pollId+") not found!"));

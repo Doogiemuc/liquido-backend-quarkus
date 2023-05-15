@@ -11,8 +11,9 @@ import org.liquido.util.DoogiesUtil;
 
 import javax.enterprise.context.RequestScoped;
 import javax.inject.Inject;
-import java.util.Collections;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Utility class to generate and then validate JsonWebTokens for Liquido.
@@ -24,7 +25,6 @@ public class JwtTokenUtils {
 
   // https://quarkus.io/guides/security-authentication-mechanisms-concept#smallrye-jwt-authentication
 	// https://quarkus.io/guides/security-architecture-concept
-
 
 	public static final String LIQUIDO_ISSUER = "https://www.LIQUIDO.vote";
 
@@ -43,30 +43,19 @@ public class JwtTokenUtils {
 	 * This generates a new JWT. This needs jwtSecret as input, so that only the server can
 	 * generate JWTs. The userId becomes the JWT.subject and teamId is set as additional claim.
 	 */
-	public String generateToken(@NonNull String email, @NonNull Long teamId) {
-
+	public String generateToken(@NonNull String email, @NonNull Long teamId, boolean isAdmin) {
+		Set groups = new HashSet();
+		groups.add(LIQUIDO_USER_ROLE);   // everyone is a liquido_user
+		if (isAdmin) groups.add(LIQUIDO_ADMIN_ROLE);
 		String JWT = Jwt
 				.subject(email)
 				//.upn("upn@liquido.vote")  // if upn is set, this will be used instead of subject   see JWTCallerPrincipal.getName()
 				.issuer(LIQUIDO_ISSUER)
-				.groups(Collections.singleton(LIQUIDO_USER_ROLE))  // role
-				.claim(TEAM_ID_CLAIM, teamId)
+				.groups(groups)
+				.claim(TEAM_ID_CLAIM, teamId+"")  // better put strings into claims
 				.expiresIn(expirationSecs)
 				//.jws().algorithm(SignatureAlgorithm.HS256)
 				.sign();
-
-		/* DEPRECATED: old version with jjwt:io.jsonwebtoken.*
-		Instant expiryDate = Instant.now().plusMillis(expirationSecs * 1000);
-		return Jwts.builder()
-				.setSubject(userId.toString())
-				.claim(TEAM_ID_CLAIM, teamId)
-				//.setClaims(claims)   //BUGFIX: This overwrites all other claims!!!  use addClaims
-				.setIssuedAt(Date.from(Instant.now()))
-				.setExpiration(Date.from(expiryDate))
-				.signWith(SignatureAlgorithm.HS512, jwtSecret)
-				.compact();
-
-		 */
 
 		return JWT;
 	}
@@ -135,7 +124,7 @@ public class JwtTokenUtils {
 	public Optional<TeamEntity> getCurrentTeam() {
 		Optional<UserEntity> userOpt = getCurrentUser();
 		if (userOpt.isEmpty()) return Optional.empty();
-		String teamId = jwt.getClaim(JwtTokenUtils.TEAM_ID_CLAIM);
+		Long teamId = Long.valueOf(jwt.getClaim(JwtTokenUtils.TEAM_ID_CLAIM));
 		Optional<TeamEntity> teamOpt = TeamEntity.findByIdOptional(teamId);
 		if (teamOpt.isEmpty()) {
 			log.warn("Valid JWT for " + userOpt.get().toStringShort() + ", but not logged into any team");

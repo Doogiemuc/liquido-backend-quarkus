@@ -2,6 +2,7 @@ package org.liquido.vote;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
@@ -26,20 +27,16 @@ import java.util.stream.Collectors;
  * This way a voter can even update his ballot as long as the voting phase is still open.
  */
 @Data
-@Entity
+@Entity(name = "ballots")
 @NoArgsConstructor
 @RequiredArgsConstructor  //BUGFIX: https://jira.spring.io/browse/DATAREST-884
-@Table(name = "ballots", uniqueConstraints = {
+@Table(uniqueConstraints = {
 		@UniqueConstraint(columnNames = {"POLL_ID", "hashedVoterToken"})   // a voter is only allowed to vote once per poll with his hashedVoterToken!
 })
-public class BallotEntity {
-	//BallotModel deliberately does NOT extend BaseModel!
-	//No @CreatedDate, No @LastModifiedDate !  This could lead to timing attacks.
-	//No @CreatedBy ! When voting it is confidential who casted this ballot and when.
-
-	@Id
-	@GeneratedValue(strategy = GenerationType.AUTO)
-	public Long id;
+public class BallotEntity extends PanacheEntity {
+	//BallotModel deliberately does NOT extend BaseEntity!
+	//No @CreatedDate, No @LastModifiedDate! This could lead to timing attacks.
+	//No @CreatedBy ! When voting it is confidential who did cast this ballot and when.
 
 	/**
 	 * Reference to the poll this ballot was casted in.
@@ -82,7 +79,8 @@ public class BallotEntity {
 	@NonNull
 	@NotNull
 	@ManyToMany(fetch = FetchType.EAGER)   // (cascade = CascadeType.MERGE, orphanRemoval = false)
-	@OrderColumn(name = "Proposal_Order")    // keep order in DB
+	@JoinTable(name = "ballot_voteOrder")
+	@OrderColumn(name = "proposal_order")    // keep order in DB
 	//TODO: do I need a uniqueConstraint so that proposalModel.id can only appear once in voteOrder?
 	public List<ProposalEntity> voteOrder;
 
@@ -127,14 +125,14 @@ public class BallotEntity {
 	@Override
 	public String toString() {
 		String proposalIds = voteOrder.stream().map(law -> law.id.toString()).collect(Collectors.joining(","));
-		return "BallotModel{" +
+		return "Ballot[" +
 				"id=" + id +
 				", poll(id=" + poll.id +
 				", status=" + poll.getStatus() + ")" +
 				", level=" + level +
 				", voteOrder(proposalIds)=[" + proposalIds + "]" +
 				//Do not expose rightToVote!!! It might include public proxy name
-				"}";
+				"]";
 	}
 
 }

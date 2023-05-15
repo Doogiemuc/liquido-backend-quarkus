@@ -25,7 +25,7 @@ import java.util.Optional;
 @EqualsAndHashCode(of={"id"}, callSuper = true)  // compare Users by their ID (names may change)
 @NoArgsConstructor
 @RequiredArgsConstructor
-@Entity
+@Entity(name = "liquido_user")
 //DEPRECATED: @GraphQLType(name="user", description = "A LiquidoUser that can be an admin or member in a team.")  // well be named "userInput" by graphql-spqr
 //We now have separate types for GraphQL. The type in the exposed API might be different from this ORM Panache entity!
 public class UserEntity extends PanacheEntity {

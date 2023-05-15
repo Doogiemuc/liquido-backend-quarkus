@@ -6,10 +6,12 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import lombok.extern.slf4j.Slf4j;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.junit.jupiter.api.Test;
 import org.liquido.graphql.TeamDataResponse;
+import org.liquido.poll.PollEntity;
 import org.liquido.team.TeamEntity;
-import org.liquido.team.TeamMember;
+import org.liquido.team.TeamMemberEntity;
 import org.liquido.user.UserEntity;
 import org.liquido.util.Lson;
 
@@ -24,18 +26,12 @@ import java.util.List;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
-import static org.liquido.TestFixtures.CREATE_OR_JOIN_TEAM_RESULT;
-import static org.liquido.TestFixtures.GRAPHQL_URI;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.liquido.TestFixtures.*;
 
 @Slf4j
 @QuarkusTest
 public class TestDataCreator {
-
-	// TEST FIXTURES
-	public static final String TEAM_NAME    = "Creator Team";
-	public static final String ADMIN_EMAIL  = "ttt_admin@liquido.vote";
-	public static final String MEMBER_EMAIL = "ttt_member@liquido.vote";
-
 
 	@Inject
 	AgroalDataSource dataSource;
@@ -43,21 +39,25 @@ public class TestDataCreator {
 
   String sampleDbFile = "import-testData.sql";
 
-	boolean purgeDb = false;
-	boolean recreateTestData = false;
-
+	boolean purgeDb = true;
+	boolean recreateTestData = true;
 
 	@Test
 	public void createTestData() throws SQLException {
 		RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
 
 		if (purgeDb) {
+			log.warn("Going to delete everything in DB!");
 			purgeDb();
 		}
 		if (recreateTestData) {
-			TeamDataResponse res = createTeam(TEAM_NAME, ADMIN_EMAIL, 5);
-			joinTeam(res.team.inviteCode, MEMBER_EMAIL);
-			extractSql();
+			log.info("Recreating testdata ...");
+			TeamDataResponse adminRes = createTeam(teamName, adminEmail, 5);
+			TeamDataResponse memberRes = joinTeam(adminRes.team.inviteCode, memberEmail);
+			//extractSql();
+			Long now = new Date().getTime() & 1000000;
+
+			PollEntity poll = createPoll(pollTitle, adminRes.jwt);
 		}
 	}
 
@@ -101,7 +101,7 @@ public class TestDataCreator {
 		return res;
 	}
 
-	public void joinTeam(String inviteCode, String memberEmail) {
+	public TeamDataResponse joinTeam(String inviteCode, String memberEmail) {
 		Long now = new Date().getTime();
 		if (memberEmail == null) memberEmail = "member" + now + "@liquido.vote";
 		Lson member = Lson.builder()
@@ -129,6 +129,23 @@ public class TestDataCreator {
 				.extract().jsonPath().getObject("data.joinTeam", TeamDataResponse.class);
 
 		log.debug("User joined team " + res.team.getTeamName() + ": " + res.user.toStringShort());
+		return res;
+	}
+
+	/**
+	 * Create a new poll. MUST be logged in for this!
+	 * @param title title for the poll
+	 * @parram jwt JsonWebToken of an admin
+	 * @return the newly created poll
+	 */
+	public PollEntity createPoll(String title, String jwt) {
+		// WHEN creating a Poll
+		String query = "mutation { createPoll(title: \\\"" + title + "\\\") " + JQL_POLL+ "}";
+		PollEntity poll = sendGraphQL(query, null, jwt)
+				.extract().jsonPath().getObject("data.createPoll", PollEntity.class);
+		// THEN it has the correct title
+		assertEquals(title, poll.getTitle());
+		return poll;
 	}
 
 
@@ -138,12 +155,27 @@ public class TestDataCreator {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+	@ConfigProperty(name = "quarkus.datasource.db-kind")
+	String dbKind;
+
 	public void extractSql() throws SQLException {
-		// The `SCRIPT TO` command only works for H2 in-memory DB
-		PreparedStatement ps = dataSource.getConnection().prepareStatement("SCRIPT TO '" + sampleDbFile + "'");
-		ps.execute();
-		//adjustDbInitializationScript();
-		log.info("===== Successfully stored test data in file: " + sampleDbFile);
+		if ("h2".equals(dbKind)) {       // The `SCRIPT TO` command only works for H2 in-memory DB
+			PreparedStatement ps = dataSource.getConnection().prepareStatement("SCRIPT TO '" + sampleDbFile + "'");
+			ps.execute();
+			//adjustDbInitializationScript();
+			log.info("===== Successfully stored test data in file: " + sampleDbFile);
+		}
 	}
 
 	/**
@@ -215,7 +247,7 @@ public class TestDataCreator {
 	void purgeDb() {
 		// order is important!
 		//BUGFIX: Must delete each instance individually!  https://github.com/quarkusio/quarkus/issues/13941
-		TeamMember.findAll().stream().forEach(PanacheEntityBase::delete);
+		TeamMemberEntity.findAll().stream().forEach(PanacheEntityBase::delete);
 		TeamEntity.findAll().stream().forEach(PanacheEntityBase::delete);
 		UserEntity.findAll().stream().forEach(PanacheEntityBase::delete);
 

@@ -29,7 +29,7 @@ public class Liquido {
 		//TODO: log config
 
 		try {
-			System.out.println("    DB       : " + dataSource.getConnection().getMetaData().toString());
+			System.out.println("    DB       : " + dataSource.getConnection().getMetaData().getURL());
 		} catch (SQLException e) {
 			log.error("Cannot connect to DB!");
 			throw new RuntimeException(e);

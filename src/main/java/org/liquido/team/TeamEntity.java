@@ -1,22 +1,16 @@
 package org.liquido.team;
 
 import com.fasterxml.jackson.annotation.JsonManagedReference;
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
+import org.liquido.poll.BaseEntity;
 import org.liquido.poll.PollEntity;
 import org.liquido.user.UserEntity;
 import org.liquido.util.DoogiesUtil;
 
-import javax.persistence.CascadeType;
-import javax.persistence.Entity;
-import javax.persistence.FetchType;
-import javax.persistence.OneToMany;
+import javax.persistence.*;
 import javax.validation.constraints.NotNull;
-import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -28,8 +22,8 @@ import java.util.Set;
 @Data
 @NoArgsConstructor             									// Lombok's Data does NOT include a default no args constructor!
 @EqualsAndHashCode(of={}, callSuper = true)    	// Compare teams by their Id only. teamName may change.
-@Entity
-public class TeamEntity extends PanacheEntity {
+@Entity(name = "teams")
+public class TeamEntity extends BaseEntity {
 
 	//ID field is already defined in PanacheEntity
 
@@ -48,28 +42,33 @@ public class TeamEntity extends PanacheEntity {
 
   /**
 	 * Members and Admins of this team. Each team must have at least one admin.
+	 *
+	 * Team -> TeamMember(with role and joinedAt) -> User
    */
-	@OneToMany(fetch = FetchType.EAGER, cascade = CascadeType.ALL)
-  public Set<TeamMember> members = new HashSet<>();
+	@OneToMany(fetch = FetchType.EAGER, cascade = CascadeType.ALL, mappedBy = "team")
+  public Set<TeamMemberEntity> members = new HashSet<>();
 
 	/** The polls in this team */
 	//This is the one side of a bidirectional OneToMany relationship. Keep in mind that you then MUST add mappedBy to map the reverse direction.
 	//And don't forget the @JsonBackReference on the many-side of the relation (in PollModel) to prevent StackOverflowException when serializing a TeamModel
-	@OneToMany(/*mappedBy = "team", */cascade = CascadeType.PERSIST, fetch = FetchType.EAGER)
+	@OneToMany(mappedBy = "team", cascade = CascadeType.PERSIST, fetch = FetchType.EAGER)
 	@JsonManagedReference
 	Set<PollEntity> polls = new HashSet<>();   //BUGFIX: Changed from List to Set https://stackoverflow.com/questions/4334970/hibernate-throws-multiplebagfetchexception-cannot-simultaneously-fetch-multipl
 
+	/*
 	//TODO: move these to a base class: Problem with createdBy :-(
 	@CreationTimestamp
 	public LocalDateTime createdAt;
 
 	@UpdateTimestamp
 	public LocalDateTime updatedAt;
+  */
+
 
 	/** Create a new Team entity */
 	public TeamEntity(String teamName, UserEntity admin) {
 		this.teamName = teamName;
-		this.members.add(new TeamMember(this, admin, TeamMember.Role.ADMIN));
+		this.members.add(new TeamMemberEntity(this, admin, TeamMemberEntity.Role.ADMIN));
 		this.inviteCode = DoogiesUtil.easyToken(8);
 	}
 
@@ -79,7 +78,7 @@ public class TeamEntity extends PanacheEntity {
 	 * @return true if admin actually is an admin of this team
 	 */
 	public boolean isAdmin(UserEntity admin) {
-		return members.stream().filter(tm -> tm.role.equals(TeamMember.Role.ADMIN)).anyMatch(tm -> admin.id == tm.user.id);
+		return members.stream().filter(tm -> tm.role.equals(TeamMemberEntity.Role.ADMIN)).anyMatch(tm -> admin.id == tm.user.id);
 
 	}
 
@@ -106,12 +105,12 @@ public class TeamEntity extends PanacheEntity {
 	/**
 	 * Check if a user with that email is a member or admin of this team.
 	 * @param email email of a user or admin in this team
-	 * @param role filter by TeamMember.Role (optional, may be null)
+	 * @param role filter by TeamMemberEntity.Role (optional, may be null)
 	 * @return the user or admin if it is part of this team
   */
-	public Optional<UserEntity> getMemberByEmail(String email, TeamMember.Role role) {
+	public Optional<UserEntity> getMemberByEmail(String email, TeamMemberEntity.Role role) {
 		if (email == null) return Optional.empty();
-		return this.<TeamMember>getMembers().stream()
+		return this.<TeamMemberEntity>getMembers().stream()
 				.filter(tm -> role == null || tm.role.equals(role))
 				.map(tm -> tm.getUser())
 				.filter(u -> email.equals(u.email) )
@@ -121,7 +120,7 @@ public class TeamEntity extends PanacheEntity {
 
 	public UserEntity getFirstAdmin() {
 		if (this.members == null) throw new RuntimeException("team has no member HashSet. Should have been initialized.");
-		Optional<TeamMember> member = this.members.stream().filter(teamMember -> teamMember.role == TeamMember.Role.ADMIN).findFirst();
+		Optional<TeamMemberEntity> member = this.members.stream().filter(teamMember -> teamMember.role == TeamMemberEntity.Role.ADMIN).findFirst();
 		return member.orElseThrow().getUser();
 	}
 
@@ -142,8 +141,14 @@ public class TeamEntity extends PanacheEntity {
 		return find("inviteCode", inviteCode).firstResultOptional();
 	}
 
-	public TeamEntity addMember(UserEntity member, TeamMember.Role role) {
-		TeamMember tm = new TeamMember(this, member, role);
+	/**
+	 * Add a new member or admin to thias team
+	 * @param member the UserEntity
+	 * @param role the user's role: MEMBER or ADMIN
+	 * @return the updated team
+	 */
+	public TeamEntity addMember(UserEntity member, TeamMemberEntity.Role role) {
+		TeamMemberEntity tm = new TeamMemberEntity(this, member, role);
 		tm.persist();
 		members.add(tm);
 		return this;

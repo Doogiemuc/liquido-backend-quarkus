@@ -1,18 +1,16 @@
 package org.liquido.graphql;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.Mailer;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.graphql.*;
 import org.eclipse.microprofile.jwt.JsonWebToken;
-import org.liquido.poll.PollEntity;
 import org.liquido.security.JwtTokenUtils;
 import org.liquido.security.OneTimeToken;
 import org.liquido.services.TwilioVerifyClient;
 import org.liquido.team.TeamEntity;
-import org.liquido.team.TeamMember;
+import org.liquido.team.TeamMemberEntity;
 import org.liquido.user.UserEntity;
 import org.liquido.util.DoogiesUtil;
 import org.liquido.util.LiquidoException;
@@ -25,7 +23,6 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.SecurityContext;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.liquido.util.LiquidoException.Errors;
@@ -215,7 +212,7 @@ public class UserGraphQL {
 	 */
 	private TeamDataResponse loginUserIntoTeam(UserEntity user, TeamEntity team) throws LiquidoException {
 		if (team == null) {
-			List<TeamEntity> teams = TeamMember.findTeamsByMember(user);
+			List<TeamEntity> teams = TeamMemberEntity.findTeamsByMember(user);
 			if (teams.size() == 0) {
 				log.warn("User ist not member of any team. This should not happen: " + user);
 				throw new LiquidoException(Errors.UNAUTHORIZED, "Cannot login. User is not member of any team " + user);
@@ -228,9 +225,8 @@ public class UserGraphQL {
 		if (team.getMemberByEmail(user.email, null).isEmpty()) {
 			throw new LiquidoException(Errors.UNAUTHORIZED, "Cannot login. User is not member of this team! " + user);
 		}
-
 		log.debug("Login " + user.toStringShort() + " into team '" + team.getTeamName() + "'");
-		String jwt = jwtTokenUtils.generateToken(user.email, team.id);
+		String jwt = jwtTokenUtils.generateToken(user.email, team.id, team.isAdmin(user));
 		//TODO: authenticateInSecurityContext(user.getId(), team.getId(), jwt);
 		return new TeamDataResponse(team, user, jwt);
 	}

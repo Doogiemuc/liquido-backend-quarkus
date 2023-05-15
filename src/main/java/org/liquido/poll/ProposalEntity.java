@@ -17,7 +17,7 @@ import java.util.Set;
 @NoArgsConstructor      // Lombok's Data does NOT include a default no args constructor!
 @RequiredArgsConstructor
 @EqualsAndHashCode()
-@Entity
+@Entity(name = "proposals")
 public class ProposalEntity extends BaseEntity {
 
 	//TODO: Add a Proposal.UUID   Clients shouldn't use our DB internal ID in castVoteRequests
@@ -78,6 +78,7 @@ public class ProposalEntity extends BaseEntity {
 	 */
 	@JsonIgnore  // do not serialize when returning JSON. Only return this.getNumSupporters()
 	@ManyToMany(fetch = FetchType.EAGER)
+	@JoinTable(name = "proposal_supporters")
 	private Set<UserEntity> supporters = new HashSet<>();
 
 	/**

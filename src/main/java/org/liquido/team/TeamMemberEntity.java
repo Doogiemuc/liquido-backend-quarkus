@@ -12,7 +12,6 @@ import javax.persistence.Entity;
 import javax.persistence.OneToOne;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * Link between a Team and its members and admins.
@@ -21,8 +20,8 @@ import java.util.Optional;
 @NoArgsConstructor                              // Lombok's Data does NOT include a default no args constructor!
 @RequiredArgsConstructor
 @EqualsAndHashCode(of={}, callSuper = true)    	// Compare teams by their Id only. teamName may change.
-@Entity
-public class TeamMember extends PanacheEntity {
+@Entity(name = "team_members")
+public class TeamMemberEntity extends PanacheEntity {
 	@OneToOne
 	@lombok.NonNull
 	TeamEntity team;
@@ -48,6 +47,6 @@ public class TeamMember extends PanacheEntity {
 	 * @return List of teams that this user is a member of
 	 */
 	public static List<TeamEntity> findTeamsByMember(UserEntity user) {
-		return TeamMember.<TeamMember>find("user", user).stream().map(tm -> tm.getTeam()).toList();
+		return TeamMemberEntity.<TeamMemberEntity>find("user", user).stream().map(tm -> tm.getTeam()).toList();
 	}
 }
