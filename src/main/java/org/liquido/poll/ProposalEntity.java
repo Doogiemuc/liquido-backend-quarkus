@@ -14,9 +14,9 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Data
-@NoArgsConstructor      // Lombok's Data does NOT include a default no args constructor!
+@NoArgsConstructor(force = true)      // Lombok's Data does NOT include a default no args constructor!
 @RequiredArgsConstructor
-@EqualsAndHashCode()
+@EqualsAndHashCode(callSuper = false)
 @Entity(name = "proposals")
 public class ProposalEntity extends BaseEntity {
 

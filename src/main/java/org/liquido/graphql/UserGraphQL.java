@@ -13,6 +13,7 @@ import org.liquido.team.TeamEntity;
 import org.liquido.team.TeamMemberEntity;
 import org.liquido.user.UserEntity;
 import org.liquido.util.DoogiesUtil;
+import org.liquido.util.LiquidoConfig;
 import org.liquido.util.LiquidoException;
 
 import javax.annotation.security.PermitAll;
@@ -61,11 +62,8 @@ public class UserGraphQL {
 	@Inject
 	TwilioVerifyClient twilioVerifyClient;
 
-	@ConfigProperty(name = "liquido.frontendUrl")
-	String frontendUrl;
-
-	@ConfigProperty(name = "liquido.loginLinkExpirationHours")
-	Long loginLinkExpirationHours;
+	@Inject
+	LiquidoConfig config;
 
 	@Query
 	@Description("Ping for API")
@@ -150,13 +148,13 @@ public class UserGraphQL {
 
 		// Create new email login link with a token time token in it.
 		UUID tokenUUID = UUID.randomUUID();
-		LocalDateTime validUntil = LocalDateTime.now().plusHours(loginLinkExpirationHours);
+		LocalDateTime validUntil = LocalDateTime.now().plusHours(config.loginLinkExpirationHours());
 		OneTimeToken oneTimeToken = new OneTimeToken(tokenUUID.toString(), user, validUntil);
 		oneTimeToken.persist();
 		log.info("User " + user.getEmail() + " may login via email link.");
 
 		// This link is parsed in a cypress test case. Must update test if you change this.
-		String loginLink = "<a id='loginLink' style='font-size: 20pt;' href='" + frontendUrl + "/login?email=" + user.getEmail() + "&emailToken=" + oneTimeToken.getNonce() + "'>Login " + user.getName() + "</a>";
+		String loginLink = "<a id='loginLink' style='font-size: 20pt;' href='" + config.frontendUrl() + "/login?email=" + user.getEmail() + "&emailToken=" + oneTimeToken.getNonce() + "'>Login " + user.getName() + "</a>";
 		String body = String.join(
 				System.getProperty("line.separator"),
 				"<html><h1>Liquido Login Token</h1>",

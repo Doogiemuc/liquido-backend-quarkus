@@ -12,6 +12,7 @@ import org.junit.jupiter.api.*;
 import org.liquido.security.JwtTokenUtils;
 import org.liquido.services.TwilioVerifyClient;
 import org.liquido.user.UserEntity;
+import org.liquido.util.LiquidoConfig;
 import org.liquido.util.LiquidoException;
 import org.liquido.util.Lson;
 
@@ -90,15 +91,8 @@ public class AuthenticationTests {
 				.body("errors", nullValue());
 	}
 
-
-	@ConfigProperty(name = "liquido.twilio.accountSID")
-	String ACCOUNT_SID;   // "ACXXXXX..."
-
-	@ConfigProperty(name = "liquido.twilio.authToken")
-	String AUTH_TOKEN;    /// hex
-
-	@ConfigProperty(name = "liquido.twilio.serviceSID")
-	String SERVICE_SID;   // "VAXXXXX..."
+	@Inject
+	LiquidoConfig config;
 
 	@Inject
 	TwilioVerifyClient twilioVerifyClient;
@@ -121,7 +115,7 @@ public class AuthenticationTests {
 	@Disabled  // Don't want to flood the API.
 	@TestTransaction
 	public void testCreateTotpFactor() throws LiquidoException {
-		log.info("Twilio ACCOUNT_SID=" + ACCOUNT_SID);
+		log.info("Twilio ACCOUNT_SID=" + config.twilio().accountSid());
 
 		Long now = new Date().getTime();
 		UserEntity newUser = new UserEntity(

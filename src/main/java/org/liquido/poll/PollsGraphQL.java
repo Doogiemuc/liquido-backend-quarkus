@@ -3,9 +3,12 @@ package org.liquido.poll;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.graphql.*;
+import org.liquido.Liquido;
 import org.liquido.security.JwtTokenUtils;
+import org.liquido.services.CastVoteService;
 import org.liquido.team.TeamEntity;
 import org.liquido.user.UserEntity;
+import org.liquido.util.LiquidoConfig;
 import org.liquido.util.LiquidoException;
 import org.liquido.vote.BallotEntity;
 import org.liquido.vote.CastVoteResponse;
@@ -26,8 +29,11 @@ public class PollsGraphQL {
 	@Inject
 	JwtTokenUtils jwtTokenUtils;
 
-	@ConfigProperty(name = "liquido.durationOfVotingPhase")
-	Long durationOfVotingPhase;
+	@Inject
+	CastVoteService castVoteService;
+
+	@Inject
+	LiquidoConfig config;
 
 	/**
 	 * Get one poll by its ID
@@ -175,8 +181,7 @@ public class PollsGraphQL {
 	) throws LiquidoException {
 		UserEntity voter = jwtTokenUtils.getCurrentUser()
 				.orElseThrow(LiquidoException.unauthorized("Must be logged in to getVoterToken!"));
-		//TODO: return castVoteService.createVoterTokenAndStoreRightToVote(voter, area, tokenSecret, becomePublicProxy);
-		return null;
+		return castVoteService.createVoterTokenAndStoreRightToVote(voter, tokenSecret, becomePublicProxy);
 	}
 
 	/**
@@ -188,8 +193,7 @@ public class PollsGraphQL {
 	@Query
 	@Description("Is a proposal already liked by the currently logged in user?")
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
-	public boolean isLikedByCurrentUser(ProposalEntity proposal) {
-		// This adds the new boolean field "likedByCurrentUser" to the GraphQL representation of a proposal(ProposalEntity) that can now be queried by the client.  graphql-spqr I like
+	public boolean isLikedByCurrentUser(@Source ProposalEntity proposal) {
 		Optional<UserEntity> voter = jwtTokenUtils.getCurrentUser();
 		if (voter.isEmpty()) return false;
 		return proposal.getSupporters().contains(voter.get());
@@ -205,7 +209,7 @@ public class PollsGraphQL {
 	@Query
 	@Description("Is a proposal created by the currently logged in user?")
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
-	public boolean isCreatedByCurrentUser(ProposalEntity proposal) {
+	public boolean isCreatedByCurrentUser(@Source ProposalEntity proposal) {
 		Optional<UserEntity> user = jwtTokenUtils.getCurrentUser();
 		return proposal != null && user.isPresent() && user.get().equals(proposal.createdBy);
 	}
@@ -235,7 +239,8 @@ public class PollsGraphQL {
 		poll.setStatus(PollEntity.PollStatus.VOTING);
 		LocalDateTime votingStart = LocalDateTime.now();			// LocalDateTime is without a timezone
 		poll.setVotingStartAt(votingStart);   //record the exact datetime when the voting phase started.
-		poll.setVotingEndAt(votingStart.truncatedTo(ChronoUnit.DAYS).plusDays(durationOfVotingPhase));     //voting ends in n days at midnight
+
+		poll.setVotingEndAt(votingStart.truncatedTo(ChronoUnit.DAYS).plusDays(config.durationOfVotingPhase()));     //voting ends in n days at midnight
 		poll.persist();
 		return poll;
 	}
@@ -261,9 +266,9 @@ public class PollsGraphQL {
 	) throws LiquidoException {
 		PollEntity poll = PollEntity.<PollEntity>findByIdOptional(pollId)
 				.orElseThrow(LiquidoException.notFound("Cannot cast vote. Poll(id="+pollId+") not found!"));
-		//TODO: CastVoteResponse res = castVoteService.castVote(voterToken, poll, voteOrderIds);
+		CastVoteResponse res = castVoteService.castVote(voterToken, poll, voteOrderIds);
 		log.info("castVote: poll.id=" + pollId);		//TODO: log all user actions into seperate file
-		return null; //TODO: res;
+		return res;
 	}
 
 	/**
@@ -284,7 +289,7 @@ public class PollsGraphQL {
 	}
 
 	/**
-	 * Get the ballot of a voter in a poll, if the voter has already casted one.
+	 * Get the ballot of a voter in a poll, if the voter has already cast one.
 	 * @param voterToken voter's secret voterToken
 	 * @param pollId poll.id
 	 * @return the voter's ballot if there is one

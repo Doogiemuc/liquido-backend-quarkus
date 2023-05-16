@@ -17,7 +17,7 @@ import java.util.List;
  * Link between a Team and its members and admins.
  */
 @Data
-@NoArgsConstructor                              // Lombok's Data does NOT include a default no args constructor!
+@NoArgsConstructor(force = true)                              // Lombok's Data does NOT include a default no args constructor!
 @RequiredArgsConstructor
 @EqualsAndHashCode(of={}, callSuper = true)    	// Compare teams by their Id only. teamName may change.
 @Entity(name = "team_members")

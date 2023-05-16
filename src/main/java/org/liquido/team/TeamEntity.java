@@ -20,7 +20,7 @@ import java.util.Set;
  * See UserGraphQL for the representation of a Team in the GraphQL API.
  */
 @Data
-@NoArgsConstructor             									// Lombok's Data does NOT include a default no args constructor!
+@NoArgsConstructor(force = true)                              // Lombok's Data does NOT include a default no args constructor!
 @EqualsAndHashCode(of={}, callSuper = true)    	// Compare teams by their Id only. teamName may change.
 @Entity(name = "teams")
 public class TeamEntity extends BaseEntity {
@@ -51,7 +51,7 @@ public class TeamEntity extends BaseEntity {
 	/** The polls in this team */
 	//This is the one side of a bidirectional OneToMany relationship. Keep in mind that you then MUST add mappedBy to map the reverse direction.
 	//And don't forget the @JsonBackReference on the many-side of the relation (in PollModel) to prevent StackOverflowException when serializing a TeamModel
-	@OneToMany(mappedBy = "team", cascade = CascadeType.PERSIST, fetch = FetchType.EAGER)
+	@OneToMany(mappedBy = "team", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
 	@JsonManagedReference
 	Set<PollEntity> polls = new HashSet<>();   //BUGFIX: Changed from List to Set https://stackoverflow.com/questions/4334970/hibernate-throws-multiplebagfetchexception-cannot-simultaneously-fetch-multipl
 

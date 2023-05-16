@@ -43,7 +43,7 @@ public class DoogiesUtil {
 			if (o1.equals(o2)) {
 				return true;
 			} else {
-				return o1.getClass().isArray() && o2.getClass().isArray() ? arrayEquals(o1, o2) : false;
+				return o1.getClass().isArray() && o2.getClass().isArray() && arrayEquals(o1, o2);
 			}
 		} else {
 			return false;
@@ -104,7 +104,7 @@ public class DoogiesUtil {
 	 * solely depends on predicate.
 	 *
 	 * <h4>Example:</h4>
-	 * <pre>Optional&lt;UserModel&gt; firstMatchingUser = doesContain(userList, u -> u.name = "Hans")</pre>
+	 * <pre>Optional&lt;UserModel&gt; firstMatchingUser = find(userList, u -> u.name = "Hans")</pre>
 	 *
 	 * It's unbelievable to me that {@link Collections} still does not contain this.
 	 *

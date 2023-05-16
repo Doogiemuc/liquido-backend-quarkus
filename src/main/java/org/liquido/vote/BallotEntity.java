@@ -3,10 +3,7 @@ package org.liquido.vote;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
+import lombok.*;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.liquido.poll.PollEntity;
 import org.liquido.poll.ProposalEntity;
@@ -14,6 +11,7 @@ import org.liquido.poll.ProposalEntity;
 import javax.persistence.*;
 import javax.validation.constraints.NotNull;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -28,8 +26,9 @@ import java.util.stream.Collectors;
  */
 @Data
 @Entity(name = "ballots")
-@NoArgsConstructor
-@RequiredArgsConstructor  //BUGFIX: https://jira.spring.io/browse/DATAREST-884
+@NoArgsConstructor(force = true)
+@RequiredArgsConstructor                      //BUGFIX: https://jira.spring.io/browse/DATAREST-884
+@EqualsAndHashCode(callSuper = true)
 @Table(uniqueConstraints = {
 		@UniqueConstraint(columnNames = {"POLL_ID", "hashedVoterToken"})   // a voter is only allowed to vote once per poll with his hashedVoterToken!
 })
@@ -39,7 +38,7 @@ public class BallotEntity extends PanacheEntity {
 	//No @CreatedBy ! When voting it is confidential who did cast this ballot and when.
 
 	/**
-	 * Reference to the poll this ballot was casted in.
+	 * Reference to the poll this ballot was cast in.
 	 */
 	@NotNull
 	@NonNull
@@ -121,6 +120,9 @@ public class BallotEntity extends PanacheEntity {
 						this.getRightToVote().hashedVoterToken);
 	}
 
+	public static Optional<BallotEntity> findByPollAndRightToVote(PollEntity poll, RightToVoteEntity rightToVote) {
+		return BallotEntity.find("poll = ?1 and rightToVote = ?2", poll, rightToVote).firstResultOptional();
+	}
 
 	@Override
 	public String toString() {

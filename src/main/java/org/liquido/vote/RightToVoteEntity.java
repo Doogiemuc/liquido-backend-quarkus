@@ -1,11 +1,15 @@
 package org.liquido.vote;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import lombok.*;
 import org.liquido.user.UserEntity;
 
 import javax.persistence.*;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 
 /**
  * This entity is the digital representation of a voters right to vote.
@@ -24,14 +28,14 @@ import java.time.LocalDateTime;
  * If yes, then the cast vote is valid and will be counted.
  */
 @Data
-@NoArgsConstructor
+@NoArgsConstructor(force = true)
 @RequiredArgsConstructor
-@EqualsAndHashCode(of = "hashedVoterToken")
+@EqualsAndHashCode(of = "hashedVoterToken", callSuper = false)
 @Entity(name = "righttovote")
 //@Table(name = "rightToVote", uniqueConstraints= {
 //TODO:		@UniqueConstraint(columnNames = {"public_proxy_id"})  // A proxy cannot be public proxy more than once in one area.
 //})
-public class RightToVoteEntity {
+public class RightToVoteEntity extends PanacheEntityBase {
 
 	/**
 	 * A checksum that validates a voter token.
@@ -99,5 +103,21 @@ public class RightToVoteEntity {
 	//For the same reason there is also no createdAt or updatedAt. They might lead to timing attacks.
 
 
-}
+	public static Optional<RightToVoteEntity> findByHashedVoterToken(String token) {
+		return RightToVoteEntity.find("hashedVoterToken", token).firstResultOptional();
+	}
 
+	public static Optional<RightToVoteEntity> findByPublicProxy(UserEntity proxy) {
+		return RightToVoteEntity.find("publicProxy", proxy).firstResultOptional();
+	}
+
+	/**
+	 * Find the RightToVote of all voters that delegated their RightToVote to this proxy.
+	 * @param delegatedTo the RightToVote of the proxy
+	 * @return a list of all RightToVotes that are delegated to the given one
+	 */
+	public static List<RightToVoteEntity> findByDelegatedTo(RightToVoteEntity delegatedTo) {
+		return RightToVoteEntity.list("delegatedTo", delegatedTo);
+	}
+
+}

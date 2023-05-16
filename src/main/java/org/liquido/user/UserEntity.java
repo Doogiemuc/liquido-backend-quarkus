@@ -22,8 +22,8 @@ import java.util.Optional;
  * A user may also join other teams. Then he is a member in those teams.
  */
 @Data
-@EqualsAndHashCode(of={"id"}, callSuper = true)  // compare Users by their ID (names may change)
-@NoArgsConstructor
+@EqualsAndHashCode(callSuper = true)  			// compare Users by their ID (names may change)
+@NoArgsConstructor(force = true)
 @RequiredArgsConstructor
 @Entity(name = "liquido_user")
 //DEPRECATED: @GraphQLType(name="user", description = "A LiquidoUser that can be an admin or member in a team.")  // well be named "userInput" by graphql-spqr

@@ -13,7 +13,7 @@ import javax.persistence.ManyToOne;
 import javax.persistence.MappedSuperclass;
 import java.time.LocalDateTime;
 
-@EqualsAndHashCode  //TODO: test equals and hashcode on my LiquidoBaseEntitry.  do USers and polls equal correctly?
+@EqualsAndHashCode(callSuper = false)  //TODO: test equals and hashcode on my LiquidoBaseEntitry.  do USers and polls equal correctly?
 @MappedSuperclass
 public class BaseEntity extends PanacheEntity {
 
@@ -32,4 +32,7 @@ public class BaseEntity extends PanacheEntity {
 	)
 	public UserEntity createdBy;
 
+	public Long getId() {
+		return this.id;
+	}
 }

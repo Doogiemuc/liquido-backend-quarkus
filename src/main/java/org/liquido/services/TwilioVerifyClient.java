@@ -9,9 +9,11 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.liquido.user.UserEntity;
+import org.liquido.util.LiquidoConfig;
 import org.liquido.util.LiquidoException;
 
 import javax.enterprise.context.ApplicationScoped;
+import javax.inject.Inject;
 import java.nio.charset.StandardCharsets;
 import java.util.HexFormat;
 
@@ -31,14 +33,8 @@ public class TwilioVerifyClient {
 
 	 */
 
-	@ConfigProperty(name = "liquido.twilio.accountSID")
-	String ACCOUNT_SID;   // "ACXXXXX..."
-
-	@ConfigProperty(name = "liquido.twilio.authToken")
-	String AUTH_TOKEN;    /// hex
-
-	@ConfigProperty(name = "liquido.twilio.serviceSID")
-	String SERVICE_SID;   // "VAXXXXX..."
+	@Inject
+	LiquidoConfig config;
 
 	/**
 	 * Register a new user. This will create an auth Factor
@@ -50,7 +46,7 @@ public class TwilioVerifyClient {
 	 * @return
 	 */
 	public @NonNull UserEntity createFactor(@NonNull UserEntity newUser) throws LiquidoException {
-		Twilio.init(ACCOUNT_SID, AUTH_TOKEN);
+		Twilio.init(config.twilio().accountSid(), config.twilio().authToken());
 
 		if (newUser.id <= 0 || newUser.email == null)
 			throw new LiquidoException(LiquidoException.Errors.INTERNAL_ERROR, "Cannot create new Factor. Need user.id and user.email!");
@@ -60,7 +56,7 @@ public class TwilioVerifyClient {
 			String identityHex = HexFormat.of().formatHex(newUser.getEmail().getBytes(StandardCharsets.UTF_8),0, 16);
 			// may throw TwilioException extends RuntimeException
 			NewFactor newFactor = NewFactor.creator(
-							SERVICE_SID,
+							config.twilio().serviceSid(),
 							identityHex,
 							newUser.getEmail(),
 							NewFactor.FactorTypes.TOTP)
@@ -93,7 +89,7 @@ public class TwilioVerifyClient {
 	public boolean verifyFactor(@NonNull UserEntity user, @NonNull String authToken) {
 		String identityHex = HexFormat.of().formatHex(user.getEmail().getBytes(StandardCharsets.UTF_8),0, 16);
 		Factor factor = Factor.updater(
-						SERVICE_SID,
+						config.twilio().serviceSid(),
 						identityHex,
 						user.totpFactorSid)
 				.setAuthPayload(authToken)
@@ -112,7 +108,7 @@ public class TwilioVerifyClient {
 	public boolean loginWithAuthToken(@NonNull UserEntity user, @NonNull String authToken) {
 		String identityHex = HexFormat.of().formatHex(user.getEmail().getBytes(StandardCharsets.UTF_8),0, 16);
 		Challenge challenge = Challenge.creator(
-						SERVICE_SID,
+						config.twilio().serviceSid(),
 						identityHex,
 						user.totpFactorSid)
 				.setAuthPayload(authToken).create();
