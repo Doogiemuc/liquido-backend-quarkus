@@ -13,6 +13,7 @@ public class CastVoteResponse {
 	 * For how many delegees was this ballot cast, because of delegations.
 	 * Some delegees may have already voted for themselves. Then voteCount is smaller
 	 * than delegationCount.
+	 * voteCount = 0 means: The Ballot was only counted for the voter himself.
 	 */
 	@NonNull
 	Long voteCount;

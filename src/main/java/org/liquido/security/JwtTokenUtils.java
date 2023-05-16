@@ -8,6 +8,7 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.liquido.team.TeamEntity;
 import org.liquido.user.UserEntity;
 import org.liquido.util.DoogiesUtil;
+import org.liquido.util.LiquidoConfig;
 
 import javax.enterprise.context.RequestScoped;
 import javax.inject.Inject;
@@ -27,12 +28,11 @@ public class JwtTokenUtils {
 	// https://quarkus.io/guides/security-architecture-concept
 
 	public static final String LIQUIDO_ISSUER = "https://www.LIQUIDO.vote";
-
 	public static final String LIQUIDO_USER_ROLE = "LIQUIDO_USER";
 	public static final String LIQUIDO_ADMIN_ROLE = "LIQUIDO_ADMIN";
 
-	@ConfigProperty(name = "liquido.jwt.expirationSecs")
-	Long expirationSecs;
+	@Inject
+	LiquidoConfig config;
 
 	@Inject
 	JsonWebToken jwt;
@@ -44,20 +44,18 @@ public class JwtTokenUtils {
 	 * generate JWTs. The userId becomes the JWT.subject and teamId is set as additional claim.
 	 */
 	public String generateToken(@NonNull String email, @NonNull Long teamId, boolean isAdmin) {
-		Set groups = new HashSet();
+		Set<String> groups = new HashSet<String>();
 		groups.add(LIQUIDO_USER_ROLE);   // everyone is a liquido_user
 		if (isAdmin) groups.add(LIQUIDO_ADMIN_ROLE);
-		String JWT = Jwt
+		return Jwt
 				.subject(email)
 				//.upn("upn@liquido.vote")  // if upn is set, this will be used instead of subject   see JWTCallerPrincipal.getName()
 				.issuer(LIQUIDO_ISSUER)
 				.groups(groups)
-				.claim(TEAM_ID_CLAIM, teamId+"")  // better put strings into claims
-				.expiresIn(expirationSecs)
+				.claim(TEAM_ID_CLAIM, String.valueOf(teamId))  // better put strings into claims
+				.expiresIn(config.jwt().expirationSecs())
 				//.jws().algorithm(SignatureAlgorithm.HS256)
 				.sign();
-
-		return JWT;
 	}
 
 	/*

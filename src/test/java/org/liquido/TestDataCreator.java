@@ -10,10 +10,10 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.junit.jupiter.api.Test;
 import org.liquido.graphql.TeamDataResponse;
 import org.liquido.poll.PollEntity;
-import org.liquido.team.TeamEntity;
-import org.liquido.team.TeamMemberEntity;
-import org.liquido.user.UserEntity;
+import org.liquido.poll.ProposalEntity;
 import org.liquido.util.Lson;
+import org.liquido.vote.BallotEntity;
+import org.liquido.vote.RightToVoteEntity;
 
 import javax.inject.Inject;
 import javax.transaction.Transactional;
@@ -39,7 +39,7 @@ public class TestDataCreator {
 
   String sampleDbFile = "import-testData.sql";
 
-	boolean purgeDb = true;
+	boolean purgeDb = false;
 	boolean recreateTestData = true;
 
 	@Test
@@ -95,7 +95,7 @@ public class TestDataCreator {
 
 		// Add further members that join this team
 		for (int i = 0; i < numMembers; i++) {
-			joinTeam(res.team.inviteCode, "created_membr"+i+"@liquido.vote");
+			joinTeam(res.team.inviteCode, "created_membr"+now+i+"@liquido.vote");
 		}
 
 		return res;
@@ -135,7 +135,7 @@ public class TestDataCreator {
 	/**
 	 * Create a new poll. MUST be logged in for this!
 	 * @param title title for the poll
-	 * @parram jwt JsonWebToken of an admin
+	 * @param jwt JsonWebToken of an admin
 	 * @return the newly created poll
 	 */
 	public PollEntity createPoll(String title, String jwt) {
@@ -147,16 +147,6 @@ public class TestDataCreator {
 		assertEquals(title, poll.getTitle());
 		return poll;
 	}
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -245,11 +235,18 @@ public class TestDataCreator {
 
 	@Transactional
 	void purgeDb() {
+		log.info("================================");
+		log.info("       PURGE DB !!!");
+		log.info("================================");
 		// order is important!
 		//BUGFIX: Must delete each instance individually!  https://github.com/quarkusio/quarkus/issues/13941
-		TeamMemberEntity.findAll().stream().forEach(PanacheEntityBase::delete);
-		TeamEntity.findAll().stream().forEach(PanacheEntityBase::delete);
-		UserEntity.findAll().stream().forEach(PanacheEntityBase::delete);
+		RightToVoteEntity.findAll().stream().forEach(PanacheEntityBase::delete);
+		BallotEntity.findAll().stream().forEach(PanacheEntityBase::delete);
+		ProposalEntity.findAll().stream().forEach(PanacheEntityBase::delete);
+		PollEntity.findAll().stream().forEach(PanacheEntityBase::delete);
+		//TeamMemberEntity.findAll().stream().forEach(PanacheEntityBase::delete);  // CASCADE
+		//TeamEntity.findAll().stream().forEach(PanacheEntityBase::delete);
+		//UserEntity.findAll().stream().forEach(PanacheEntityBase::delete);
 
 	}
 

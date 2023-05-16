@@ -1,22 +1,32 @@
 package org.liquido.util;
 
-import io.quarkus.runtime.annotations.StaticInitSafe;
+import com.twilio.Twilio;
 import io.smallrye.config.ConfigMapping;
-import org.eclipse.microprofile.config.inject.ConfigProperties;
 
-//TODO: typesafe configuration
-
-@StaticInitSafe
+/**
+ * LIQUIDO configurations from application.properties
+ */
+//TODO: Do I need this? @StaticInitSafe
 //DEPRECATED @ConfigProperties(prefix = "liquido")
 @ConfigMapping(prefix = "liquido")
 public interface LiquidoConfig {
-    public String frontendUrl();
-    public int loginLinkExpirationHours();
+    String frontendUrl();
+    int loginLinkExpirationHours();
+    int durationOfVotingPhase();
+    int rightToVoteExpirationHours();
+    String hashSecret();
 
-    public Jwt jwt();
-    public interface Jwt {
-        public String secret();
-        public Long expirationSecs();
+    Jwt jwt();
+    interface Jwt {
+        String secret();
+        Long expirationSecs();
+    }
+
+    Twilio twilio();
+    interface Twilio {
+        String accountSid();
+        String authToken();
+        String serviceSid();
     }
 
 }
