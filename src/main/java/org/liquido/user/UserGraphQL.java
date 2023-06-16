@@ -1,17 +1,16 @@
-package org.liquido.graphql;
+package org.liquido.user;
 
 import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.Mailer;
 import lombok.extern.slf4j.Slf4j;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.graphql.*;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.liquido.security.JwtTokenUtils;
 import org.liquido.security.OneTimeToken;
 import org.liquido.services.TwilioVerifyClient;
+import org.liquido.team.TeamDataResponse;
 import org.liquido.team.TeamEntity;
 import org.liquido.team.TeamMemberEntity;
-import org.liquido.user.UserEntity;
 import org.liquido.util.DoogiesUtil;
 import org.liquido.util.LiquidoConfig;
 import org.liquido.util.LiquidoException;
@@ -23,6 +22,7 @@ import javax.transaction.Transactional;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.SecurityContext;
 import java.time.LocalDateTime;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -95,7 +95,13 @@ public class UserGraphQL {
 	}
 
 
-
+	/**
+	 * Before the Authy app can be used for login, the authy factor must be verified once.
+	 * User MUST be logged in for this verify call!
+	 * @param authToken first auth token from the Authy mobile app
+	 * @return success message or HTTP 401 error
+	 * @throws LiquidoException if user for jwetis not found
+	 */
 	@Mutation
 	@Description("Verify a new Authy Factor. User needs to enter a first one time token.")
 	@Transactional
@@ -110,7 +116,7 @@ public class UserGraphQL {
 		if (verified) {
 			return "{ \"message\": \"Authy Factor successfully verified\" }";
 		} else {
-			return "{ \"message\": \"Could not verify Authy Factor. Invalid authToken\" }";
+			throw new LiquidoException(Errors.UNAUTHORIZED, "Cannot verifyAuthyFactor. Invlaid authToken.");
 		}
 	}
 
@@ -130,9 +136,9 @@ public class UserGraphQL {
 	) throws LiquidoException {
 		UserEntity user = UserEntity.findByEmail(email)
 				.orElseThrow(LiquidoException.supply(Errors.CANNOT_LOGIN_EMAIL_NOT_FOUND, "Cannot login with Authy token. No user with that email!"));
-		boolean approved = twilioVerifyClient.loginWithAuthToken(user, authToken);
+		boolean approved = twilioVerifyClient.loginWithAuthyToken(user, authToken);
 		if (!approved) throw new LiquidoException(Errors.CANNOT_LOGIN_TOKEN_INVALID, "Cannot login. AuthToken is invalid");
-		return loginUserIntoTeam(user, null);
+		return doLoginInternal(user, null);
 	}
 
 	@Query
@@ -191,24 +197,46 @@ public class UserGraphQL {
 		if (!DoogiesUtil.isEqual(email, ott.getUser().getEmail()))
 			throw new LiquidoException(Errors.CANNOT_LOGIN_TOKEN_INVALID, "This token is not valid for that email!");
 
-		TeamEntity team = TeamEntity.findById(ott.getUser().getLastTeamId());
-		//TODO: team may be null
-		return loginUserIntoTeam(ott.getUser(), team);
+		ott.delete();
+		TeamEntity team = TeamEntity.findById(ott.getUser().getLastTeamId());  // team maybe null!
+		return doLoginInternal(ott.getUser(), team);
+	}
+
+	/**
+	 * Login used during development and in tests.
+	 * @param devLoginToken the secret devLoginToken
+	 * @param email a registered email
+	 * @return TeamDataResponse logged into user's last team
+	 * @throws LiquidoException when email is not found in DB
+	 */
+	@Query
+	public TeamDataResponse devLogin(
+			@Name("devLoginToken") String devLoginToken,
+			@Name("email") String email
+			//TODO: @Name("team") Long teamId   // optional
+	) throws LiquidoException {
+		if (!devLoginToken.equals(config.devLoginToken()))
+			throw new LiquidoException(Errors.CANNOT_LOGIN_TOKEN_INVALID, "Invalid devLoginToken");
+		long now = new Date().getTime();
+		String authToken = "devLoginToken" + now;
+		UserEntity user = UserEntity.findByEmail(email)
+				.orElseThrow(LiquidoException.supply(Errors.CANNOT_LOGIN_EMAIL_NOT_FOUND, "Cannot do devLogin. Email not found: "+email));
+		return doLoginInternal(user, null);
 	}
 
 
 	/**
-	 * Login a user into his team.
+	 * Login a user into his team and generate a JWT token.
 	 * If team is not given and user is member of multiple teams, then he will be logged into the last one he was using,
 	 * or otherwise the first team in his list.
 	 * @param user a user that wants to log in
-	 * @param team (optional) team to login if user is member of several teams.
-	 *             If not provided, then user will be logged into his last team.
+	 * @param team (optional) the team to log in. A user can be member in several teams.
+	 *             If team is not provided, then user will be logged into his last team.
 	 * @return CreateOrJoinTeamResponse
 	 * @throws LiquidoException when user has no teams (which should never happen)
 	 *   or when user with that email is not member of this team
 	 */
-	private TeamDataResponse loginUserIntoTeam(UserEntity user, TeamEntity team) throws LiquidoException {
+	private TeamDataResponse doLoginInternal(UserEntity user, TeamEntity team) throws LiquidoException {
 		if (team == null) {
 			List<TeamEntity> teams = TeamMemberEntity.findTeamsByMember(user);
 			if (teams.size() == 0) {
@@ -223,6 +251,9 @@ public class UserGraphQL {
 		if (team.getMemberByEmail(user.email, null).isEmpty()) {
 			throw new LiquidoException(Errors.UNAUTHORIZED, "Cannot login. User is not member of this team! " + user);
 		}
+		user.setLastLogin(LocalDateTime.now());
+		user.setLastTeamId(team.getId());
+		user.persist();
 		log.debug("Login " + user.toStringShort() + " into team '" + team.getTeamName() + "'");
 		String jwt = jwtTokenUtils.generateToken(user.email, team.id, team.isAdmin(user));
 		//TODO: authenticateInSecurityContext(user.getId(), team.getId(), jwt);

@@ -1,7 +1,6 @@
 package org.liquido.security;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
-import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import lombok.*;
 import org.liquido.user.UserEntity;
 
@@ -17,7 +16,7 @@ import java.util.Optional;
  * the token will be deleted. Each OTT has a limited time to live (TTL).
  */
 @Data
-@NoArgsConstructor
+@NoArgsConstructor(force = true)
 @RequiredArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 @Entity(name = "onetimetokens")

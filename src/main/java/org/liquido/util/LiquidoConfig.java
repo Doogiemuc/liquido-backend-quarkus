@@ -1,12 +1,10 @@
 package org.liquido.util;
 
-import com.twilio.Twilio;
 import io.smallrye.config.ConfigMapping;
 
 /**
  * LIQUIDO configurations from application.properties
  */
-//TODO: Do I need this? @StaticInitSafe
 //DEPRECATED @ConfigProperties(prefix = "liquido")
 @ConfigMapping(prefix = "liquido")
 public interface LiquidoConfig {
@@ -14,7 +12,8 @@ public interface LiquidoConfig {
     int loginLinkExpirationHours();
     int durationOfVotingPhase();
     int rightToVoteExpirationHours();
-    String hashSecret();
+    String hashSecret();  // the secret only know to the server that is used to create rightToVote tokens
+    String devLoginToken();
 
     Jwt jwt();
     interface Jwt {

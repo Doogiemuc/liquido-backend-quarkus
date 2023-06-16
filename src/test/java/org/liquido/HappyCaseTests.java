@@ -2,14 +2,11 @@ package org.liquido;
 
 import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.MockMailbox;
-import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
-import io.restassured.http.ContentType;
 import io.restassured.response.ValidatableResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.*;
-import org.liquido.graphql.TeamDataResponse;
-import org.liquido.team.TeamEntity;
+import org.liquido.team.TeamDataResponse;
 import org.liquido.util.Lson;
 
 import javax.inject.Inject;
@@ -20,7 +17,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -29,6 +25,12 @@ import static org.junit.jupiter.api.Assertions.*;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class HappyCaseTests {
+
+
+	// This was a POC how to test the GraphQL API.
+	// This is a nice test. But I've already got this on the client side.
+	// LiquidoGraphQL.spec.js  <- Vitest test case
+
 
 	@Inject
 	MockMailbox mailbox;

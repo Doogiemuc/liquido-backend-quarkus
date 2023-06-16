@@ -7,7 +7,6 @@ import com.twilio.rest.verify.v2.service.entity.Factor;
 import com.twilio.rest.verify.v2.service.entity.NewFactor;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.liquido.user.UserEntity;
 import org.liquido.util.LiquidoConfig;
 import org.liquido.util.LiquidoException;
@@ -105,7 +104,7 @@ public class TwilioVerifyClient {
 	 * @param authToken 6-digit token from Authy app
 	 * @return true if authToken is valid. false if login is denied.
 	 */
-	public boolean loginWithAuthToken(@NonNull UserEntity user, @NonNull String authToken) {
+	public boolean loginWithAuthyToken(@NonNull UserEntity user, @NonNull String authToken) {
 		String identityHex = HexFormat.of().formatHex(user.getEmail().getBytes(StandardCharsets.UTF_8),0, 16);
 		Challenge challenge = Challenge.creator(
 						config.twilio().serviceSid(),

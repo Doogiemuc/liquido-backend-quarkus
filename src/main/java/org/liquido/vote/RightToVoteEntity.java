@@ -1,23 +1,24 @@
 package org.liquido.vote;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import lombok.*;
 import org.liquido.user.UserEntity;
 
-import javax.persistence.*;
+import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.ManyToOne;
+import javax.persistence.OneToOne;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 /**
- * This entity is the digital representation of a voters right to vote.
+ * This entity is the digital representation of a voters right to vote. The right to vote is anonymous.
+ * It is not directly linked to a voter. Votes are secret.
  * Only the voter knows his secret voterToken that he received via TeamGraphQL#getVoterToken
- * Only that voter can proof that he has a right to vote by presenting his voterToken which hashes to
- * the stored value.
- *
- * RightToVote is <b>per area!</b>. The user needs to request a seperate right to vote for each area.
+ * Only that voter can proof that this is his RightToVote by presenting his voterToken which hashes to
+ * the stored hashedVoterToken.
  *
  * When a voter requests a voterToken for an area , then the server calculates two values:
  * 1. voterToken  = hash(user.email, userSecret, serverSecret, area)   This voterToken is returned to the voter.
@@ -35,6 +36,7 @@ import java.util.Optional;
 //@Table(name = "rightToVote", uniqueConstraints= {
 //TODO:		@UniqueConstraint(columnNames = {"public_proxy_id"})  // A proxy cannot be public proxy more than once in one area.
 //})
+//TODO: RightToVote is <b>per area!</b>. The user needs to request a separate right to vote for each area.
 public class RightToVoteEntity extends PanacheEntityBase {
 
 	/**

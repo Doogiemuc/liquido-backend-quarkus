@@ -19,13 +19,17 @@ public class TestFixtures {
 	// Test Data
 	public static Long now = new Date().getTime();
 	public static String teamName    = "testTeam" + now;
-	public static String adminName   = "TestAdmin " + now;
-	public static String adminEmail  = "testadmin" + now + "@liquido.vote";
-	public static String adminMobile = "+49 555 " + now%1000000;
+	public static String adminName    = "TestAdmin " + now;
+	public static String adminEmail   = "testadmin" + now + "@liquido.vote";
+	public static String adminMobile  = "+49 555 " + now%1000000;
 	public static String memberName   = "TestMember " + now;
 	public static String memberEmail  = "testmember" + now + "@liquido.vote";
 	public static String memberMobile = "+49 666 " + now%1000000;
-	public static String pollTitle = "TestPoll " + now;
+	public static String pollTitle    = "TestPoll " + now;
+	public static String tokenSecret  = "testTokenSecret";
+	public static String propTitle    = "TestProposal " + now;
+	public static String propDescription = "Lorem " + now + " ipsum some long description of proposal created from testcase";
+	public static String propIcon     = "heart";
 
 	// GraphQL
 	public static final String GRAPHQL_URI = "http://localhost:8081/graphql";
@@ -35,9 +39,9 @@ public class TestFixtures {
 	public static final String JQL_TEAM_MEMBER =
 			"{ id role joinedAt user " + JQL_USER + "}";
 	public static final String JQL_PROPOSAL =
-			"{ id title description icon status createdAt numSupporters createdBy " + JQL_USER + "}";  //TODO: isLikedByCurrentUser
+			"{ id title description icon status createdAt likedByCurrentUser createdBy " + JQL_USER + "}";  //TODO: isLikedByCurrentUser numSupporters
 	public static final String JQL_POLL =
-			"{ id title status votingStartAt votingEndAt proposals " + JQL_PROPOSAL +
+			"{ id title status proposals " + JQL_PROPOSAL +  // TODO: votingStartAt votingEndAt
 					" winner " + JQL_PROPOSAL +
 					//TODO:" numBallots " +
 					//TODO:" duelMatrix { data } " +
@@ -52,6 +56,10 @@ public class TestFixtures {
 					" team " + JQL_TEAM +
 					" user " + JQL_USER +
 					" jwt" +
+					"}";
+	public static final String JQL_BALLOT =
+			"{" +
+					"level checksum voteOrder " + JQL_PROPOSAL +
 					"}";
 
 
@@ -69,7 +77,6 @@ public class TestFixtures {
 	 * @param query     the GraphQL query string
 	 * @param variables (optional) variables for the query
 	 * @return the HttpResponse with the GraphQL result in its String body
-	 * @throws Exception
 	 */
 	public static ValidatableResponse sendGraphQL(String query, Lson variables, String jwt) {
 		RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
