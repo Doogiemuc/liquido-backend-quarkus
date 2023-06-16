@@ -2,6 +2,7 @@ package org.liquido.poll;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import io.smallrye.common.constraint.Nullable;
 import lombok.*;
 import org.liquido.user.UserEntity;
@@ -18,6 +19,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 @EqualsAndHashCode(callSuper = false)
 @Entity(name = "proposals")
+@JsonIgnoreProperties(ignoreUnknown = true)  // ignore eg. isLikedByCurrentUser when deserializing
 public class ProposalEntity extends BaseEntity {
 
 	//TODO: Add a Proposal.UUID   Clients shouldn't use our DB internal ID in castVoteRequests
@@ -57,7 +59,7 @@ public class ProposalEntity extends BaseEntity {
 		LOST(5),         		// All non winning proposals in a finished poll are dropped. They lost the vote.
 		RETENTION(6),       // When a proposal looses support, it is in the retention phase
 		RETRACTED(7);       // When a proposal looses support for too long, it will be retracted.
-		int statusId;
+		final int statusId;
 		LawStatus(int id) { this.statusId = id; }
 	}
 
@@ -89,7 +91,7 @@ public class ProposalEntity extends BaseEntity {
 	 * https://vladmihalcea.com/2017/03/29/the-best-way-to-map-a-onetomany-association-with-jpa-and-hibernate/
 	 *
 	 */
-	@ManyToOne
+	@ManyToOne(fetch = FetchType.LAZY)
 	//@JoinColumn(name="poll_id")  this column name is already the default
 	@JsonBackReference      // necessary to prevent endless cycle when (de)serializing to/from JSON: http://stackoverflow.com/questions/20218568/direct-self-reference-leading-to-cycle-exception
 	public PollEntity poll = null;
@@ -168,7 +170,7 @@ public class ProposalEntity extends BaseEntity {
 	@Override
 	public String toString() {
 		StringBuilder buf = new StringBuilder();
-		buf.append("LawModel{");
+		buf.append("Proposal[");
 		buf.append("id=" + this.id);
 		buf.append(", title='" + title + "'");
 		buf.append(", description='");
@@ -187,20 +189,20 @@ public class ProposalEntity extends BaseEntity {
 		buf.append(", reachedQuorumAt=" + reachedQuorumAt);
 		buf.append(", updatedAt=" + updatedAt);
 		buf.append(", createdAt=" + createdAt);
-		buf.append('}');
+		buf.append(']');
 		return buf.toString();
 	}
 
 	/** Nice and short representation of an Idea, Proposal or Law as a string */
 	public String toStringShort() {
 		StringBuilder buf = new StringBuilder();
-		buf.append("LawModel{");
+		buf.append("Proposal[");
 		buf.append("id=" + id);
 		buf.append(", title='" + title + "'");
 		if (poll != null) buf.append(", poll.id=" + poll.id);
 		buf.append(", status=" + status);
 		//TODO: buf.append(", createdBy.email=" + (createdBy != null ? createdBy.getEmail() : "<null>"));
-		buf.append('}');
+		buf.append(']');
 		return buf.toString();
 	}
 }

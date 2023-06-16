@@ -7,7 +7,6 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import io.smallrye.jwt.build.Jwt;
 import lombok.extern.slf4j.Slf4j;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.junit.jupiter.api.*;
 import org.liquido.security.JwtTokenUtils;
 import org.liquido.services.TwilioVerifyClient;
@@ -63,13 +62,21 @@ public class AuthenticationTests {
 	}
 
 
-	/** Send an reqeust authenticated with a JWT */
+	/** Send a request authenticated with a JWT */
 	@Test
-	public void testAuthenticatedRequest() {
+	public void testAuthenticatedRequest() throws LiquidoException {
 		// https://quarkus.io/guides/security-customization#registering-security-providers
 		// https://quarkus.io/guides/security-jwt#dealing-with-the-verification-keys
+
+		// Make sure we have a user
+		UserEntity user = UserEntity.<UserEntity>findAll().firstResultOptional().orElseGet(() -> {
+			UserEntity newUser = new UserEntity("Auth User", "authuser@liquido.vote", "0151 555 1122334455");
+			newUser.persist();
+			return newUser;
+		});
+
 		String JWT = Jwt
-				.subject(TestFixtures.memberEmail)
+				.subject(user.email)
 				//.upn("upn@liquido.vote")  // if upn is set, this will be used instead of subject   see JWTCallerPrincipal.getName()
 				.issuer(LIQUIDO_ISSUER)
 				.groups(Collections.singleton(JwtTokenUtils.LIQUIDO_USER_ROLE))  // role
@@ -135,7 +142,7 @@ public class AuthenticationTests {
 		assertTrue(verified, "Cannot verify Authy factor");
 
 		String loginToken = "";
-		boolean approved = twilioVerifyClient.loginWithAuthToken(newUser, loginToken);
+		boolean approved = twilioVerifyClient.loginWithAuthyToken(newUser, loginToken);
 		assertTrue(approved, "Cannot login with Authy token");
 
 		log.info("====== LOGGED IN SUCCESSFULLY with Authy Token");

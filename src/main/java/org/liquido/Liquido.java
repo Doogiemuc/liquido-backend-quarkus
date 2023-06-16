@@ -4,6 +4,7 @@ import io.agroal.api.AgroalDataSource;
 import io.quarkus.runtime.LaunchMode;
 import io.quarkus.runtime.StartupEvent;
 import lombok.extern.slf4j.Slf4j;
+import org.liquido.util.LiquidoConfig;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.event.Observes;
@@ -18,16 +19,15 @@ public class Liquido {
 	@Inject
 	AgroalDataSource dataSource;
 
+	@Inject
+	LiquidoConfig config;
 
 	/**
 	 * This is called when app has started.
 	 */
 	void onStart(@Observes StartupEvent ev) {
-		LaunchMode launchMode = io.quarkus.runtime.LaunchMode.current();  					// @Inject does not work.
+		LaunchMode launchMode = io.quarkus.runtime.LaunchMode.current();
 		System.out.println("============== STARTING LIQUIDO in [" + launchMode + "]==================");
-
-		//TODO: log config
-
 		try {
 			System.out.println("    DB       : " + dataSource.getConnection().getMetaData().getURL());
 		} catch (SQLException e) {
@@ -38,4 +38,6 @@ public class Liquido {
 
 		//PreparedStatement ps = dataSource.getConnection().prepareStatement("SCRIPT TO '" + sampleDbFile + "'");
 	}
+
+
 }

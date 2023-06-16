@@ -1,15 +1,14 @@
-package org.liquido.graphql;
+package org.liquido.team;
 
 import io.smallrye.common.constraint.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.graphql.*;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.liquido.security.JwtTokenUtils;
-import org.liquido.team.TeamEntity;
-import org.liquido.team.TeamMemberEntity;
 import org.liquido.user.UserEntity;
 import org.liquido.util.DoogiesUtil;
 import org.liquido.util.LiquidoException;
+import org.liquido.util.Lson;
 
 import javax.annotation.security.PermitAll;
 import javax.annotation.security.RolesAllowed;
@@ -30,17 +29,28 @@ public class TeamGraphQL {
 	@Inject
 	JsonWebToken jwt;
 
+	/**
+	 * Ping the API for availability
+	 * @return some JSON info about API version
+	 */
+	@Query(value="ping")
+	public String pingApi() {
+		return Lson.builder()
+				.put("message", "Welcome to the LIQUIDO API")
+				.put("version", "3.0")
+				.toString();
+	}
 
 	/**
 	 * Get information about user's own team, including the team's polls.
 	 * @return info about user's own team.
 	 * @throws LiquidoException when not logged
 	 */
-	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
 	@Query
+	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
 	@Transactional
 	public TeamEntity team() throws LiquidoException {
-		Long teamId = jwt.getClaim(JwtTokenUtils.TEAM_ID_CLAIM);
+		Long teamId = Long.valueOf(jwt.getClaim(JwtTokenUtils.TEAM_ID_CLAIM));
 		Optional<TeamEntity> teamOpt = TeamEntity.findByIdOptional(teamId);
 		return teamOpt.orElseThrow(LiquidoException.supply(Errors.UNAUTHORIZED, "Cannot get team. User must be logged into a team!"));
 	}

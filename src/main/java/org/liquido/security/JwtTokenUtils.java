@@ -3,7 +3,6 @@ package org.liquido.security;
 import io.smallrye.jwt.build.Jwt;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.liquido.team.TeamEntity;
 import org.liquido.user.UserEntity;
@@ -28,8 +27,8 @@ public class JwtTokenUtils {
 	// https://quarkus.io/guides/security-architecture-concept
 
 	public static final String LIQUIDO_ISSUER = "https://www.LIQUIDO.vote";
-	public static final String LIQUIDO_USER_ROLE = "LIQUIDO_USER";
-	public static final String LIQUIDO_ADMIN_ROLE = "LIQUIDO_ADMIN";
+	public static final String LIQUIDO_USER_ROLE = "LIQUIDO_USER";    // Everyone is a user (also members)
+	public static final String LIQUIDO_ADMIN_ROLE = "LIQUIDO_ADMIN";  // but only some are admins!
 
 	@Inject
 	LiquidoConfig config;
@@ -37,6 +36,7 @@ public class JwtTokenUtils {
 	@Inject
 	JsonWebToken jwt;
 
+	/** Key for teamId Claim in JWT. Keep in mind that the teamId is stored as a String in JWT claim! */
 	public static final String TEAM_ID_CLAIM = "teamId";
 
 	/**
@@ -45,7 +45,7 @@ public class JwtTokenUtils {
 	 */
 	public String generateToken(@NonNull String email, @NonNull Long teamId, boolean isAdmin) {
 		Set<String> groups = new HashSet<String>();
-		groups.add(LIQUIDO_USER_ROLE);   // everyone is a liquido_user
+		groups.add(LIQUIDO_USER_ROLE);
 		if (isAdmin) groups.add(LIQUIDO_ADMIN_ROLE);
 		return Jwt
 				.subject(email)
@@ -112,14 +112,16 @@ public class JwtTokenUtils {
 		return userOpt;
 	}
 
-
+	public boolean isAdmin() {
+		return (jwt != null && jwt.getGroups().contains(LIQUIDO_ADMIN_ROLE));
+	}
 
 	// I could also augment the Quarkus SecurityIdentity:  https://quarkus.io/guides/security-customization#security-identity-customization
 	// and add my LIQUIDO UserEntity as attribute
 
 
-
 	public Optional<TeamEntity> getCurrentTeam() {
+		if (this.currentTeam != null) return Optional.of(currentTeam);
 		Optional<UserEntity> userOpt = getCurrentUser();
 		if (userOpt.isEmpty()) return Optional.empty();
 		Long teamId = Long.valueOf(jwt.getClaim(JwtTokenUtils.TEAM_ID_CLAIM));

@@ -63,7 +63,7 @@ public class Lson extends HashMap<String, Object> implements Map<String, Object>
 		return lson.put(key, value);
 	}
 
-	/** Powerfull fluid api to add key=value pairs
+	/** Powerful fluid api to add key=value pairs
 	 * <pre>myLson.put("name", someValue).put("key2", anotherValue).put("key3.neested.child.key", valueObj)...</pre>
 	 *
 	 * Tip: value can also be <pre>Collections.singletonMap("attribute", "single value in map")</pre>

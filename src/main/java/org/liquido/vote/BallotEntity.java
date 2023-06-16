@@ -43,8 +43,6 @@ public class BallotEntity extends PanacheEntity {
 	@NotNull
 	@NonNull
 	@ManyToOne(fetch = FetchType.LAZY)
-	//@JsonProperty("_links")                        // JSON will contain "_links.poll.href"
-	//@JsonSerialize(using = PollAsLinkJsonSerializer.class)
 	@JsonBackReference
 	public PollEntity poll;
 
@@ -56,7 +54,7 @@ public class BallotEntity extends PanacheEntity {
 	 * @return PollStatus, e.g. VOTING or FINISHED
 	 */
 	public PollEntity.PollStatus getPollStatus() {
-		return this.poll != null ? poll.getStatus() : null;
+		return poll.getStatus();
 	}
 
 	/**
@@ -74,7 +72,7 @@ public class BallotEntity extends PanacheEntity {
 	 * But of course every proposal may appear only once in his voteOrder!
 	 * And one proposal may be voted for by several voters => ManyToMany relationship
 	 */
-	//BE CAREFULL: Lists are not easy to handle in hibernate: https://vladmihalcea.com/hibernate-facts-favoring-sets-vs-bags/
+	//BE CAREFUL: Lists are not easy to handle in hibernate: https://vladmihalcea.com/hibernate-facts-favoring-sets-vs-bags/
 	@NonNull
 	@NotNull
 	@ManyToMany(fetch = FetchType.EAGER)   // (cascade = CascadeType.MERGE, orphanRemoval = false)
@@ -122,6 +120,10 @@ public class BallotEntity extends PanacheEntity {
 
 	public static Optional<BallotEntity> findByPollAndRightToVote(PollEntity poll, RightToVoteEntity rightToVote) {
 		return BallotEntity.find("poll = ?1 and rightToVote = ?2", poll, rightToVote).firstResultOptional();
+	}
+
+	public static Optional<BallotEntity> findByPollAndChecksum(PollEntity poll, String checksum) {
+		return BallotEntity.find("poll = ?1 and checksum = ?2", poll, checksum).firstResultOptional();
 	}
 
 	@Override

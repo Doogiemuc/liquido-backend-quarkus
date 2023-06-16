@@ -47,3 +47,4 @@ application-prod.yml
 /config/application-dev.properties
 /config/application-*.properties
 /import-testData.sql
+/createLiquidoDbSchema.sql

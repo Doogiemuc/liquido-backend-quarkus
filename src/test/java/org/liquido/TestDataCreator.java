@@ -5,14 +5,23 @@ import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.hamcrest.Description;
+import org.hamcrest.TypeSafeMatcher;
 import org.junit.jupiter.api.Test;
-import org.liquido.graphql.TeamDataResponse;
+import org.liquido.poll.BaseEntity;
 import org.liquido.poll.PollEntity;
 import org.liquido.poll.ProposalEntity;
+import org.liquido.team.TeamDataResponse;
+import org.liquido.team.TeamEntity;
+import org.liquido.team.TeamMemberEntity;
+import org.liquido.user.UserEntity;
+import org.liquido.util.LiquidoConfig;
 import org.liquido.util.Lson;
 import org.liquido.vote.BallotEntity;
+import org.liquido.vote.CastVoteResponse;
 import org.liquido.vote.RightToVoteEntity;
 
 import javax.inject.Inject;
@@ -26,9 +35,16 @@ import java.util.List;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.liquido.TestFixtures.*;
 
+/**
+ * Many test cases rely on specific test data as their precondition.
+ * This class creates all this test data.
+ *
+ * Here we use GraphQL calls against our backend in the same way as a client would call it.
+ *
+ * The result is an SQL script file, that can quickly be imported into the DB for future test runs.
+ */
 @Slf4j
 @QuarkusTest
 public class TestDataCreator {
@@ -36,11 +52,14 @@ public class TestDataCreator {
 	@Inject
 	AgroalDataSource dataSource;
 
+	@Inject
+	LiquidoConfig config;
+
 
   String sampleDbFile = "import-testData.sql";
 
 	boolean purgeDb = false;
-	boolean recreateTestData = true;
+	boolean createTestData = true;
 
 	@Test
 	public void createTestData() throws SQLException {
@@ -50,20 +69,42 @@ public class TestDataCreator {
 			log.warn("Going to delete everything in DB!");
 			purgeDb();
 		}
-		if (recreateTestData) {
-			log.info("Recreating testdata ...");
+		if (createTestData) {
+			log.info("Creating testdata ...");
 			TeamDataResponse adminRes = createTeam(teamName, adminEmail, 5);
 			TeamDataResponse memberRes = joinTeam(adminRes.team.inviteCode, memberEmail);
-			//extractSql();
-			Long now = new Date().getTime() & 1000000;
 
+			// Admin creates a poll
 			PollEntity poll = createPoll(pollTitle, adminRes.jwt);
+
+			// add proposals to poll
+			poll = seedRandomProposals(poll, adminRes.team, 5);
+
+			// Start the voting phase of this poll
+			poll = startVotingPhase(poll.getId(), adminRes.jwt);
+
+			// A member casts a vote
+			String voterToken = getVoterToken(tokenSecret, memberRes.jwt);
+			List<Long> voteOrderIds = poll.getProposals().stream().map(BaseEntity::getId).toList();
+			CastVoteResponse castVoteResponse = castVote(poll.id, voteOrderIds, voterToken);
+
+			// Admin also casts a vote
+			String adminVoterToken = getVoterToken(tokenSecret, adminRes.jwt);
+			CastVoteResponse adminCastVoteResponse = castVote(poll.id, voteOrderIds, adminVoterToken);
+
+			// Verify ballot of admin
+			BallotEntity ballot = verifyBallot(poll.getId(), adminCastVoteResponse.getBallot().getChecksum());
+
+			// Finish the voting phase of the poll
+			ProposalEntity winner = finishVotingPhase(poll.getId(), adminRes.jwt);
+
+			// Print winner
+			log.info("Winner: " + winner.toString());
 		}
 	}
 
 
 	public TeamDataResponse createTeam(String teamName, String adminEmail, int numMembers) {
-		Long now = new Date().getTime();
 		if (teamName == null) teamName = "TestTeam" + now;
 		log.info("Creating new team "+teamName);
 		if (adminEmail == null) adminEmail = "testadmin" + now + "@liquido.vote";
@@ -90,7 +131,7 @@ public class TestDataCreator {
 				.body("errors", anyOf(nullValue(), hasSize(0)))		// check for no GraphQL errors: []
 				.body("data.createNewTeam.team.teamName", is(teamName))
 				.body("data.createNewTeam.user.id", greaterThan(0))
-				.body("data.createNewTeam.user.email", is(adminEmail))
+				.body("data.createNewTeam.user.email", equalToIgnoringCase(adminEmail))
 				.extract().jsonPath().getObject("data.createNewTeam", TeamDataResponse.class);
 
 		// Add further members that join this team
@@ -111,7 +152,7 @@ public class TestDataCreator {
 
 		// join team via GraphQL
 		String query = "mutation joinTeam($inviteCode: String, $member: UserEntityInput) { " +
-				" joinTeam(inviteCode: $inviteCode, member: $member) " + CREATE_OR_JOIN_TEAM_RESULT + "}";
+				"joinTeam(inviteCode: $inviteCode, member: $member) " + CREATE_OR_JOIN_TEAM_RESULT + "}";
 		Lson variables = Lson.builder()
 				.put("inviteCode", inviteCode)
 				.put("member", member);
@@ -125,11 +166,16 @@ public class TestDataCreator {
 				.then()
 				.body("data.joinTeam.team.inviteCode", is(inviteCode))
 				.body("data.joinTeam.user.id", greaterThan(0))
-				.body("data.joinTeam.user.email", is(memberEmail))
+				.body("data.joinTeam.user.email", equalToIgnoringCase(memberEmail))
 				.extract().jsonPath().getObject("data.joinTeam", TeamDataResponse.class);
 
 		log.debug("User joined team " + res.team.getTeamName() + ": " + res.user.toStringShort());
 		return res;
+	}
+
+	public TeamEntity loadOwnTeam(@NonNull String jwt) {
+		return sendGraphQL("query { team " + JQL_TEAM + "}", null, jwt)
+				.extract().jsonPath().getObject("data.team", TeamEntity.class);
 	}
 
 	/**
@@ -140,12 +186,143 @@ public class TestDataCreator {
 	 */
 	public PollEntity createPoll(String title, String jwt) {
 		// WHEN creating a Poll
-		String query = "mutation { createPoll(title: \\\"" + title + "\\\") " + JQL_POLL+ "}";
-		PollEntity poll = sendGraphQL(query, null, jwt)
+		String query = "mutation createPoll($title: String!)" +
+				"{ createPoll(title: $title) " + JQL_POLL + " }";
+		Lson vars = new Lson("title", title);
+		return sendGraphQL(query, vars, jwt)
+				.body("data.createPoll.title", is(title))
 				.extract().jsonPath().getObject("data.createPoll", PollEntity.class);
-		// THEN it has the correct title
-		assertEquals(title, poll.getTitle());
+	}
+
+	public PollEntity seedRandomProposals(PollEntity poll, TeamEntity team, int numProposals) {
+		//Test Precondition: Make sure that there are enough members in the poll's team
+		int numMembers = team.getMembers().size();   // poll.getTeam()  is not filled here in the client!
+		if (numMembers < numProposals) {
+			TeamDataResponse res = null;
+			for (int i = 0; i < numProposals - numMembers; i++) {
+				 res = joinTeam(team.getInviteCode(), "added" + i + "_" + now);
+			}
+			team = loadOwnTeam(res.jwt);  //reload team
+		}
+
+		List<UserEntity> users = team.getMembers().stream().map(TeamMemberEntity::getUser).toList();
+		for (int i = 0; i < numProposals; i++) {
+			String title = "Test Proposal " + i + "_" + now;
+			String description = "Description " + i + "_" + now + " for a very nice proposal from TestDataCreator";
+			String icon = "heart";
+			TeamDataResponse res = devLogin(users.get(i).getEmail());
+			poll = addProposal(poll.getId(), title, description, icon, res.jwt);
+		}
 		return poll;
+	}
+
+
+
+	public PollEntity addProposal(Long pollId, String propTitle, String propDescription, String propIcon, String jwt) {
+		String query = "mutation addProposal($pollId: BigInteger!, $title: String!, $description: String!, $icon: String!) { " +
+				"addProposal(pollId: $pollId, title: $title, description: $description, icon: $icon) " + JQL_POLL + "}";
+		Lson vars = Lson.builder()
+				.put("pollId", pollId)
+				.put("title", propTitle)
+				.put("description", propDescription)
+				.put("icon", propIcon);
+
+		return sendGraphQL(query, vars, jwt)
+				.log().all()
+				//TODO: https://stackoverflow.com/questions/64167768/restassured-unrecognized-field-not-marked-as-ignorable
+				.extract().jsonPath().getObject("data.addProposal", PollEntity.class);
+	}
+
+	public String getVoterToken(String tokenSecret, String jwt) {
+		String query = "query { voterToken(tokenSecret: \\\"" + tokenSecret +  "\\\", becomePublicProxy: false) }";
+		String voterToken = sendGraphQL(query, null, jwt)
+				.extract().jsonPath().getObject("data.voterToken", String.class);
+		log.debug("Got voter Token: "+voterToken);
+		return voterToken;
+	}
+
+	public PollEntity startVotingPhase(Long pollId, String jwt) {
+		String startVotingPhaseQuery = "mutation startVotingPhase($pollId: BigInteger!) {" +
+				" startVotingPhase(pollId: $pollId) " + JQL_POLL + " }";
+		Lson vars = new Lson("pollId", pollId);
+		return sendGraphQL(startVotingPhaseQuery, vars, jwt)
+				.extract().jsonPath().getObject("data.startVotingPhase", PollEntity.class);
+	}
+
+	static class IsString extends TypeSafeMatcher<String> {
+		int minLength = 0;
+		public IsString(int minLength) {
+			this.minLength = minLength;
+		}
+
+		@Override
+		protected boolean matchesSafely(String s) {
+			if (s == null) return false;
+			return s.length() >= this.minLength;
+		}
+
+		@Override
+		public void describeTo(Description description) {
+			description.appendText("a String of length of at least " + this.minLength);
+		}
+
+		public static IsString lengthAtLeast(int minLength) {
+			return new IsString(minLength);
+		}
+	}
+
+	public CastVoteResponse castVote(Long pollId, List<Long> voteOrderIds, String voterToken) {
+		String castVoteQuery = "mutation castVote($pollId: BigInteger!, $voteOrderIds: [BigInteger!]!, $voterToken: String!) { " +
+				"  castVote(pollId: $pollId, voteOrderIds: $voteOrderIds, voterToken: $voterToken) " +
+				"  { voteCount ballot { level checksum voteOrder { id } } } " +
+				"}";
+		Lson castVoteVars = Lson.builder()
+				.put("pollId", pollId)
+				.put("voteOrderIds", voteOrderIds)
+				.put("voterToken", voterToken);
+
+		CastVoteResponse castVoteResponse = sendGraphQL(castVoteQuery, castVoteVars)
+				.log().all()
+				.body("data.castVote.ballot.checksum", IsString.lengthAtLeast(5))  // allOf(IsInstanceOf.any(String.class), is(not(emptyString())))
+				.extract().jsonPath().getObject("data.castVote", CastVoteResponse.class);
+
+		List<Long> returnedVoteOrderIds = castVoteResponse.getBallot().getVoteOrder().stream().map(BaseEntity::getId).toList();
+		assert returnedVoteOrderIds.equals(voteOrderIds) : "vote did not return same list of voteOrderIDs";
+
+		return castVoteResponse;
+	}
+
+	public BallotEntity verifyBallot(Long pollId, String checksum) {
+		String verifyBallotQuery = "query verifyBallot($pollId: BigInteger!, $checksum: String!) { " +
+				"  verifyBallot(pollId: $pollId, checksum: $checksum) " + JQL_BALLOT + "}";
+		Lson verifyBallotVars = Lson.builder()
+				.put("pollId", pollId)
+				.put("checksum", checksum);
+		return sendGraphQL(verifyBallotQuery, verifyBallotVars)
+				.body("data.verifyBallot.checksum", is(checksum))
+				.extract().jsonPath().getObject("data.verifyBallot", BallotEntity.class);
+	}
+
+	public ProposalEntity finishVotingPhase(Long pollId, String jwt) {
+		String startVotingPhaseQuery = "mutation finishVotingPhase($pollId: BigInteger!) {" +
+				" finishVotingPhase(pollId: $pollId) " + JQL_PROPOSAL + " }";
+		Lson vars = new Lson("pollId", pollId);
+		return sendGraphQL(startVotingPhaseQuery, vars, jwt)
+				.extract().jsonPath().getObject("data.finishVotingPhase", ProposalEntity.class);
+	}
+
+
+	/** Login user into team via mocked devLogin */
+	public TeamDataResponse devLogin(@NonNull String email) {
+		String query = "query devLogin($email: String!, $devLoginToken: String!) { " +
+		    "  devLogin(email: $email, devLoginToken: $devLoginToken) " + CREATE_OR_JOIN_TEAM_RESULT +
+				"}";
+		Lson vars = Lson.builder()
+				.put("email", email)
+				.put("devLoginToken", config.devLoginToken());
+		return sendGraphQL(query, vars)
+				.body("data.devLogin.user.email", equalToIgnoringCase(email))
+				.extract().jsonPath().getObject("data.devLogin", TeamDataResponse.class);
 	}
 
 

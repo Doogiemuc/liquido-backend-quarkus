@@ -1,8 +1,7 @@
-package org.liquido.graphql;
+package org.liquido.team;
 
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
-import org.liquido.team.TeamEntity;
 import org.liquido.user.UserEntity;
 
 /**
