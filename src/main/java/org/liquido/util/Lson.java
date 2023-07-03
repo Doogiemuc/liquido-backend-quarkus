@@ -27,7 +27,7 @@ public class Lson extends HashMap<String, Object> implements Map<String, Object>
 	 * Create a Lson from a java.util.Map
 	 * @param map map from String -> Object
 	 */
-	public Lson(Map<? extends String, ? extends Object> map) {
+	public Lson(Map<? extends String, ?> map) {
 		super(map);
 	}
 

@@ -22,7 +22,6 @@ import javax.transaction.Transactional;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.SecurityContext;
 import java.time.LocalDateTime;
-import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -183,6 +182,7 @@ public class UserGraphQL {
 	}
 
 	@Query
+	@Transactional
 	public TeamDataResponse loginWithEmailToken(
 			@Name("email") String email,
 			@Name("authToken") String authToken
@@ -204,6 +204,7 @@ public class UserGraphQL {
 
 	/**
 	 * Login used during development and in tests.
+	 * You MUST pass a valid devLoginToken, then this query will return a valid TeamDataResponse including a JWT for login.
 	 * @param devLoginToken the secret devLoginToken
 	 * @param email a registered email
 	 * @return TeamDataResponse logged into user's last team
@@ -217,10 +218,9 @@ public class UserGraphQL {
 	) throws LiquidoException {
 		if (!devLoginToken.equals(config.devLoginToken()))
 			throw new LiquidoException(Errors.CANNOT_LOGIN_TOKEN_INVALID, "Invalid devLoginToken");
-		long now = new Date().getTime();
-		String authToken = "devLoginToken" + now;
 		UserEntity user = UserEntity.findByEmail(email)
 				.orElseThrow(LiquidoException.supply(Errors.CANNOT_LOGIN_EMAIL_NOT_FOUND, "Cannot do devLogin. Email not found: "+email));
+		log.info("DevLogin: "+user.toStringShort());
 		return doLoginInternal(user, null);
 	}
 

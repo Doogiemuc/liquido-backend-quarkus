@@ -1,28 +1,34 @@
 package org.liquido;
 
-import io.netty.handler.codec.http.HttpHeaderNames;
+import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.MockMailbox;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
-import io.restassured.http.ContentType;
+import io.restassured.response.ValidatableResponse;
 import io.smallrye.jwt.build.Jwt;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.*;
 import org.liquido.security.JwtTokenUtils;
 import org.liquido.services.TwilioVerifyClient;
+import org.liquido.team.TeamDataResponse;
 import org.liquido.user.UserEntity;
 import org.liquido.util.LiquidoConfig;
 import org.liquido.util.LiquidoException;
 import org.liquido.util.Lson;
 
 import javax.inject.Inject;
+import javax.transaction.Transactional;
 import java.util.Collections;
 import java.util.Date;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.nullValue;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.liquido.TestFixtures.CREATE_OR_JOIN_TEAM_RESULT;
 import static org.liquido.TestFixtures.GRAPHQL_URI;
 import static org.liquido.security.JwtTokenUtils.LIQUIDO_ISSUER;
 
@@ -33,6 +39,13 @@ public class AuthenticationTests {
 
 	@Inject
 	MockMailbox mailbox;
+
+	@Inject
+	LiquidoConfig config;
+
+	@Inject
+	TwilioVerifyClient twilioVerifyClient;
+
 
 	@BeforeEach
 	public void beforeEachTest(TestInfo testInfo) {
@@ -51,14 +64,8 @@ public class AuthenticationTests {
 	 */
 	@Test
 	public void pingApi() {
-		String body = "{ \"query\": \"{ ping }\" }";
-		given().log().all()
-				.body(body)
-				.when()
-				.post(GRAPHQL_URI)
-				.then().log().all()
-				.statusCode(200)
-				.body("errors", nullValue());
+		String query = "{ ping }";
+		TestFixtures.sendGraphQL(query);
 	}
 
 
@@ -68,13 +75,7 @@ public class AuthenticationTests {
 		// https://quarkus.io/guides/security-customization#registering-security-providers
 		// https://quarkus.io/guides/security-jwt#dealing-with-the-verification-keys
 
-		// Make sure we have a user
-		UserEntity user = UserEntity.<UserEntity>findAll().firstResultOptional().orElseGet(() -> {
-			UserEntity newUser = new UserEntity("Auth User", "authuser@liquido.vote", "0151 555 1122334455");
-			newUser.persist();
-			return newUser;
-		});
-
+		UserEntity user = TestFixtures.getRandomUser();
 		String JWT = Jwt
 				.subject(user.email)
 				//.upn("upn@liquido.vote")  // if upn is set, this will be used instead of subject   see JWTCallerPrincipal.getName()
@@ -85,29 +86,79 @@ public class AuthenticationTests {
 				.sign();
 
 		System.out.println("======= JWT: "+JWT);
+		String query = "{ requireUser }";
+		TestFixtures.sendGraphQL(query, null, JWT);
 
-		String body = "{ \"query\": \"{ requireUser }\" }";
-		given().log().all()
-				.header(HttpHeaderNames.AUTHORIZATION.toString(), "Bearer "+JWT)
-				.contentType(ContentType.JSON)
-				.body(body)
-				.when()
-				.post(GRAPHQL_URI)
-				.then().log().all()
-				.statusCode(200)
-				.body("errors", nullValue());
 	}
 
-	@Inject
-	LiquidoConfig config;
+	@Test
+	public void testDevLogin() {
+		// GIVEN a random user
+		UserEntity user = TestFixtures.getRandomUser();
+		String query = "query devLogin($devLoginToken: String, $email: String) {" +
+				" devLogin(devLoginToken: $devLoginToken, email: $email)" + CREATE_OR_JOIN_TEAM_RESULT + "}";
+		Lson vars = Lson.builder()
+				.put("devLoginToken", config.devLoginToken())
+				.put("email", user.getEmail());
 
-	@Inject
-	TwilioVerifyClient twilioVerifyClient;
+		// WHEN doing a devLogin
+		ValidatableResponse res = TestFixtures.sendGraphQL(query, vars);
+		TeamDataResponse teamData = res.extract().jsonPath().getObject("data.devLogin", TeamDataResponse.class);
 
-	//TODO: test this via GraphQL
+		// THEN a valid TeamDataResponse for this user with a JWT is returned.
+		assertEquals(teamData.user.email, user.email);
+		assertNotNull(teamData.jwt);
+
+	}
+
+	@Test
+	@Transactional
+	public void loginViaEmail() {
+		UserEntity user = TestFixtures.getRandomUser();
+
+		//  WHEN requesting and email token for this user
+		String reqEmailQuery = "query reqEmail($email: String) { requestEmailToken(email: $email) }";
+		ValidatableResponse reqEmailResponse = TestFixtures.sendGraphQL(reqEmailQuery, Lson.builder("email", user.email));
+
+		// THEN login link is sent via email
+		reqEmailResponse.body(containsString("successfully"));
+		log.info("Successfully sent login email.");
+
+		//  AND an email with a one time password (nonce) is received
+		List<Mail> mails = mailbox.getMessagesSentTo(user.email.toLowerCase());
+		assertEquals(1, mails.size());
+		String html = mails.get(0).getHtml();
+		assertNotNull(html);
+		log.info("Received (mock) login email.");
+		log.info(html);
+
+		// AND the email contains a login link with a one time password ("nonce")
+		// Format of login link in HTML:   "<a id='loginLink' style='font-size: 20pt;' href='http://localhost:3001/login?email=testuser1681280391428@liquido.vote&emailToken=c199e7c2-fd13-423e-8648-ec4ae4375608'>Login TestUser1681280391428</a>"
+		Pattern p = Pattern.compile(".*<a.*?id='loginLink'.*?href='.+/login\\?email=(.+?)&emailToken=(.+?)'>.*", Pattern.DOTALL);
+		Matcher matcher = p.matcher(html);
+		boolean matches = matcher.matches();
+		assertTrue(matches);
+		String resEmail = matcher.group(1);
+		String resToken = matcher.group(2);
+		assertNotNull(resEmail);
+		assertNotNull(resToken);
+		log.info("Successfully received login link for email: " + user.email + " with token: " + resToken);
+
+		// ========= Admin: Login with token from email
+
+		String loginQuery = "query loginWithEmailToken($email: String, $authToken: String) {" +
+				"loginWithEmailToken(email: $email, authToken: $authToken)" + TestFixtures.CREATE_OR_JOIN_TEAM_RESULT + "}";
+		Lson loginVars = new Lson().put("email", user.email).put("authToken", resToken);
+		ValidatableResponse loginRes = TestFixtures.sendGraphQL(loginQuery, loginVars);
+		TeamDataResponse teamDataResponse = loginRes.extract().jsonPath().getObject("data.loginWithEmailToken", TeamDataResponse.class);
+		log.info("Successfully logged in with email token into team " + teamDataResponse.team + " as user " + teamDataResponse.user);
+	}
+
+
+	//TODO: test Twillio Login via GraphQL
 
 	/**
-	 * Twilio + Authy App =  time based one time password (TOTP) authentication
+	 * Twilio API + Authy App =  time based one time password (TOTP) authentication
 	 *
 	 * General Doc
 	 * https://www.twilio.com/docs/verify/quickstarts/totp

@@ -25,6 +25,7 @@ import org.liquido.vote.CastVoteResponse;
 import org.liquido.vote.RightToVoteEntity;
 
 import javax.inject.Inject;
+import javax.persistence.EntityManager;
 import javax.transaction.Transactional;
 import java.io.*;
 import java.sql.PreparedStatement;
@@ -61,8 +62,21 @@ public class TestDataCreator {
 	boolean purgeDb = false;
 	boolean createTestData = true;
 
+	/**
+	 * Run through the whole Happy Case:
+	 * Register as new member
+	 * Register as new admin
+	 * Create a poll
+	 * Add some proposals to that poll
+	 * Start the voting phase
+	 * Get a voter token
+	 * Cast a vote
+	 * Verify the ballot
+	 * Finish the voting phase
+	 * Check the winning poll
+	 */
 	@Test
-	public void createTestData() throws SQLException {
+	public void createTestData() {
 		RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
 
 		if (purgeDb) {
@@ -111,7 +125,8 @@ public class TestDataCreator {
 		Lson admin = Lson.builder()
 				.put("name", "TestAdmin " + now)
 				.put("email", adminEmail)
-				.put("mobilephone", "0151 555 " + now % 1000000);
+				.put("mobilephone", "0151 555 " + now % 1000000)
+				.put("picture", "Avatar1.png");
 
 		// WHEN creating a new team via GraphQL
 		String query = "mutation createNewTeam($teamName: String, $admin: UserEntityInput) { " +
@@ -136,19 +151,20 @@ public class TestDataCreator {
 
 		// Add further members that join this team
 		for (int i = 0; i < numMembers; i++) {
-			joinTeam(res.team.inviteCode, "created_membr"+now+i+"@liquido.vote");
+			joinTeam(res.team.inviteCode, "membr"+now+i+"@liquido.vote");
 		}
 
 		return res;
 	}
 
 	public TeamDataResponse joinTeam(String inviteCode, String memberEmail) {
-		Long now = new Date().getTime();
+		long now = new Date().getTime();
 		if (memberEmail == null) memberEmail = "member" + now + "@liquido.vote";
 		Lson member = Lson.builder()
 				.put("name", "Member " + now)
 				.put("email", memberEmail)
-				.put("mobilephone", "0151 666 " + now % 1000000);
+				.put("mobilephone", "0151 555 " + now)
+				.put("picture", "Avatar1.png");
 
 		// join team via GraphQL
 		String query = "mutation joinTeam($inviteCode: String, $member: UserEntityInput) { " +
@@ -200,7 +216,7 @@ public class TestDataCreator {
 		if (numMembers < numProposals) {
 			TeamDataResponse res = null;
 			for (int i = 0; i < numProposals - numMembers; i++) {
-				 res = joinTeam(team.getInviteCode(), "added" + i + "_" + now);
+				 res = joinTeam(team.getInviteCode(), "added" + i + "_" + now+"@liquido.vote");
 			}
 			team = loadOwnTeam(res.jwt);  //reload team
 		}
@@ -410,20 +426,36 @@ public class TestDataCreator {
 		}
 	}
 
+	@Inject
+	EntityManager entityManager;
+
 	@Transactional
 	void purgeDb() {
 		log.info("================================");
-		log.info("       PURGE DB !!!");
+		log.info("       PURGE Testset id="+now);
 		log.info("================================");
+
 		// order is important!
-		//BUGFIX: Must delete each instance individually!  https://github.com/quarkusio/quarkus/issues/13941
-		RightToVoteEntity.findAll().stream().forEach(PanacheEntityBase::delete);
-		BallotEntity.findAll().stream().forEach(PanacheEntityBase::delete);
-		ProposalEntity.findAll().stream().forEach(PanacheEntityBase::delete);
-		PollEntity.findAll().stream().forEach(PanacheEntityBase::delete);
-		//TeamMemberEntity.findAll().stream().forEach(PanacheEntityBase::delete);  // CASCADE
-		//TeamEntity.findAll().stream().forEach(PanacheEntityBase::delete);
-		//UserEntity.findAll().stream().forEach(PanacheEntityBase::delete);
+
+		// entityManager::remove  ????
+		//BUGFIX: PanacheEntityBase::delete  ignores FK and relations:  https://github.com/quarkusio/quarkus/issues/13941
+
+		BallotEntity.deleteAll();
+		RightToVoteEntity.deleteAll();
+		//BUGFIX: Cannot delete all proposals as long as they are referenced in a poll.
+		//ProposalEntity.deleteAll();
+
+		PollEntity.findAll().stream().forEach(poll -> {
+			System.out.println("Going to delete " + poll.toString());
+			// Must delete each proposal in this poll individually
+			ProposalEntity.find("poll", poll).stream().forEach(PanacheEntityBase::delete);
+			poll.delete();
+		});
+
+		TeamMemberEntity.deleteAll();
+		UserEntity.deleteAll();
+		TeamEntity.deleteAll();
+
 
 	}
 
