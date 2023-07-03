@@ -4,9 +4,8 @@ import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.ValidatableResponse;
 import org.apache.http.HttpHeaders;
+import org.liquido.user.UserEntity;
 import org.liquido.util.Lson;
-
-import java.util.Date;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
@@ -17,21 +16,21 @@ import static org.hamcrest.Matchers.*;
 public class TestFixtures {
 
 	// Test Data
-	public static Long now = new Date().getTime();
-	public static String teamName    = "testTeam" + now;
+	public static Long   now          = 4711L; //new Date().getTime() % 1000000;
+	public static String teamName     = "testTeam" + now;
 	public static String adminName    = "TestAdmin " + now;
 	public static String adminEmail   = "testadmin" + now + "@liquido.vote";
-	public static String adminMobile  = "+49 555 " + now%1000000;
+	public static String adminMobile  = "+49 555 " + now;
 	public static String memberName   = "TestMember " + now;
 	public static String memberEmail  = "testmember" + now + "@liquido.vote";
-	public static String memberMobile = "+49 666 " + now%1000000;
+	public static String memberMobile = "+49 666 " + now;
 	public static String pollTitle    = "TestPoll " + now;
 	public static String tokenSecret  = "testTokenSecret";
 	public static String propTitle    = "TestProposal " + now;
 	public static String propDescription = "Lorem " + now + " ipsum some long description of proposal created from testcase";
 	public static String propIcon     = "heart";
 
-	// GraphQL
+	// GraphQL   This is port 8081 during testing, but 8080 in prod!!!
 	public static final String GRAPHQL_URI = "http://localhost:8081/graphql";
 
 	public static final String JQL_USER =
@@ -72,6 +71,18 @@ public class TestFixtures {
 	}
 
 	/**
+	 * Get a random user from the DB. Will create one if no user exists yet.
+	 * @return a random UserEntity
+	 */
+	public static UserEntity getRandomUser() {
+		return UserEntity.<UserEntity>findAll().firstResultOptional().orElseGet(() -> {
+			UserEntity newUser = new UserEntity("Random User", "rand_+"+now+"@liquido.vote", "0151 555 "+now);
+			newUser.persistAndFlush();
+			return newUser;
+		});
+	}
+
+	/**
 	 * send a GraphQL request to our backend
 	 *
 	 * @param query     the GraphQL query string
@@ -104,8 +115,9 @@ public class TestFixtures {
 					.statusCode(200)  // But be careful: GraphQL always returns 200, so we need to
 					.body("errors", anyOf(nullValue(), hasSize(0)));    // check for no GraphQL errors: []
 		}
-		/*
 
+
+		/*  DEPRECATED.  With plain HttpRequest
 		try {
 			HttpRequest request = HttpRequest.newBuilder()
 					.uri(new URI(GRAPHQL_URI))

@@ -14,6 +14,7 @@ import javax.annotation.security.PermitAll;
 import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
 import javax.transaction.Transactional;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.liquido.util.LiquidoException.Errors;
@@ -100,12 +101,15 @@ public class TeamGraphQL {
 		}
 
 		// Create a new auth Factor
-		admin.persistAndFlush();   // This will set the ID on UserEntity admin
 		//TODO: twilioVerifyClient.createFactor(admin);  //  After a factor has been created, it must still be verified
 
 		TeamEntity team = new TeamEntity(teamName, admin);
 		team.persist();
-		log.info("Created new team: " + team);
+		admin.setLastTeamId(team.getId());
+		admin.setLastLogin(LocalDateTime.now());
+		admin.persist();   // This will set the ID on UserEntity admin
+
+		log.info("CREATE NEW TEAM: " + team);
 		String jwt = jwtTokenUtils.generateToken(admin.email, team.id, true);
 
 		//BUGFIX: Authenticate new user in spring's security context, so that access restricted attributes such as isLikeByCurrentUser can be queried via GraphQL.
@@ -127,7 +131,7 @@ public class TeamGraphQL {
 	 * @throws LiquidoException when inviteCode is invalid, or when this email is already admin or member in team.
 	 */
 	@Transactional
-	@Mutation()
+	@Mutation
 	@Description("Join an existing team with an inviteCode")
 	public TeamDataResponse joinTeam(
 			@Name("inviteCode") @NotNull String inviteCode,
@@ -157,10 +161,13 @@ public class TeamGraphQL {
 		}
 
 		try {
-			member.persist();
+			//member.persist();
 			team.addMember(member, TeamMemberEntity.Role.MEMBER);   // Add to java.util.Set. Will never add duplicate.
 			team.persist();
-			log.info("User <" + member.email + "> joined team: " + team);
+			member.setLastTeamId(team.getId());
+			member.setLastLogin(LocalDateTime.now());
+			member.persist();
+			log.info("JOIN TEAM: User <" + member.email + "> joined team: " + team);
 			String jwt = jwtTokenUtils.generateToken(member.email, team.id, false);
 			//BUGFIX: Authenticate new user in spring's security context, so that access restricted attributes such as isLikeByCurrentUser can be queried via GraphQL.
 			//authUtil.authenticateInSecurityContext(member.id, team.id, jwt);
