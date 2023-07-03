@@ -1,8 +1,7 @@
 package org.liquido.poll.converter;
 
+import jakarta.persistence.AttributeConverter;
 import org.liquido.vote.Matrix;
-
-import javax.persistence.AttributeConverter;
 
 /**
  * Converter for 2D LongMatrix from/to Json String

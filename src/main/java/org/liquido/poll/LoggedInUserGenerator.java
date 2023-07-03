@@ -1,13 +1,13 @@
 package org.liquido.poll;
 
+import jakarta.enterprise.context.RequestScoped;
+import jakarta.enterprise.inject.spi.CDI;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.Session;
 import org.hibernate.tuple.ValueGenerator;
 import org.liquido.security.JwtTokenUtils;
 import org.liquido.user.UserEntity;
 
-import javax.enterprise.context.RequestScoped;
-import javax.enterprise.inject.spi.CDI;
 import java.util.Optional;
 
 /**

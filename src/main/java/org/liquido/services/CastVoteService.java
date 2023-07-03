@@ -1,5 +1,8 @@
 package org.liquido.services;
 
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.liquido.poll.PollEntity;
@@ -12,16 +15,8 @@ import org.liquido.vote.BallotEntity;
 import org.liquido.vote.CastVoteResponse;
 import org.liquido.vote.RightToVoteEntity;
 
-import javax.enterprise.context.ApplicationScoped;
-import javax.inject.Inject;
-import javax.transaction.Transactional;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.*;
-
-import static org.locationtech.jts.io.WKBWriter.bytesToHex;
 
 /**
  * This service handles everything related to casting a vote.

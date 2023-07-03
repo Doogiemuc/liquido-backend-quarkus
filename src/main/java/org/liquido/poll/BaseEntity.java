@@ -1,6 +1,9 @@
 package org.liquido.poll;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import jakarta.persistence.Column;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.MappedSuperclass;
 import lombok.EqualsAndHashCode;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.GenerationTime;
@@ -8,9 +11,6 @@ import org.hibernate.annotations.GeneratorType;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.liquido.user.UserEntity;
 
-import javax.persistence.Column;
-import javax.persistence.ManyToOne;
-import javax.persistence.MappedSuperclass;
 import java.time.LocalDateTime;
 
 @EqualsAndHashCode(callSuper = false)  //TODO: test equals and hashcode on my LiquidoBaseEntitry.  do USers and polls equal correctly?

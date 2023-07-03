@@ -75,11 +75,9 @@ public class TestFixtures {
 	 * @return a random UserEntity
 	 */
 	public static UserEntity getRandomUser() {
-		return UserEntity.<UserEntity>findAll().firstResultOptional().orElseGet(() -> {
-			UserEntity newUser = new UserEntity("Random User", "rand_+"+now+"@liquido.vote", "0151 555 "+now);
-			newUser.persistAndFlush();
-			return newUser;
-		});
+		return UserEntity.<UserEntity>findAll().firstResultOptional().orElseThrow(
+				() -> new RuntimeException("Cannot getRandomUser. No user in DB!")
+		);
 	}
 
 	/**

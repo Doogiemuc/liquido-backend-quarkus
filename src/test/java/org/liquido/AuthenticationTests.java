@@ -6,6 +6,8 @@ import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.response.ValidatableResponse;
 import io.smallrye.jwt.build.Jwt;
+import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.*;
 import org.liquido.security.JwtTokenUtils;
@@ -16,8 +18,6 @@ import org.liquido.util.LiquidoConfig;
 import org.liquido.util.LiquidoException;
 import org.liquido.util.Lson;
 
-import javax.inject.Inject;
-import javax.transaction.Transactional;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -32,6 +32,12 @@ import static org.liquido.TestFixtures.CREATE_OR_JOIN_TEAM_RESULT;
 import static org.liquido.TestFixtures.GRAPHQL_URI;
 import static org.liquido.security.JwtTokenUtils.LIQUIDO_ISSUER;
 
+/**
+ * Some simple test cases for authenticate.
+ * <h3>Precondition!</h3>
+ * These test cases rely on the data that is created by TestDataCreator!
+ * They will fail without that data!
+ */
 @Slf4j
 @QuarkusTest
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
@@ -57,7 +63,6 @@ public class AuthenticationTests {
 	public void afterEachTest(TestInfo testInfo) {
 		log.info("<========== Finished: " + testInfo.getDisplayName());
 	}
-
 
 	/**
 	 * Most basic test. Ping our GraphQL API.
@@ -125,7 +130,7 @@ public class AuthenticationTests {
 		log.info("Successfully sent login email.");
 
 		//  AND an email with a one time password (nonce) is received
-		List<Mail> mails = mailbox.getMessagesSentTo(user.email.toLowerCase());
+		List<Mail> mails = mailbox.getMailsSentTo(user.email.toLowerCase());
 		assertEquals(1, mails.size());
 		String html = mails.get(0).getHtml();
 		assertNotNull(html);

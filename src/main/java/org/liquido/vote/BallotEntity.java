@@ -3,13 +3,13 @@ package org.liquido.vote;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.liquido.poll.PollEntity;
 import org.liquido.poll.ProposalEntity;
 
-import javax.persistence.*;
-import javax.validation.constraints.NotNull;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;

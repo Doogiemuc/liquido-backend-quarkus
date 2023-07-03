@@ -1,6 +1,7 @@
 package org.liquido.util;
 
-import javax.ws.rs.core.Response;
+
+import jakarta.ws.rs.core.Response;
 
 import java.util.Map;
 import java.util.function.Supplier;

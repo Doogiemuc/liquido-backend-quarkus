@@ -5,14 +5,14 @@ import com.twilio.exception.ApiException;
 import com.twilio.rest.verify.v2.service.entity.Challenge;
 import com.twilio.rest.verify.v2.service.entity.Factor;
 import com.twilio.rest.verify.v2.service.entity.NewFactor;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.liquido.user.UserEntity;
 import org.liquido.util.LiquidoConfig;
 import org.liquido.util.LiquidoException;
 
-import javax.enterprise.context.ApplicationScoped;
-import javax.inject.Inject;
 import java.nio.charset.StandardCharsets;
 import java.util.HexFormat;
 

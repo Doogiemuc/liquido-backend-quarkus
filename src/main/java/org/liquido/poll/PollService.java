@@ -1,6 +1,11 @@
 package org.liquido.poll;
 
 import io.quarkus.scheduler.Scheduler;
+import jakarta.annotation.security.RolesAllowed;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
+import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.graphql.NonNull;
 import org.liquido.security.JwtTokenUtils;
@@ -16,11 +21,6 @@ import org.liquido.vote.Matrix;
 import org.liquido.vote.RankedPairVoting;
 import org.liquido.vote.RightToVoteEntity;
 
-import javax.annotation.security.RolesAllowed;
-import javax.enterprise.context.ApplicationScoped;
-import javax.inject.Inject;
-import javax.transaction.Transactional;
-import javax.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;

@@ -1,5 +1,8 @@
 package org.liquido.poll;
 
+import jakarta.annotation.security.RolesAllowed;
+import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.graphql.*;
 import org.liquido.security.JwtTokenUtils;
@@ -11,9 +14,6 @@ import org.liquido.util.LiquidoException;
 import org.liquido.vote.BallotEntity;
 import org.liquido.vote.CastVoteResponse;
 
-import javax.annotation.security.RolesAllowed;
-import javax.inject.Inject;
-import javax.transaction.Transactional;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
