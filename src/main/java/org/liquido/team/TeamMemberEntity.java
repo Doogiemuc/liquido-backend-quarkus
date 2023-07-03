@@ -1,6 +1,9 @@
 package org.liquido.team;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import jakarta.persistence.Entity;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
@@ -8,8 +11,6 @@ import lombok.RequiredArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.liquido.user.UserEntity;
 
-import javax.persistence.Entity;
-import javax.persistence.OneToOne;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -22,7 +23,7 @@ import java.util.List;
 @EqualsAndHashCode(of={}, callSuper = true)    	// Compare teams by their Id only. teamName may change.
 @Entity(name = "team_members")
 public class TeamMemberEntity extends PanacheEntity {
-	@OneToOne
+	@ManyToOne
 	@lombok.NonNull
 	TeamEntity team;
 

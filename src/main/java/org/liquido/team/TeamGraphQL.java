@@ -1,6 +1,10 @@
 package org.liquido.team;
 
 import io.smallrye.common.constraint.NotNull;
+import jakarta.annotation.security.PermitAll;
+import jakarta.annotation.security.RolesAllowed;
+import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.graphql.*;
 import org.eclipse.microprofile.jwt.JsonWebToken;
@@ -10,10 +14,6 @@ import org.liquido.util.DoogiesUtil;
 import org.liquido.util.LiquidoException;
 import org.liquido.util.Lson;
 
-import javax.annotation.security.PermitAll;
-import javax.annotation.security.RolesAllowed;
-import javax.inject.Inject;
-import javax.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -133,6 +133,7 @@ public class TeamGraphQL {
 	@Transactional
 	@Mutation
 	@Description("Join an existing team with an inviteCode")
+	//TODO: @PermitAll  Do I need it? Works without.
 	public TeamDataResponse joinTeam(
 			@Name("inviteCode") @NotNull String inviteCode,
 			@Name("member") @NotNull UserEntity member  //grouped as one argument of type UserModel: https://graphql-rules.com/rules/input-grouping
@@ -161,7 +162,7 @@ public class TeamGraphQL {
 		}
 
 		try {
-			//member.persist();
+			member.persist();
 			team.addMember(member, TeamMemberEntity.Role.MEMBER);   // Add to java.util.Set. Will never add duplicate.
 			team.persist();
 			member.setLastTeamId(team.getId());

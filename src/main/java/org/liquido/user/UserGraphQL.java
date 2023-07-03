@@ -2,6 +2,12 @@ package org.liquido.user;
 
 import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.Mailer;
+import jakarta.annotation.security.PermitAll;
+import jakarta.annotation.security.RolesAllowed;
+import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.SecurityContext;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.graphql.*;
 import org.eclipse.microprofile.jwt.JsonWebToken;
@@ -15,12 +21,6 @@ import org.liquido.util.DoogiesUtil;
 import org.liquido.util.LiquidoConfig;
 import org.liquido.util.LiquidoException;
 
-import javax.annotation.security.PermitAll;
-import javax.annotation.security.RolesAllowed;
-import javax.inject.Inject;
-import javax.transaction.Transactional;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.SecurityContext;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -70,10 +70,10 @@ public class UserGraphQL {
 		return "Liquido GraphQL API";
 	}
 
-	@Context SecurityContext ctx;
+	@Context
+	SecurityContext ctx;
 
 	@Query
-	//@Authenticated
 	@Transactional
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)  // <= this already authenticates the JWT claim "groups"
 	public String requireUser() throws LiquidoException {

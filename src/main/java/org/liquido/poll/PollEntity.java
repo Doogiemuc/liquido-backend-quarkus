@@ -1,6 +1,8 @@
 package org.liquido.poll;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
@@ -10,8 +12,6 @@ import org.liquido.team.TeamEntity;
 import org.liquido.vote.BallotEntity;
 import org.liquido.vote.Matrix;
 
-import javax.persistence.*;
-import javax.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;

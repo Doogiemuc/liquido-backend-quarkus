@@ -5,11 +5,15 @@ import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
+import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
+import jakarta.transaction.Transactional;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.liquido.poll.BaseEntity;
 import org.liquido.poll.PollEntity;
@@ -24,9 +28,6 @@ import org.liquido.vote.BallotEntity;
 import org.liquido.vote.CastVoteResponse;
 import org.liquido.vote.RightToVoteEntity;
 
-import javax.inject.Inject;
-import javax.persistence.EntityManager;
-import javax.transaction.Transactional;
 import java.io.*;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -47,6 +48,7 @@ import static org.liquido.TestFixtures.*;
  * The result is an SQL script file, that can quickly be imported into the DB for future test runs.
  */
 @Slf4j
+@Disabled   // <<<<<<==== DO NOT run during regular maven build. Only manually on request
 @QuarkusTest
 public class TestDataCreator {
 

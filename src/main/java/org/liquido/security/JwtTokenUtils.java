@@ -1,6 +1,8 @@
 package org.liquido.security;
 
 import io.smallrye.jwt.build.Jwt;
+import jakarta.enterprise.context.RequestScoped;
+import jakarta.inject.Inject;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.jwt.JsonWebToken;
@@ -9,8 +11,6 @@ import org.liquido.user.UserEntity;
 import org.liquido.util.DoogiesUtil;
 import org.liquido.util.LiquidoConfig;
 
-import javax.enterprise.context.RequestScoped;
-import javax.inject.Inject;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
