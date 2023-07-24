@@ -1,4 +1,4 @@
-package org.liquido.poll;
+package org.liquido.model;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
@@ -6,8 +6,6 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.MappedSuperclass;
 import lombok.EqualsAndHashCode;
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.GenerationTime;
-import org.hibernate.annotations.GeneratorType;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.liquido.user.UserEntity;
 
@@ -26,10 +24,7 @@ public class BaseEntity extends PanacheEntity {
 	public LocalDateTime updatedAt;
 
 	@ManyToOne
-	@GeneratorType(
-			type = LoggedInUserGenerator.class,
-			when = GenerationTime.INSERT
-	)
+	@CreatedBy
 	public UserEntity createdBy;
 
 	public Long getId() {

@@ -15,7 +15,7 @@ import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.liquido.poll.BaseEntity;
+import org.liquido.model.BaseEntity;
 import org.liquido.poll.PollEntity;
 import org.liquido.poll.ProposalEntity;
 import org.liquido.team.TeamDataResponse;
@@ -61,7 +61,7 @@ public class TestDataCreator {
 
   String sampleDbFile = "import-testData.sql";
 
-	boolean purgeDb = false;
+	boolean purgeDb = true;
 	boolean createTestData = true;
 
 	/**
@@ -455,9 +455,8 @@ public class TestDataCreator {
 		});
 
 		TeamMemberEntity.deleteAll();
-		UserEntity.deleteAll();
 		TeamEntity.deleteAll();
-
+		UserEntity.deleteAll();
 
 	}
 

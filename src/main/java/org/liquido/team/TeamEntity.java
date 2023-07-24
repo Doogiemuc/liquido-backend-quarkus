@@ -9,7 +9,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-import org.liquido.poll.BaseEntity;
+import org.liquido.model.BaseEntity;
 import org.liquido.poll.PollEntity;
 import org.liquido.user.UserEntity;
 import org.liquido.util.DoogiesUtil;

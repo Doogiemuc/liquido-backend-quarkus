@@ -8,6 +8,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
+import org.liquido.model.BaseEntity;
 import org.liquido.user.UserEntity;
 
 import java.time.LocalDateTime;

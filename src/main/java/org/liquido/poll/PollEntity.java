@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
+import org.liquido.model.BaseEntity;
 import org.liquido.poll.converter.MatrixConverter;
 import org.liquido.team.TeamEntity;
 import org.liquido.vote.BallotEntity;
