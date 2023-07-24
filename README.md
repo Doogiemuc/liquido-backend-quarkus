@@ -1,8 +1,10 @@
 # liquido-backend-quarkus
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
+This is the java backend for http://www.liquido.vote developed with [Quarkus](https://quarkus.io).
 
-If you want to learn more about Quarkus, please visit its website: https://quarkus.io/ .
+LIQUIDO is a free, secure and open eVoting application. 
+
+
 
 ## Running the application in dev mode
 

@@ -5,6 +5,7 @@
  * 2023-06-23 GREEN Test with complete Happy Case
  * 2023-07-04 Upgraded to Quarkus 3.1.3.Final
  * 2023-07-04 Working on native build
+ * 2023-07-24 CreatedBy is now automatically added in Entities
 
 TODO:
 
@@ -30,7 +31,7 @@ https://quarkus.io/guides/hibernate-orm-panache
 
 
 
-# FURTHER LINNKS & REFERENCES
+# FURTHER LINKS & REFERENCES
 
 ### Changes to the Spring version of the backend
 
