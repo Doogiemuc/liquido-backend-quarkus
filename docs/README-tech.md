@@ -1,17 +1,42 @@
 # LIQUIDO - Technical Reference
 
+# CHANGES
+
+ * 2023-06-23 GREEN Test with complete Happy Case
+ * 2023-07-04 Upgraded to Quarkus 3.1.3.Final
+ * 2023-07-04 Working on native build
+
+TODO:
+
+ * https://stackoverflow.com/questions/56871033/how-to-fix-org-apache-commons-logging-impl-logfactoryimpl-not-found-in-native
+
+# TESTING
+
+The first time you run `TestDataCreator` you must drop-and-create the database! All
+future tests will rely on this data.
+
+MAYBE: implement a maven pre-test-execution
+
+# DATABASE
+
+### ORM Database mapping
+
+We use Quarkus-Panache
+https://quarkus.io/guides/hibernate-orm-panache
+
+
+
+----
+
+
+
+# FURTHER LINNKS & REFERENCES
 
 ### Changes to the Spring version of the backend
 
  * New entity TeamMember
  * JWT contains email as subject instead of user.id
 
-
-
-### ORM Database mapping
-
-We use Quarkus-Panache
-https://quarkus.io/guides/hibernate-orm-panache
 
 
 ### GraphQL Links & References
@@ -35,4 +60,3 @@ https://webauthn.guide
 
 Nice funny written article
 https://medium.com/digitalfrontiers/webauthn-with-spring-security-c9175aae3e06
-

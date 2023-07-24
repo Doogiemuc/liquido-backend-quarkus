@@ -6,12 +6,17 @@ import jakarta.inject.Inject;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.jwt.JsonWebToken;
+import org.liquido.team.TeamDataResponse;
 import org.liquido.team.TeamEntity;
+import org.liquido.team.TeamMemberEntity;
 import org.liquido.user.UserEntity;
 import org.liquido.util.DoogiesUtil;
 import org.liquido.util.LiquidoConfig;
+import org.liquido.util.LiquidoException;
 
+import java.time.LocalDateTime;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -58,39 +63,53 @@ public class JwtTokenUtils {
 				.sign();
 	}
 
-	/*
-	 * Validates if a token has the correct signature and is not expired or unsupported.
-	 * @return true when token is valid
-	 * @throws LiquidoException when token is invalid.
-
-	public boolean validateToken(String authToken) throws LiquidoException {
-		try {
-			Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(authToken);
-			return true;
-		} catch (SignatureException ex) {
-			log.debug("Invalid JWT signature");
-			throw new LiquidoException(LiquidoException.Errors.JWT_TOKEN_INVALID, "Incorrect signature");
-		} catch (MalformedJwtException ex) {
-			log.debug("Invalid JWT token");
-			throw new LiquidoException(LiquidoException.Errors.JWT_TOKEN_INVALID, "Malformed jwt token");
-		} catch (ExpiredJwtException ex) {
-			log.debug("Expired JWT token");
-			throw new LiquidoException(LiquidoException.Errors.JWT_TOKEN_EXPIRED, "Token expired. Refresh required.");
-		} catch (UnsupportedJwtException ex) {
-			log.debug("Unsupported JWT token");
-			throw new LiquidoException(LiquidoException.Errors.JWT_TOKEN_INVALID, "Unsupported JWT token");
-		} catch (IllegalArgumentException ex) {
-			log.debug("JWT claims string is empty.");
-			throw new LiquidoException(LiquidoException.Errors.JWT_TOKEN_INVALID, "Illegal argument token");
-		}
-	}
-
-	 */
 
 
+	/** the currently logged in user */
 	private UserEntity currentUser = null;
 
+	/**
+	 * The team that this user is currently logged in.
+	 * (One user can be member of several teams.)
+	 */
 	private TeamEntity currentTeam = null;
+
+
+	/**
+	 * Login a user into his team and generate a JWT token.
+	 * If team is not given and user is member of multiple teams, then he will be logged into the last one he was using,
+	 * or otherwise the first team in his list.
+	 * @param user a user that wants to log in
+	 * @param team (optional) the team to log in. A user can be member in several teams.
+	 *             If team is not provided, then user will be logged into his last team.
+	 * @return CreateOrJoinTeamResponse
+	 * @throws LiquidoException when user has no teams (which should never happen)
+	 *   or when user with that email is not member of this team
+	 */
+	public TeamDataResponse doLoginInternal(UserEntity user, TeamEntity team) throws LiquidoException {
+		if (team == null) {
+			List<TeamEntity> teams = TeamMemberEntity.findTeamsByMember(user);
+			if (teams.size() == 0) {
+				log.warn("User ist not member of any team. This should not happen: " + user);
+				throw new LiquidoException(LiquidoException.Errors.UNAUTHORIZED, "Cannot login. User is not member of any team " + user);
+			} else if (teams.size() == 1) {
+				team = teams.get(0);
+			} else {
+				team = teams.stream().filter(t -> t.id == user.lastTeamId).findFirst().orElse(teams.get(0));
+			}
+		}
+		if (team.getMemberByEmail(user.email, null).isEmpty()) {
+			throw new LiquidoException(LiquidoException.Errors.UNAUTHORIZED, "Cannot login. User is not member of this team! " + user);
+		}
+		user.setLastLogin(LocalDateTime.now());
+		user.setLastTeamId(team.getId());
+		user.persist();
+		log.debug("LOGIN " + user.toStringShort() + " into team '" + team.getTeamName() + "'");
+		String jwt = generateToken(user.email, team.id, team.isAdmin(user));
+		//TODO: authenticateInSecurityContext(user.getId(), team.getId(), jwt);
+		return new TeamDataResponse(team, user, jwt);
+	}
+
 
 	/**
 	 * Get the currently logged-in user.
@@ -110,6 +129,17 @@ public class JwtTokenUtils {
 		}
 		this.currentUser = userOpt.get();
 		return userOpt;
+	}
+
+	/**
+	 * Manually set the currently logged in user (and team). This is used
+	 * @param user
+	 * @param team
+	 */
+	public void setCurrentUserAndTeam(UserEntity user, TeamEntity team) {
+		if (user == null) throw new RuntimeException("Cannot login NULL");
+		this.currentUser = user;
+		this.currentTeam = team;
 	}
 
 	public boolean isAdmin() {

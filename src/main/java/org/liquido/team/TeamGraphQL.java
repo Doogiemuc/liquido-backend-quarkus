@@ -56,7 +56,7 @@ public class TeamGraphQL {
 		return teamOpt.orElseThrow(LiquidoException.supply(Errors.UNAUTHORIZED, "Cannot get team. User must be logged into a team!"));
 	}
 
-	// small side note: The loginWithJWT, createTeam or joinTeam requests all return exactly the same response format! I like!
+	// small side note: The login, createTeam or joinTeam requests all return exactly the same response format! I like!
 
 
 	@Mutation
@@ -103,19 +103,13 @@ public class TeamGraphQL {
 		// Create a new auth Factor
 		//TODO: twilioVerifyClient.createFactor(admin);  //  After a factor has been created, it must still be verified
 
+		admin.persist();   // This will set the ID on UserEntity admin
+		jwtTokenUtils.setCurrentUserAndTeam(admin, null);   //BUGFIX: Also set createdBy in TeamEntity
 		TeamEntity team = new TeamEntity(teamName, admin);
 		team.persist();
-		admin.setLastTeamId(team.getId());
-		admin.setLastLogin(LocalDateTime.now());
-		admin.persist();   // This will set the ID on UserEntity admin
 
 		log.info("CREATE NEW TEAM: " + team);
-		String jwt = jwtTokenUtils.generateToken(admin.email, team.id, true);
-
-		//BUGFIX: Authenticate new user in spring's security context, so that access restricted attributes such as isLikeByCurrentUser can be queried via GraphQL.
-		//authUtil.authenticateInSecurityContext(member.id, team.id, jwt);
-
-		return new TeamDataResponse(team, admin, jwt);
+		return jwtTokenUtils.doLoginInternal(admin, team);
 	}
 
 	/**
@@ -168,11 +162,8 @@ public class TeamGraphQL {
 			member.setLastTeamId(team.getId());
 			member.setLastLogin(LocalDateTime.now());
 			member.persist();
-			log.info("JOIN TEAM: User <" + member.email + "> joined team: " + team);
-			String jwt = jwtTokenUtils.generateToken(member.email, team.id, false);
-			//BUGFIX: Authenticate new user in spring's security context, so that access restricted attributes such as isLikeByCurrentUser can be queried via GraphQL.
-			//authUtil.authenticateInSecurityContext(member.id, team.id, jwt);
-			return new TeamDataResponse(team, member, jwt);
+			log.info("JOIN TEAM " + member.toStringShort() + " joined team: " + team);
+			return jwtTokenUtils.doLoginInternal(member, team);
 		} catch (Exception e) {
 			throw new LiquidoException(Errors.INTERNAL_ERROR, "Error: Cannot join team.", e);
 		}

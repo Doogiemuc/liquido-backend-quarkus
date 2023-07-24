@@ -7,7 +7,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
-import org.liquido.poll.BaseEntity;
+import org.liquido.model.BaseEntity;
 import org.liquido.vote.RightToVoteEntity;
 
 import java.time.LocalDateTime;
