@@ -26,13 +26,11 @@ public class ProposalEntity extends BaseEntity {
 	//TODO: Add a Proposal.UUID   Clients shouldn't use our DB internal ID in castVoteRequests
 
 	/**
-	 * Title of an idea/proposal.
-	 * Title must be unique throughout all proposals!
+	 * Title of a proposal.
 	 */
 	@NotNull   // title must really not be null :-)
 	@lombok.NonNull
-	@Column(unique = true)
-	//TODO: @Size(min=24, message = "Proposal title must be at least some characters long.")
+	//@Column(unique = true)  //Title is not unique throughout ALL proposals in the DB. But MUST be unique within the poll! This is checked in PollService.addProposal. OK!
 	public String title;
 
 	/**

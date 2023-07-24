@@ -150,9 +150,9 @@ public class TeamGraphQL {
 		} else {
 			// Anonymous request. Must provide new email and mobilephone
 			Optional<UserEntity> userByMail = UserEntity.findByEmail(member.email);
-			if (userByMail.isPresent()) throw new LiquidoException(Errors.USER_EMAIL_EXISTS, "Sorry, another user with that email already exists: "+member.email);
+			if (userByMail.isPresent()) throw new LiquidoException(Errors.USER_EMAIL_EXISTS, "Cannot JoinTeam: Another user with that email already exists: "+member.email);
 			Optional<UserEntity> userByMobilephone = UserEntity.findByMobilephone(member.mobilephone);
-			if (userByMobilephone.isPresent()) throw new LiquidoException(Errors.USER_MOBILEPHONE_EXISTS, "Sorry, another user with that mobile phone number already exists: "+member.mobilephone);
+			if (userByMobilephone.isPresent()) throw new LiquidoException(Errors.USER_MOBILEPHONE_EXISTS, "Cannot JoinTeam: Another user with that mobile phone number already exists: "+member.mobilephone);
 		}
 
 		try {

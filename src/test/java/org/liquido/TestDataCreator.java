@@ -87,16 +87,28 @@ public class TestDataCreator {
 		}
 		if (createTestData) {
 			log.info("Creating testdata ...");
+
+			// Create a new team
 			TeamDataResponse adminRes = createTeam(teamName, adminEmail, 5);
+
+			// Let another user join that team
 			TeamDataResponse memberRes = joinTeam(adminRes.team.inviteCode, memberEmail);
 
-			// Admin creates a poll
-			PollEntity poll = createPoll(pollTitle, adminRes.jwt);
+			// MAke sure that team has enough members to create more polls & proposals
+			adminRes.team = ensureNumMembers(adminRes.team.id, 10);
 
-			// add proposals to poll
+			// Admin creates some polls with proposals
+			PollEntity poll;
+			poll = createPoll(pollTitle+"_1", adminRes.jwt);
+			poll = seedRandomProposals(poll, adminRes.team, 3);
+
+			poll = createPoll(pollTitle+"_2", adminRes.jwt);
+			poll = seedRandomProposals(poll, adminRes.team, 4);
+
+			poll = createPoll(pollTitle+"_finished", adminRes.jwt);
 			poll = seedRandomProposals(poll, adminRes.team, 5);
 
-			// Start the voting phase of this poll
+			// Start the voting phase of a poll
 			poll = startVotingPhase(poll.getId(), adminRes.jwt);
 
 			// A member casts a vote
@@ -212,15 +224,25 @@ public class TestDataCreator {
 				.extract().jsonPath().getObject("data.createPoll", PollEntity.class);
 	}
 
+	public TeamEntity ensureNumMembers(Long teamId, int requiredMembers) {
+		TeamEntity team = TeamEntity.<TeamEntity>findByIdOptional(teamId).orElseThrow(() -> new RuntimeException("No team with id=" + teamId));
+		int numMembers = team.members.size();
+		if (requiredMembers < numMembers) {
+			TeamDataResponse res = null;
+			for (int i = 0; i < requiredMembers; i++) {
+				res = joinTeam(team.getInviteCode(), "member" + i + numMembers + "_" + now + "@liquido.vote");
+			}
+			return loadOwnTeam(res.jwt);  //reload team
+		} else {
+			return team;
+		}
+	}
+
 	public PollEntity seedRandomProposals(PollEntity poll, TeamEntity team, int numProposals) {
 		//Test Precondition: Make sure that there are enough members in the poll's team
 		int numMembers = team.getMembers().size();   // poll.getTeam()  is not filled here in the client!
 		if (numMembers < numProposals) {
-			TeamDataResponse res = null;
-			for (int i = 0; i < numProposals - numMembers; i++) {
-				 res = joinTeam(team.getInviteCode(), "added" + i + "_" + now+"@liquido.vote");
-			}
-			team = loadOwnTeam(res.jwt);  //reload team
+			throw new RuntimeException("Cannot seed "+numProposals + " proposals, because there are only " + numMembers + " members in "+team);
 		}
 
 		List<UserEntity> users = team.getMembers().stream().map(TeamMemberEntity::getUser).toList();
