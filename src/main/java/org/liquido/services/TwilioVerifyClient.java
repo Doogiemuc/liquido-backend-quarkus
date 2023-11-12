@@ -37,7 +37,7 @@ public class TwilioVerifyClient {
 
 	/**
 	 * Register a new user. This will create an auth Factor
-	 * and store the factor.uri in the user entity.
+	 * and store the factor.uri and factor.sid in the UserEntity.
 	 * <p>
 	 * https://www.twilio.com/docs/verify/quickstarts/totp#create-a-new-totp-factor
 	 *
@@ -80,7 +80,7 @@ public class TwilioVerifyClient {
 	}
 
 	/**
-	 * Before the factor can be used it must be validated once.
+	 * Before the factor can be used it must be verified once.
 	 * @param user newly registered user
 	 * @param authToken 6-digit code from Authy app
 	 * @return true if authToken was valid and factor is VERIFIED.

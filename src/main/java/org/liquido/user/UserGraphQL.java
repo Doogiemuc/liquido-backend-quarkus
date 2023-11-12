@@ -38,9 +38,7 @@ public class UserGraphQL {
 	@Inject
 	Mailer mailer;
 
-	/* DOES NOT WORK
-	@Context
-	SecurityContext securityContext;
+	/*
 
 	@Inject
 	io.smallrye.graphql.api.Context smallryeContext;
@@ -71,14 +69,21 @@ public class UserGraphQL {
 		return "Liquido GraphQL API";
 	}
 
+	/** Quarkus security context can directly be injected */
 	@Context
 	SecurityContext ctx;
 
+	/**
+	 * For debugging: Log information about the currently logged in user. Extracted from the JWT.
+	 * @return a JSON message with the user's email
+	 * @throws LiquidoException When user is not logged in (no JWT was passed)
+	 */
 	@Query
 	@Transactional
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)  // <= this already authenticates the JWT claim "groups"
 	public String requireUser() throws LiquidoException {
 		log.info("SecurityContext="+ ctx);
+		log.info("SecurityContext.getUserPrincipal()" + ctx.getUserPrincipal());
 		//log.info("VertexRequest="+request);
 		//log.info("SecurityIdentity="+securityIdentity);
 		log.info("JsonWebToken="+jwt);
@@ -96,18 +101,19 @@ public class UserGraphQL {
 
 
 	/**
-	 * Before the Authy app can be used for login, the authy factor must be verified once.
-	 * User MUST be logged in for this verify call!
-	 * @param authToken first auth token from the Authy mobile app
+	 * Before the Authy app can be used for login, the authy factor, ie. the Authy Mobile App, must be verified once.
+	 * The user MUST be logged in for this call and provide a TOTP from the Authy App.
+	 *
+	 * @param authToken first auth token (TOTP) from the Authy mobile app
 	 * @return success message or HTTP 401 error
-	 * @throws LiquidoException if user for jwetis not found
+	 * @throws LiquidoException if user for JWT is not found
 	 */
 	@Mutation
-	@Description("Verify a new Authy Factor. User needs to enter a first one time token.")
+	@Description("Verify a new factor for authentication, ie. the Authy Mobile App. User must be logged in and must send one first TOTP from the authy app.")
 	@Transactional
 	@RolesAllowed("LIQUIDO_USER")
 	public String verifyAuthyFactor(
-			@Name("authToken") String authToken
+			@Name("authToken") @Description("Time based one time password (TOTP) from the Authy mobile app") String authToken
 	) throws LiquidoException {
 		String email = jwt.getSubject();    //DOES NOT WORK: securityContext.getUserPrincipal().getName();
 		UserEntity user = UserEntity.findByEmail(email)

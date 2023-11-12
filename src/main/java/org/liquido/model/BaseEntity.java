@@ -11,7 +11,7 @@ import org.liquido.user.UserEntity;
 
 import java.time.LocalDateTime;
 
-@EqualsAndHashCode(callSuper = false)  //TODO: test equals and hashcode on my LiquidoBaseEntitry.  do USers and polls equal correctly?
+@EqualsAndHashCode(callSuper = false)  //TODO: test equals and hashcode on my LiquidoBaseEntity.  do Users and polls equal correctly?
 @MappedSuperclass
 public class BaseEntity extends PanacheEntity {
 

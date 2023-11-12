@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.OneToOne;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -11,6 +12,7 @@ import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.eclipse.microprofile.graphql.DefaultValue;
 import org.eclipse.microprofile.graphql.Ignore;
+import org.liquido.security.webauthn.WebAuthnCredential;
 import org.liquido.util.DoogiesUtil;
 
 import java.time.LocalDateTime;
@@ -84,20 +86,28 @@ public class UserEntity extends PanacheEntity {
 	 * This URI contains a secret!
 	 * Used for generating a QR code that can then be scanned with the Authy App.
 	 */
-	@Ignore  // ignore in GraphQL
+	@Ignore  //SECURITY IMPORTANT: ignore in GraphQL and JSON
 	@JsonIgnore
 	public String totpFactorUri;
 
 	/**
 	 * SID of this user's authy Factor ("YF......")
 	 */
-	@Ignore  // ignore in GraphQL and JSON
+	@Ignore  //SECURITY IMPORTANT: ignore in GraphQL and JSON
 	@JsonIgnore
 	public String totpFactorSid;
 
 	/** Last team the user was logged in. This is used when user is member of multiple teams. */
 	@DefaultValue(value = "-1")  // for graphQL
 	public long lastTeamId = -1;  // MUST init, so that GraphQL will not put this field into UserModelInput
+
+	/**
+	 * Passwordless authentication with FaceID, fingerprint or hardware token.
+	 */
+	@OneToOne
+	@Ignore  //SECURITY IMPORTANT: ignore in GraphQL and JSON
+	@JsonIgnore
+	public WebAuthnCredential webAuthnCredential;
 
 	/** timestamp of last login */
 	LocalDateTime lastLogin = null;

@@ -31,9 +31,7 @@ import org.liquido.vote.RightToVoteEntity;
 import java.io.*;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
@@ -58,6 +56,7 @@ public class TestDataCreator {
 	@Inject
 	LiquidoConfig config;
 
+	Random rand = new Random();
 
   String sampleDbFile = "import-testData.sql";
 
@@ -94,10 +93,10 @@ public class TestDataCreator {
 			// Let another user join that team
 			TeamDataResponse memberRes = joinTeam(adminRes.team.inviteCode, memberEmail);
 
-			// MAke sure that team has enough members to create more polls & proposals
+			// Make sure that team has enough members to create more polls & proposals
 			adminRes.team = ensureNumMembers(adminRes.team.id, 10);
 
-			// Admin creates some polls with proposals
+			// Create some polls in ELABORATION
 			PollEntity poll;
 			poll = createPoll(pollTitle+"_1", adminRes.jwt);
 			poll = seedRandomProposals(poll, adminRes.team, 3);
@@ -105,10 +104,18 @@ public class TestDataCreator {
 			poll = createPoll(pollTitle+"_2", adminRes.jwt);
 			poll = seedRandomProposals(poll, adminRes.team, 4);
 
-			poll = createPoll(pollTitle+"_finished", adminRes.jwt);
-			poll = seedRandomProposals(poll, adminRes.team, 5);
+			// Like a proposal
+			ProposalEntity prop = poll.getProposals().stream().findFirst().get();
+			poll = likeProposal(poll, prop.id, adminRes.jwt);
 
-			// Start the voting phase of a poll
+			// Create Poll in VOTING with started voting phase
+			poll = createPoll(pollTitle+" in voting", adminRes.jwt);
+			poll = seedRandomProposals(poll, adminRes.team, 4);
+			poll = startVotingPhase(poll.getId(), adminRes.jwt);
+
+			// Create a FINISHED poll
+			poll = createPoll(pollTitle+" finished", adminRes.jwt);
+			poll = seedRandomProposals(poll, adminRes.team, 5);
 			poll = startVotingPhase(poll.getId(), adminRes.jwt);
 
 			// A member casts a vote
@@ -123,7 +130,7 @@ public class TestDataCreator {
 			// Verify ballot of admin
 			BallotEntity ballot = verifyBallot(poll.getId(), adminCastVoteResponse.getBallot().getChecksum());
 
-			// Finish the voting phase of the poll
+			// Finish the voting phase of this poll
 			ProposalEntity winner = finishVotingPhase(poll.getId(), adminRes.jwt);
 
 			// Print winner
@@ -238,6 +245,24 @@ public class TestDataCreator {
 		}
 	}
 
+	private String getRandomIconName() {
+		String[] icons = {"grimace", "grin", "grin-alt", "grin-beam", "grin-beam-sweat", "grin-hearts", "grin-squint", "grin-squint-tears", "grin-stars", "grin-tears", "grin-tongue", "grin-tongue-squint", "grin-tongue-wink", "grin-wink", "grip-horizontal", "grip-vertical", "h-square", "hammer", "hamsa", "hand-holding", "hand-holding-heart", "hand-holding-usd", "hand-lizard", "hand-paper", "hand-peace", "hand-point-down", "hand-point-left", "hand-point-right", "hand-point-up", "hand-pointer", "hand-rock", "hand-scissors", "hand-spock", "hands", "hands-helping", "handshake", "hanukiah", "hashtag", "hat-wizard", "hdd", "headphones"};
+		return icons[rand.nextInt(icons.length)];
+	}
+
+	public static final String lorem = "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.";
+
+	private String loremIpsum(int len) {
+		return lorem.substring(0, Math.min(len, lorem.length()));
+	}
+
+	/**
+	 * Seed some random proposals. Each proposal will be created by one member of the team.
+	 * @param poll
+	 * @param team
+	 * @param numProposals
+	 * @return the poll which now has numProposals
+	 */
 	public PollEntity seedRandomProposals(PollEntity poll, TeamEntity team, int numProposals) {
 		//Test Precondition: Make sure that there are enough members in the poll's team
 		int numMembers = team.getMembers().size();   // poll.getTeam()  is not filled here in the client!
@@ -248,8 +273,9 @@ public class TestDataCreator {
 		List<UserEntity> users = team.getMembers().stream().map(TeamMemberEntity::getUser).toList();
 		for (int i = 0; i < numProposals; i++) {
 			String title = "Test Proposal " + i + "_" + now;
-			String description = "Description " + i + "_" + now + " for a very nice proposal from TestDataCreator";
-			String icon = "heart";
+			String description = "Proposal " + i + "_" + now + " from TestDataCreator. ";
+			description += loremIpsum(rand.nextInt(300));
+			String icon = getRandomIconName();
 			TeamDataResponse res = devLogin(users.get(i).getEmail());
 			poll = addProposal(poll.getId(), title, description, icon, res.jwt);
 		}
@@ -271,6 +297,22 @@ public class TestDataCreator {
 				.log().all()
 				//TODO: https://stackoverflow.com/questions/64167768/restassured-unrecognized-field-not-marked-as-ignorable
 				.extract().jsonPath().getObject("data.addProposal", PollEntity.class);
+	}
+
+	public PollEntity likeProposal(PollEntity poll, Long propId, String jwt) {
+		Iterator<ProposalEntity> it = poll.getProposals().iterator();
+		ProposalEntity prop = null;
+		while(it.hasNext()) {
+			prop = it.next();
+			if (prop.id == propId) break;
+		}
+		if (prop == null) throw new RuntimeException("Cannot find prop.id="+prop.id+" in "+poll);
+
+		String query = "mutation likeProposal($pollId: BigInteger!, $proposalId: BigInteger! ) {" +
+				" likeProposal(pollId: $pollId, proposalId: $proposalId) " + JQL_POLL + " }";
+		Lson vars = new Lson("pollId", poll.id).put("proposalId", propId);
+		return sendGraphQL(query, vars, jwt)
+				.extract().jsonPath().getObject("data.likeProposal", PollEntity.class);
 	}
 
 	public String getVoterToken(String tokenSecret, String jwt) {

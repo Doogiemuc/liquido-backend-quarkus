@@ -1,0 +1,25 @@
+@startuml
+
+title Register as new user
+
+actor User
+participant "Mobile Browser" as browser
+participant "Authentication Device\n(e.g. iPhone or USB Token)" as authenticator
+participant "LIQUIDO backend\nAuthentication server" as server
+
+User -> browser: User visit\nliquido.vote website
+browser -> server: I want to register!
+server --> browser: challenge
+
+note right of browser: browser/client initiates\ncreation of public/private key-pair
+browser -> authenticator: ""navigator.credentials.create({""\n""  username: "..." ""\n""})""
+activate authenticator
+
+authenticator --> browser: ""return newCredentialInfo{publicKey: ...}""
+deactivate authenticator
+
+browser -> server: send publicKey, attestation and challenge to server
+server -> server: Verify Challenge,\ncheck attestation and\nstore public key
+server --> browser: Device registered!
+
+@enduml
