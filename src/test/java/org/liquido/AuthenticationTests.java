@@ -4,6 +4,7 @@ import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.MockMailbox;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
+import io.restassured.http.ContentType;
 import io.restassured.response.ValidatableResponse;
 import io.smallrye.jwt.build.Jwt;
 import jakarta.inject.Inject;
@@ -25,8 +26,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.liquido.TestFixtures.CREATE_OR_JOIN_TEAM_RESULT;
 import static org.liquido.TestFixtures.GRAPHQL_URI;
@@ -71,6 +71,8 @@ public class AuthenticationTests {
 	public void pingApi() {
 		String query = "{ ping }";
 		TestFixtures.sendGraphQL(query);
+		// my sendGraphQL() helper method already checks for errors.
+		// so no additional assertions necessary here.
 	}
 
 
@@ -96,6 +98,10 @@ public class AuthenticationTests {
 
 	}
 
+	/**
+	 * The the login that we use during development and testing.
+	 * This is only possible with a secret devLoginToken.
+	 */
 	@Test
 	public void testDevLogin() {
 		// GIVEN a random user
@@ -113,9 +119,12 @@ public class AuthenticationTests {
 		// THEN a valid TeamDataResponse for this user with a JWT is returned.
 		assertEquals(teamData.user.email, user.email);
 		assertNotNull(teamData.jwt);
-
 	}
 
+	/**
+	 * Test login flow via email. This can be tested with the {@link MockMailbox} provided by quarkus.
+	 * The test checks for the actual link in the email body.
+	 */
 	@Test
 	@Transactional
 	public void loginViaEmail() {
@@ -149,10 +158,10 @@ public class AuthenticationTests {
 		assertNotNull(resToken);
 		log.info("Successfully received login link for email: " + user.email + " with token: " + resToken);
 
-		// ========= Admin: Login with token from email
+		// ========= Login with token from email
 
 		String loginQuery = "query loginWithEmailToken($email: String, $authToken: String) {" +
-				"loginWithEmailToken(email: $email, authToken: $authToken)" + TestFixtures.CREATE_OR_JOIN_TEAM_RESULT + "}";
+				"loginWithEmailToken(email: $email, authToken: $authToken)" + CREATE_OR_JOIN_TEAM_RESULT + "}";
 		Lson loginVars = new Lson().put("email", user.email).put("authToken", resToken);
 		ValidatableResponse loginRes = TestFixtures.sendGraphQL(loginQuery, loginVars);
 		TeamDataResponse teamDataResponse = loginRes.extract().jsonPath().getObject("data.loginWithEmailToken", TeamDataResponse.class);
@@ -163,7 +172,15 @@ public class AuthenticationTests {
 	//TODO: test Twillio Login via GraphQL
 
 	/**
-	 * Twilio API + Authy App =  time based one time password (TOTP) authentication
+	 * Test authentication with time based OneTimePassword (TOTP).
+	 *
+	 * Twilio API + Authy App
+	 *
+	 * This test method calls the twillioVerifyClient methods directly. See below for the GraphQL calls.
+	 *
+	 * <b>This test can only be run in debug mode. You must manually enter the TOTP.
+	 * This is the whole reason for 2FA in the first place: It cannot be done by a machine!!! :-)</b>
+	 *
 	 *
 	 * General Doc
 	 * https://www.twilio.com/docs/verify/quickstarts/totp
@@ -175,11 +192,12 @@ public class AuthenticationTests {
 	 * (Source: https://github.com/twilio/authy-java)
 	 */
 	@Test
-	@Disabled  // Don't want to flood the API.
+	@Disabled  // Disabled by default. Can only be run manually in debug mode.
 	@TestTransaction
 	public void testCreateTotpFactor() throws LiquidoException {
 		log.info("Twilio ACCOUNT_SID=" + config.twilio().accountSid());
 
+		// GIVEN a new user
 		Long now = new Date().getTime();
 		UserEntity newUser = new UserEntity(
 				"TestUser" + now,
@@ -188,16 +206,21 @@ public class AuthenticationTests {
 		);
 		newUser.persistAndFlush();  // MUST flush!
 
+		// Step 1: Register authentication factor for new user
 		twilioVerifyClient.createFactor(newUser);
 
 		log.info("Create new " + newUser.toStringShort());
 		log.info("TOTP URI: "+newUser.getTotpFactorUri());
 
-		String firstToken = "";
+		// Step 2: Factor must be "verified" once, before it can be used
+		log.debug("You must now manually set a TOTP from the Twillio App into this variable in your IDE debugger:");
+		String firstToken = "";     // <===== SET A BREAKPOINT HERE AND UPDATE THIS VALUE MANUALLY IN YOUR DEBUGGER !!!!!
 		boolean verified = twilioVerifyClient.verifyFactor(newUser, firstToken);
 		assertTrue(verified, "Cannot verify Authy factor");
 
-		String loginToken = "";
+		// Step 3: Now you can log in with that factor.
+		log.debug("You must now manually set a second TOTP from the Twillio App into this variable in your IDE debugger:");
+		String loginToken = "";      // <===== SET A BREAKPOINT HERE AND UPDATE THIS VALUE MANUALLY IN YOUR DEBUGGER !!!!!
 		boolean approved = twilioVerifyClient.loginWithAuthyToken(newUser, loginToken);
 		assertTrue(approved, "Cannot login with Authy token");
 
@@ -294,14 +317,63 @@ public class AuthenticationTests {
 
 	}
 
+	/**
+	 * Register as a new user and create a new team
+	 * @param adminEmail email of new user
+	 * @param teamName new teamname
+	 * @return team data and login information incl. JWT
+	 */
+	private TeamDataResponse createNewTeam(String adminName, String adminEmail, String teamName) {
+		long now = System.currentTimeMillis();
+
+		Lson admin = Lson.builder()
+				.put("name", adminName)
+				.put("email", adminEmail)
+				.put("mobilephone", "0151 555 " + now % 1000000)
+				.put("picture", "Avatar1.png");
+
+		// WHEN creating a new team via GraphQL
+		String query = "mutation createNewTeam($teamName: String, $admin: UserEntityInput) { " +
+				" createNewTeam(teamName: $teamName, admin: $admin) " + CREATE_OR_JOIN_TEAM_RESULT + "}";
+		Lson variables = Lson.builder()
+				.put("teamName", teamName)
+				.put("admin", admin);
+		String body = String.format("{ \"query\": \"%s\", \"variables\": %s }", query, variables);
+
+		TeamDataResponse res = given() //.log().body()
+				.contentType(ContentType.JSON)
+				.body(body)
+				.when()
+				.post(GRAPHQL_URI)
+				.then()
+				.statusCode(200)  // But be careful: GraphQL always returns 200, so we need to
+				.body("errors", anyOf(nullValue(), hasSize(0)))		// check for no GraphQL errors: []
+				.body("data.createNewTeam.team.teamName", is(teamName))
+				.body("data.createNewTeam.user.id", greaterThan(0))
+				.body("data.createNewTeam.user.email", equalToIgnoringCase(adminEmail))
+				.extract().jsonPath().getObject("data.createNewTeam", TeamDataResponse.class);
+
+		return res;
+	}
+
+
 	//TODO: test the full login flow incl. activating your Authy token via GraphQL
 	@Test
 	@Disabled
-	public void testVerifyAuthFactorViaGraphQL() {
-		String authToken = "";
+	public void testRegistrationAndAuthyFactor() {
+		// (1) Register as a new admin in a new team
+		Long now = System.currentTimeMillis() % 1000000;
+		String email = "authTestAdmin"+now+"@liquido.vote";
+		String name  = "AuthTest Admin"+now;
+		String teamName = "AuthTestTeam"+now;
+		TeamDataResponse res = this.createNewTeam(name, email, teamName);
+
+		// (2) verify the auth
+
+		String authToken = "";   // <===== MUST SET A BREAKPOINT HERE, and manually provide TOTP from Authy App
 
 		String query2 = "mutation verifyAuthFactor($authToken: String) {" +
-				" verifyAuthToken(authToken: $authToken) { message } }";
+				" verifyAuthFactor(authToken: $authToken) { message } }";
 		Lson variables2 = new Lson("authToken", "");
 
 		given().log().all()

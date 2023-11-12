@@ -65,7 +65,7 @@ public class JwtTokenUtils {
 
 
 
-	/** the currently logged in user */
+	/** (lazy loaded) currently logged in user */
 	private UserEntity currentUser = null;
 
 	/**
@@ -132,9 +132,9 @@ public class JwtTokenUtils {
 	}
 
 	/**
-	 * Manually set the currently logged in user (and team). This is used
-	 * @param user
-	 * @param team
+	 * Manually set the currently logged in user and team.
+	 * @param user a UserEntity
+	 * @param team the team the user shall be logged into
 	 */
 	public void setCurrentUserAndTeam(UserEntity user, TeamEntity team) {
 		if (user == null) throw new RuntimeException("Cannot login NULL");
@@ -149,7 +149,10 @@ public class JwtTokenUtils {
 	// I could also augment the Quarkus SecurityIdentity:  https://quarkus.io/guides/security-customization#security-identity-customization
 	// and add my LIQUIDO UserEntity as attribute
 
-
+	/**
+	 * Get the team that the user is currently logged into.
+	 * @return the user's current team
+	 */
 	public Optional<TeamEntity> getCurrentTeam() {
 		if (this.currentTeam != null) return Optional.of(currentTeam);
 		Optional<UserEntity> userOpt = getCurrentUser();
@@ -157,7 +160,7 @@ public class JwtTokenUtils {
 		Long teamId = Long.valueOf(jwt.getClaim(JwtTokenUtils.TEAM_ID_CLAIM));
 		Optional<TeamEntity> teamOpt = TeamEntity.findByIdOptional(teamId);
 		if (teamOpt.isEmpty()) {
-			log.warn("Valid JWT for " + userOpt.get().toStringShort() + ", but not logged into any team");
+			log.warn("Valid JWT for " + userOpt.get().toStringShort() + ", but not logged into any team. This should not happen.");
 			return teamOpt;
 		}
 		this.currentTeam = teamOpt.get();

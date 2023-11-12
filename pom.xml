@@ -89,11 +89,26 @@
       <artifactId>quarkus-mailer</artifactId>
       <scope>compile</scope>
     </dependency>
+    <!-- Passwordless authentication with time based one time passwords (TOTP) from the Twillio App-->
     <dependency>
       <groupId>com.twilio.sdk</groupId>
       <artifactId>twilio</artifactId>
       <version>9.3.0</version>
     </dependency>
+    <!-- WebAuthn passwordless authentication via fingerprint or faceId
+    <dependency>
+      <groupId>com.yubico</groupId>
+      <artifactId>webauthn-server-core</artifactId>
+      <version>2.5.0</version>
+      <scope>compile</scope>
+    </dependency -->
+
+    <!-- Quarkus passwordless authentication with fingerprint or FaceID -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-security-webauthn</artifactId>
+    </dependency>
+
     <dependency>
       <groupId>com.google.zxing</groupId>
       <artifactId>core</artifactId>

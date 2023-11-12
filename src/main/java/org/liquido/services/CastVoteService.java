@@ -196,7 +196,7 @@ public class CastVoteService {
 		if (voteOrderIds == null || voteOrderIds.size() == 0)
 			throw new LiquidoException(LiquidoException.Errors.CANNOT_CAST_VOTE, "Need voteOrder to cast vote");
 
-		// Convert voteOrderIds to list of actual ProposalEntitys from poll.
+		// Convert voteOrderIds to list of actual ProposalEntities from poll.
 		// Therefore voteOrderIds must only contain proposal.ids from this poll and it must not not contain any ID more than once!
 		List<ProposalEntity> voteOrder = new ArrayList<>();
 		Map<Long, ProposalEntity> pollProposals = new HashMap<>();

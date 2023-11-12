@@ -73,6 +73,7 @@ public class BallotEntity extends PanacheEntity {
 	 * And one proposal may be voted for by several voters => ManyToMany relationship
 	 */
 	//BE CAREFUL: Lists are not easy to handle in hibernate: https://vladmihalcea.com/hibernate-facts-favoring-sets-vs-bags/
+	//In Quarkus GraphQL this is serialized as a list of objects with id attribute, eg. [{id:4711},{id:4712},{id:4713}]
 	@NonNull
 	@NotNull
 	@ManyToMany(fetch = FetchType.EAGER)   // (cascade = CascadeType.MERGE, orphanRemoval = false)

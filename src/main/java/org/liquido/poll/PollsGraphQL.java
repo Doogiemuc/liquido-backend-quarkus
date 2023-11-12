@@ -170,7 +170,7 @@ public class PollsGraphQL {
 	 * @param proposal GraphQL context: the ProposalEntity
 	 * @return true, if currently logged in user is already a supporter of this proposal
 	 */
-	@Query
+	//@Query
 	@Description("Is a proposal already liked by the currently logged in user?")
 	public boolean isLikedByCurrentUser(@Source(name = "isLikedByCurrentUser")
 																				@Description("Is a proposal already liked by the currently logged in user?")

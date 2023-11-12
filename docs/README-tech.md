@@ -54,10 +54,26 @@ https://ard333.medium.com/authentication-and-authorization-using-jwt-on-quarkus-
 Get custom user from Security Context via custom AuthenticationContextImpl
 https://stackoverflow.com/questions/66695265/how-to-retrieve-securitycontext-in-a-quarkus-application
 
-### FIDO2 - WebAuthn - Passwordless login
+### WebAuthn - Passwordless login
+
+Checkout this lib. This looks promising. Nice article.
+https://developers.yubico.com/java-webauthn-server/
+
+Nice easy simple sequence diagram for webauthn registration and authentication:
+https://passwordless.id/protocols/webauthn/2_registration
 
 https://webauthn.io
 https://webauthn.guide
 
 Nice funny written article
 https://medium.com/digitalfrontiers/webauthn-with-spring-security-c9175aae3e06
+
+There is a Quarkus Lib. But that forces us to use reactive DB access. Which conflicts with our DB access.
+
+
+
+# TODO
+
+Checkout all the //TODO annotations in the code
+
+Checkout Quarkus SimpleScheduler for cleanup operations in the background. 
