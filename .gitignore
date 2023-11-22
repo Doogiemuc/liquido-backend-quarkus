@@ -32,14 +32,18 @@ nb-configuration.xml
 *.swp
 *.swo
 
+
+
 # patch
 *.orig
 *.rej
 
 # Local environment
+application.local
 .env
 
 # Exclude configurations with secrets
+*.pem
 application-prod.yml
 /config/application-test.properties
 /config/application-local.properties
