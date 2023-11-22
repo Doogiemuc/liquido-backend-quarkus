@@ -15,7 +15,9 @@ import static org.hamcrest.Matchers.*;
  */
 public class TestFixtures {
 
-	// Test Data
+	// Test Data Set
+
+	// every test data item will contain this "now" in one of its attributes
 	public static Long   now          = 4711L; //new Date().getTime() % 1000000;
 	public static String teamName     = "testTeam" + now;
 	public static String adminName    = "TestAdmin " + now;

@@ -4,8 +4,8 @@ title Register as new user
 
 actor User
 participant "Mobile Browser" as browser
-participant "Authentication Device\n(e.g. iPhone or USB Token)" as authenticator
 participant "LIQUIDO backend\nAuthentication server" as server
+participant "Authentication Device\n(e.g. iPhone or USB Token)" as authenticator
 
 User -> browser: User visit\nliquido.vote website
 browser -> server: I want to register!
