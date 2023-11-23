@@ -2,13 +2,11 @@ package org.liquido.user;
 
 import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.Mailer;
-import io.vertx.core.http.HttpServerRequest;
+import io.quarkus.vertx.http.runtime.CurrentVertxRequest;
 import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
-import jakarta.ws.rs.core.Context;
-import jakarta.ws.rs.core.SecurityContext;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.graphql.*;
 import org.eclipse.microprofile.jwt.JsonWebToken;
@@ -45,12 +43,15 @@ public class UserGraphQL {
 	@Inject
 	io.smallrye.graphql.api.Context smallryeContext;
 
-	@Inject
-	CurrentVertxRequest request;
+	// THIS DOES NOT WORK!!! with GraphQL
+	@Context
+	SecurityContext ctx;
+
 
 	// QuarkusSecurityIdentity can directly be injected. Roles are already set from JWT claims "groups".
 	// ((QuarkusHttpUser)request.getCurrent().user()).getSecurityIdentity()
 	// See docu https://quarkus.io/guides/security-oidc-bearer-token-authentication-tutorial
+	// This has been moved to my class JwtTokenUtils.java
 	@Inject
 	SecurityIdentity securityIdentity;
 	 */
@@ -60,22 +61,22 @@ public class UserGraphQL {
 	JsonWebToken jwt;
 
 	@Inject
+	CurrentVertxRequest request;
+
+	@Inject
 	TwilioVerifyClient twilioVerifyClient;
 
 	@Inject
 	LiquidoConfig config;
 
-	@Context
-	HttpServerRequest request;
-
 	/**
 	 * Ping the API for availability
 	 * @return some JSON info about API version
 	 */
-	@Query(value="ping")
+	@Query("ping")
 	public String pingApi() {
-		if (log.isDebugEnabled()) {
-			log.debug("Ping API from "+request.remoteAddress());
+		if (log.isDebugEnabled() && request != null) {
+			log.debug("Ping API from "+request.getCurrent().request().remoteAddress());
 		}
 		return Lson.builder()
 				.put("message", "Welcome to the LIQUIDO API")
@@ -84,9 +85,7 @@ public class UserGraphQL {
 	}
 
 
-	/** Quarkus security context can directly be injected */
-	@Context
-	SecurityContext ctx;
+
 
 	/**
 	 * For debugging: Log information about the currently logged in user. Extracted from the JWT.
@@ -97,9 +96,9 @@ public class UserGraphQL {
 	@Transactional
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)  // <= this already authenticates the JWT claim "groups"
 	public String requireUser() throws LiquidoException {
-		log.info("SecurityContext="+ ctx);
-		log.info("SecurityContext.getUserPrincipal()" + ctx.getUserPrincipal());
-		//log.info("VertexRequest="+request);
+		//log.info("SecurityContext="+ ctx);
+		//log.info("SecurityContext.getUserPrincipal()" + ctx.getUserPrincipal());
+		log.info("VertexRequest="+request);
 		//log.info("SecurityIdentity="+securityIdentity);
 		log.info("JsonWebToken="+jwt);
 		log.info("jwt.getName="+jwt.getName());  // UPN
@@ -112,6 +111,16 @@ public class UserGraphQL {
 		log.info("requireUser(): currentUser = " + currentUser);
 
 		return "{\"message\": \"Hello " + email + "\" }";
+	}
+
+	@Query
+	@RolesAllowed("LIQUIDO_USER")
+	@Description("Login with an existing and valid JWT")
+	public TeamDataResponse loginWithJwt() throws LiquidoException {
+		UserEntity currentUser = jwtTokenUtils.getCurrentUser()
+				.orElseThrow(LiquidoException.supply(Errors.UNAUTHORIZED, "Valid JWT but user email not found in DB."));
+		log.info("loginWithJwt(): currentUser = " + currentUser);
+		return jwtTokenUtils.doLoginInternal(currentUser, null);
 	}
 
 

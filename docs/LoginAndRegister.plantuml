@@ -12,7 +12,9 @@ note right
   fetch JWT from localStorage
 end note
 
-if (User is authenticated?) then (yes)
+switch (Is user authenticated?)
+
+case (yes\nauthenticated)
 
   :validate JWT;
 
@@ -20,9 +22,17 @@ if (User is authenticated?) then (yes)
   verified auth Factor
   then offer to verify it.;
 
-else (no, anonymous call)
+case (no, but user\nclicks "login" Link)
 
-  :Ask for username;
+  :login page;
+
+  :If user has a not yet
+  verified auth Factor
+  then offer to verify it.;
+
+case (no, anonymous call)
+
+  :ask for username;
 
   if (Create a new team or\njoin an existing one?) then (create new team)
 
@@ -40,13 +50,15 @@ else (no, anonymous call)
 
   endif
 
+  :user now has a JWT\nif process is interrupted here\nthen can continue via the left path.}
+
   :Create new auth Factor
   ""TwilioVerifyService.register(user)"";
 
   :User validates Factor with first authToken from Authy App
   ""TwilioVerifyService.verifyFactor(user, authToken)"";
 
-endif
+endswitch
 
 stop
 

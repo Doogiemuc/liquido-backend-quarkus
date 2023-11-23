@@ -49,6 +49,8 @@ public class AuthenticationTests {
 	@Inject
 	LiquidoConfig config;
 
+
+
 	@Inject
 	TwilioVerifyClient twilioVerifyClient;
 
@@ -75,15 +77,11 @@ public class AuthenticationTests {
 		// so no additional assertions necessary here.
 	}
 
-
-	/** Send a request authenticated with a JWT */
 	@Test
-	public void testAuthenticatedRequest() throws LiquidoException {
-		// https://quarkus.io/guides/security-customization#registering-security-providers
-		// https://quarkus.io/guides/security-jwt#dealing-with-the-verification-keys
-
+	public void testLoginWithJwt() {
+		String query = "{ loginWithJwt " + CREATE_OR_JOIN_TEAM_RESULT + "}";
 		UserEntity user = TestFixtures.getRandomUser();
-		String JWT = Jwt
+		String jwt = Jwt
 				.subject(user.email)
 				//.upn("upn@liquido.vote")  // if upn is set, this will be used instead of subject   see JWTCallerPrincipal.getName()
 				.issuer(LIQUIDO_ISSUER)
@@ -92,9 +90,30 @@ public class AuthenticationTests {
 				//.jws().algorithm(SignatureAlgorithm.HS256)
 				.sign();
 
-		System.out.println("======= JWT: "+JWT);
+		ValidatableResponse res = TestFixtures.sendGraphQL(query, null, jwt);
+		TeamDataResponse teamData = res.extract().jsonPath().getObject("data.loginWithJwt", TeamDataResponse.class);
+		assertEquals(teamData.user.email, user.email);
+	}
+
+	/** Send a request authenticated with a JWT */
+	@Test
+	public void testAuthenticatedGraphQlRequest() throws LiquidoException {
+		// https://quarkus.io/guides/security-customization#registering-security-providers
+		// https://quarkus.io/guides/security-jwt#dealing-with-the-verification-keys
+
+		UserEntity user = TestFixtures.getRandomUser();
+		String jwt = Jwt
+				.subject(user.email)
+				//.upn("upn@liquido.vote")  // if upn is set, this will be used instead of subject   see JWTCallerPrincipal.getName()
+				.issuer(LIQUIDO_ISSUER)
+				.groups(Collections.singleton(JwtTokenUtils.LIQUIDO_USER_ROLE))  // role
+				//.expiresIn(9000)
+				//.jws().algorithm(SignatureAlgorithm.HS256)
+				.sign();
+
+		System.out.println("======= JWT: "+jwt);
 		String query = "{ requireUser }";
-		TestFixtures.sendGraphQL(query, null, JWT);
+		TestFixtures.sendGraphQL(query, null, jwt);
 
 	}
 
