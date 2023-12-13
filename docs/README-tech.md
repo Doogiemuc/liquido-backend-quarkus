@@ -82,7 +82,10 @@ https://stackoverflow.com/questions/66695265/how-to-retrieve-securitycontext-in-
 
 # WebAuthn - Passwordless login
 
-Checkout this lib. This looks promising. Nice article.
+In the end I used the quarkus plugin. After refactoring it for blocking DB access.
+https://quarkus.io/guides/security-webauthn
+
+This lib also looks nice. Has a good article.
 https://developers.yubico.com/java-webauthn-server/
 
 Nice easy simple sequence diagram for webauthn registration and authentication:
@@ -93,5 +96,3 @@ https://webauthn.guide
 
 Nice funny written article
 https://medium.com/digitalfrontiers/webauthn-with-spring-security-c9175aae3e06
-
-There is a Quarkus Lib. But that forces us to use reactive DB access. Which conflicts with our DB access. => SOLVED. Refactored to blocking.

@@ -4,11 +4,13 @@ import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.vertx.ext.auth.webauthn.Authenticator;
 import io.vertx.ext.auth.webauthn.PublicKeyCredential;
 import jakarta.persistence.*;
+import lombok.extern.slf4j.Slf4j;
 import org.liquido.user.UserEntity;
 
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @Table(uniqueConstraints = @UniqueConstraint(columnNames = {"userName", "credID"}))
 @Entity
 public class WebAuthnCredential extends PanacheEntity {
@@ -60,7 +62,7 @@ public class WebAuthnCredential extends PanacheEntity {
 	 *   }
 	 * }</pre>
 	 */
-  //TODO: ??????? not yet implemented?
+
 
 
 	/**
@@ -108,16 +110,23 @@ public class WebAuthnCredential extends PanacheEntity {
 		user.webAuthnCredential = this;
 	}
 
-	//TODO: usernames or email?  https://passwordless.id/thoughts/emails-vs-usernames
+	//TODO: Should we use anonymous usernames or unique emails (as usernames)?
+	//      https://passwordless.id/thoughts/emails-vs-usernames
 	public static List<WebAuthnCredential> findByUserName(String userName) {
-		return WebAuthnCredential.list("userName", "username");
+		log.info("findByUserName(userName="+userName+")");
+		List<WebAuthnCredential> creds = WebAuthnCredential.list("userName", userName);
+		log.info("========== found creds");
+		for (WebAuthnCredential cred : creds) {
+			log.info(cred.userName+ ", " + cred.credID);
+		}
+		return creds;
 	}
 
 	public static List<WebAuthnCredential> findByCredID(String credID) {
 		return WebAuthnCredential.list("credID", credID);
 	}
 
-	/**
+	/** ???? TODO: do I need this?
 	public <T> Uni<T> fetch(T association) {
 		return getSession().flatMap(session -> session.fetch(association));
 	}

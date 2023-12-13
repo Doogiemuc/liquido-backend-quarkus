@@ -74,6 +74,7 @@ public class UserGraphQL {
 	 * @return some JSON info about API version
 	 */
 	@Query("ping")
+	@PermitAll
 	public String pingApi() {
 		if (log.isDebugEnabled() && request != null) {
 			log.debug("Ping API from "+request.getCurrent().request().remoteAddress());
@@ -115,7 +116,7 @@ public class UserGraphQL {
 
 	@Query
 	@RolesAllowed("LIQUIDO_USER")
-	@Description("Login with an existing and valid JWT")
+	@Description("Login with an existing and valid JWT. Of course the user that is encoded inthe JWT must exist. Then this will return a NEW updated JWT!")
 	public TeamDataResponse loginWithJwt() throws LiquidoException {
 		UserEntity currentUser = jwtTokenUtils.getCurrentUser()
 				.orElseThrow(LiquidoException.supply(Errors.UNAUTHORIZED, "Valid JWT but user email not found in DB."));
@@ -242,6 +243,7 @@ public class UserGraphQL {
 	 * @throws LiquidoException when email is not found in DB
 	 */
 	@Query
+	@PermitAll
 	public TeamDataResponse devLogin(
 			@Name("devLoginToken") String devLoginToken,
 			@Name("email") String email
