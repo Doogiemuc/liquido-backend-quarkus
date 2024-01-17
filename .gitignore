@@ -32,8 +32,6 @@ nb-configuration.xml
 *.swp
 *.swo
 
-
-
 # patch
 *.orig
 *.rej
@@ -42,8 +40,11 @@ nb-configuration.xml
 application.local
 .env
 
-# Exclude configurations with secrets
+# Exclude secrets !!!
 *.pem
+*.p12
+
+# Exclude configurations with secrets
 application-prod.yml
 /config/application-test.properties
 /config/application-local.properties

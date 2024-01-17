@@ -8,6 +8,8 @@
  * 2023-07-24 CreatedBy is now automatically added in Entities
  * 2023-11-01 Added TLS for backend HTTPS
  * 2023-11-22 Even more work on UI layout. It's starting to look smooth.
+ * 2023-12-24 Debuggin WebAuthn since 3 weeks :-(
+ * 
 
 # Next TODOs
 
@@ -38,6 +40,8 @@ Create a self-signed SSL certificate:
 
      openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout key.pem -out cert.pem
 
+     keytool -genkeypair -keyalg RSA -keysize 2048 -storetype PKCS12 -keystore keystore.p12 -validity 3650
+
 then add in `application.properties` and don't forget to adapt all URLs in config files to https://....
 
     # TLS certificates for encrypted HTTPS connection
@@ -47,8 +51,31 @@ then add in `application.properties` and don't forget to adapt all URLs in confi
     # enabled, redirect or disabled(=only allow HTTPS requests)
     quarkus.http.insecure-requests=disabled
 
+### Oauth
 
-# Nativ Build
+Why I hate Oauth: https://news.ycombinator.com/item?id=35713518
+
+### WebAuthn - Passwordless login
+
+In the end I used the quarkus plugin. After refactoring it for blocking DB access.
+https://quarkus.io/guides/security-webauthn
+
+This lib also looks nice. Has a good article.
+https://developers.yubico.com/java-webauthn-server/
+
+Nice easy simple sequence diagram for webauthn registration and authentication:
+https://passwordless.id/protocols/webauthn/2_registration
+
+https://webauthn.io
+https://webauthn.guide
+
+Nice funny written article
+https://medium.com/digitalfrontiers/webauthn-with-spring-security-c9175aae3e06
+
+
+
+
+# Native Build
 
 FIXME:
 https://stackoverflow.com/questions/56871033/how-to-fix-org-apache-commons-logging-impl-logfactoryimpl-not-found-in-native
@@ -79,20 +106,3 @@ https://ard333.medium.com/authentication-and-authorization-using-jwt-on-quarkus-
 
 Get custom user from Security Context via custom AuthenticationContextImpl
 https://stackoverflow.com/questions/66695265/how-to-retrieve-securitycontext-in-a-quarkus-application
-
-# WebAuthn - Passwordless login
-
-In the end I used the quarkus plugin. After refactoring it for blocking DB access.
-https://quarkus.io/guides/security-webauthn
-
-This lib also looks nice. Has a good article.
-https://developers.yubico.com/java-webauthn-server/
-
-Nice easy simple sequence diagram for webauthn registration and authentication:
-https://passwordless.id/protocols/webauthn/2_registration
-
-https://webauthn.io
-https://webauthn.guide
-
-Nice funny written article
-https://medium.com/digitalfrontiers/webauthn-with-spring-security-c9175aae3e06

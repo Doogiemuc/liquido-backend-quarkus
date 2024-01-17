@@ -229,8 +229,10 @@ public class UserGraphQL {
 		if (!DoogiesUtil.isEqual(email, ott.getUser().getEmail()))
 			throw new LiquidoException(Errors.CANNOT_LOGIN_TOKEN_INVALID, "This token is not valid for that email!");
 
-		ott.delete();
 		TeamEntity team = TeamEntity.findById(ott.getUser().getLastTeamId());  // team maybe null!
+		log.debug("LOGIN via email link: " + ott.getUser().toStringShort());
+		ott.delete();
+
 		return jwtTokenUtils.doLoginInternal(ott.getUser(), team);
 	}
 
