@@ -38,11 +38,13 @@ https://quarkus.io/guides/hibernate-orm-panache
 
 Create a self-signed SSL certificate:
 
-     openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout key.pem -out cert.pem
+    openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout liquido-TLS-key.pem -out liquido-TLS-cert.pem
 
-     keytool -genkeypair -keyalg RSA -keysize 2048 -storetype PKCS12 -keystore keystore.p12 -validity 3650
+Or you can also create a keystore that contains both keys:
 
-then add in `application.properties` and don't forget to adapt all URLs in config files to https://....
+    keytool -genkeypair -keyalg RSA -keysize 2048 -storetype PKCS12 -keystore liquido-keystore.p12 -validity 3650
+
+then add in `application.properties` and don't forget to adapt all URLs in frontend config files to https://....
 
     # TLS certificates for encrypted HTTPS connection
     quarkus.http.ssl.certificate.file=/path/cert.pem
