@@ -119,7 +119,7 @@ public class UserGraphQL {
 	@Description("Login with an existing and valid JWT. The user that is encoded in the JWT must exist. Then this will return a NEW updated JWT!")
 	public TeamDataResponse loginWithJwt() throws LiquidoException {
 		UserEntity currentUser = jwtTokenUtils.getCurrentUser()
-				.orElseThrow(LiquidoException.supply(Errors.UNAUTHORIZED, "Valid JWT but user email not found in DB."));
+				.orElseThrow(LiquidoException.supplyAndLog(Errors.UNAUTHORIZED, "Valid JWT but user email not found in DB."));
 		log.info("loginWithJwt(): currentUser = " + currentUser);
 		return jwtTokenUtils.doLoginInternal(currentUser, null);
 	}
