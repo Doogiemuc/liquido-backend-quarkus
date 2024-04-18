@@ -1,12 +1,10 @@
-package org.liquido.services;
+package org.liquido.poll;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.liquido.poll.PollEntity;
-import org.liquido.poll.ProposalEntity;
 import org.liquido.user.UserEntity;
 import org.liquido.util.DoogiesUtil;
 import org.liquido.util.LiquidoConfig;
