@@ -22,17 +22,12 @@ public class TestFixtures {
 	// every test data item will contain this "now" in one of its attributes
 	public static Long   now          = 4711L; //new Date().getTime() % 1000000;
 	public static String teamName     = "testTeam" + now;
-	public static String adminName    = "TestAdmin " + now;
 	public static String adminEmail   = "testadmin" + now + "@liquido.vote";
-	public static String adminMobile  = "+49 555 " + now;
-	public static String memberName   = "TestMember " + now;
 	public static String memberEmail  = "testmember" + now + "@liquido.vote";
-	public static String memberMobile = "+49 666 " + now;
 	public static String pollTitle    = "TestPoll " + now;
 	public static String tokenSecret  = "testTokenSecret";
-	public static String propTitle    = "TestProposal " + now;
-	public static String propDescription = "Lorem " + now + " ipsum some long description of proposal created from testcase";
-	public static String propIcon     = "heart";
+
+	public static final String staticDummyEmail = "staticDummyEmail@liquido.vote";
 
 	// GraphQL   This is port 8081 during testing, but 8080/8443 in prod!
 	public static final String GRAPHQL_URI = "http://localhost:8081/graphql";
@@ -65,9 +60,8 @@ public class TestFixtures {
 					"level checksum voteOrder " + JQL_PROPOSAL +
 					"}";
 
-
-	public static ValidatableResponse sendGraphQL(String query) {
-		return sendGraphQL(query, null, null);
+	public static void sendGraphQL(String query) {
+		sendGraphQL(query, null, null);
 	}
 
 	public static ValidatableResponse sendGraphQL(String query, Lson vars) {
