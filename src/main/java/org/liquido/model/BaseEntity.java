@@ -11,8 +11,19 @@ import org.liquido.user.UserEntity;
 
 import java.time.LocalDateTime;
 
-@EqualsAndHashCode(callSuper = false)  //TODO: test equals and hashcode on my LiquidoBaseEntity.  do Users and polls equal correctly?
-@MappedSuperclass
+/**
+ * Base class for all LIQUIDO database entities.
+ * Each entity by default has a createdAt, updatedAt and createdBy that is automatically filled on save.
+ *
+ * <h3>Equality</h3>
+ * Entities are considered to be equal if and only if their ID is the same!
+ * This does have important consequences. For example a LiquidoUser stays the same user
+ * even when he changes his mobile phone number or his email address.
+ *
+ */
+//@EqualsAndHashCode(onlyExplicitlyIncluded = true, callSuper = false)
+@MappedSuperclass  // This JPA class does not have a DB table itself. Only its "mapped" superclasses have.
+//Do not forget to add a @NoArgsConstructor to every parent class
 public class BaseEntity extends PanacheEntity {
 
 	@CreationTimestamp
@@ -27,7 +38,34 @@ public class BaseEntity extends PanacheEntity {
 	@CreatedBy
 	public UserEntity createdBy;
 
+	@EqualsAndHashCode.Include
 	public Long getId() {
 		return this.id;
 	}
+
+	/*
+	 * Two BaseEntities are equal when their ID field is not null and has the same value
+	 * @param obj a BaseEntity instance
+	 * @return true if IDs are equal
+	 *
+	 *
+	//TODO: check and test consequences, eg. equality of UserEntity: only ID or also email?
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj) {
+			return true;
+		}
+		if (obj == null || getClass() != obj.getClass()) {
+			return false;
+		}
+		BaseEntity other = (BaseEntity) obj;
+		return id != null && id.equals(other.id);
+	}
+
+	@Override
+	public int hashCode() {
+		return id != null ? id.hashCode() : 0;
+	}
+	*/
 }
