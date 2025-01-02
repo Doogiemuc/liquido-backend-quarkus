@@ -14,18 +14,34 @@ public class LiquidoRequestLogger {
 
 	@RouteFilter(100)
 	void myLogFilter(RoutingContext ctx) {
-		String msg = "=> " +
+
+		long now = System.currentTimeMillis() % 10000;  // simply dummy request ID
+
+		// Log request
+		String requestMsg = "=> [" + now + "] " +
 				ctx.request().method() + " " +
 				ctx.request().absoluteURI();
-		log.debug(msg);
+		log.debug(requestMsg);
 		if (logHeaders) ctx.request().headers().forEach((key, value) -> log.debug("  " + key + ": " + value));
 
-		msg = "<= " +
+		// Log request body
+		ctx.request().bodyHandler(body -> {
+			String bodyContent = body.toString(); 			// Convert the buffer to a string
+			if (bodyContent.length() > 500) bodyContent = bodyContent.substring(0, 500);
+			log.debug("=> [" + now + "] BODY:" + bodyContent);
+		});
+
+		// Log response
+		String responseMsg = "<= [" + now + "] " +
 				ctx.response().getStatusCode() + " " +
 				ctx.response().getStatusMessage();
-		log.debug(msg);
-
+		log.debug(responseMsg);
 		if (logHeaders) ctx.response().headers().forEach((key, value) -> log.debug("  " + key + ": " + value));
+
+		//TODO: Log response body (which is tricky! Need to wrap the response to capture the body)
+
+
+		ctx.response().exceptionHandler(err -> log.error("<= ["+now+"] Exception: " + err.getMessage(), err));
 
 		ctx.next();  // important!
 	}
