@@ -30,12 +30,19 @@ public class Liquido {
 	@ConfigProperty(name = "quarkus.hibernate-orm.database.generation")
 	String hibernateDbGeneration;
 
+	@ConfigProperty(name = "quarkus.datasource.username")
+	String datasourceUsername;
+
+	@ConfigProperty(name = "quarkus.datasource.jdbc.url")
+	String jdbcUrl;
+
 	@Inject
 	HttpConfiguration httpConfig;
 
 	/**
 	 * This is called when app has started.
-	 * Here we output some useful debugging data.
+	 * Here we output as much debugging data as possible.
+	 * And we also sanity check the connection to and content of our DB.
 	 */
 	void onStart(@Observes StartupEvent ev) {
 		LaunchMode launchMode = io.quarkus.runtime.LaunchMode.current();
@@ -44,6 +51,9 @@ public class Liquido {
 		System.out.println("   Frontend URL  : " + config.frontendUrl());
 		System.out.println("   Backend       : http://"+httpConfig.host+":"+httpConfig.port);
 		System.out.println("   Backend (SSL) : https://"+httpConfig.host+":"+httpConfig.sslPort);
+		System.out.println("   DB Username   : " + datasourceUsername);
+		System.out.println("   DB JDBC URL   : " + jdbcUrl);
+
 
 		try {
 			System.out.println("   DB Connection : " + dataSource.getConnection().getMetaData().getURL());
@@ -53,11 +63,21 @@ public class Liquido {
 			log.error("=====================================");
 			throw new RuntimeException(e);
 		}
-		System.out.println("   #Users        : " + UserEntity.count());
-		System.out.println("   #Teams        : " + TeamEntity.count());
-		System.out.println("   #Polls        : " + PollEntity.count());
+
+		try {
+			System.out.println("   #Users        : " + UserEntity.count());
+			System.out.println("   #Teams        : " + TeamEntity.count());
+			System.out.println("   #Polls        : " + PollEntity.count());
+		} catch (Exception e) {
+			log.error("==================================================");
+			log.error(" User, Teams or Polls table does not exist.");
+			log.error(" Is your database initialized with test data?");
+			log.error("==================================================");
+			throw e;
+		}
 		System.out.println("=====================================");
 
+		// Uncomment this to fill db with sample data
 		//PreparedStatement ps = dataSource.getConnection().prepareStatement("SCRIPT TO '" + sampleDbFile + "'");
 
 
