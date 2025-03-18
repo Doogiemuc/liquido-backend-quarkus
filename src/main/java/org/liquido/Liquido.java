@@ -36,6 +36,9 @@ public class Liquido {
 	@ConfigProperty(name = "quarkus.datasource.jdbc.url")
 	String jdbcUrl;
 
+	@ConfigProperty(name = "quarkus.hibernate-orm.database.generation")
+	String databaseGeneration;
+
 	@Inject
 	HttpConfiguration httpConfig;
 
@@ -53,6 +56,7 @@ public class Liquido {
 		System.out.println("   Backend (SSL) : https://"+httpConfig.host+":"+httpConfig.sslPort);
 		System.out.println("   DB Username   : " + datasourceUsername);
 		System.out.println("   DB JDBC URL   : " + jdbcUrl);
+		System.out.println("   DB Generation : " + databaseGeneration);
 
 
 		try {
