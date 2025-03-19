@@ -1,29 +1,31 @@
-# Use Maven for building the application
+# Use maven for building the quarkus application
 FROM maven:3.9.6-eclipse-temurin-17 AS build
 
 # Set the working directory for the build
 WORKDIR /build
 
 # Set build arguments
-#ARG DB_USER
-#ARG DB_PASSWORD
-#ARG DB_NAME
-#ARG DB_PORT
+ARG QUARKUS_DATASOURCE_DB_KIND
+ARG QUARKUS_DATASOURCE_USERNAME
+ARG QUARKUS_DATASOURCE_PASSWORD
+ARG QUARKUS_DATASOURCE_JDBC_URL
+
 
 # Debug: Print the received build arguments
-#RUN echo "========== BUILD TIME VARS ============"
-#RUN echo "DB_USER: $DB_USER"
-#RUN echo "DB_PASSWORD: $DB_PASSWORD"
-#RUN echo "DB_NAME: $DB_NAME"
+RUN echo "========== BUILD TIME VARS ============"
+RUN echo "DB_KIND:     $QUARKUS_DATASOURCE_DB_KIND"
+RUN echo "DB_USERNAME: $QUARKUS_DATASOURCE_USERNAME"
+RUN echo "DB_PASSWORD: $QUARKUS_DATASOURCE_PASSWORD"
+RUN echo "DB_JDBC_URL: $QUARKUS_DATASOURCE_JDBC_URL"
 
 # make values availalbe in environment at buildtime
-#ENV DB_USER=${DB_USER}
-#ENV DB_PASSWORD=${DB_PASSWORD}
-#ENV DB_NAME=${DB_NAME}
-#ENV DB_PORT=${DB_PORT}
+ENV QUARKUS_DATASOURCE_DB_KIND=$QUARKUS_DATASOURCE_DB_KIND
+ENV QUARKUS_DATASOURCE_USERNAME=$QUARKUS_DATASOURCE_USERNAME
+ENV QUARKUS_DATASOURCE_PASSWORD=$QUARKUS_DATASOURCE_PASSWORD
+ENV QUARKUS_DATASOURCE_JDBC_URL=$QUARKUS_DATASOURCE_JDBC_URL
 
 # Debug: Print the environment variables
-#RUN set
+RUN set | grep QUARKUS
 
 # Copy the Maven project files and build dependencies first (for better caching)
 COPY pom.xml .
@@ -38,22 +40,23 @@ COPY src ./src
 # Build the application, skipping tests for faster builds, -B = batch mode, no progress bars
 RUN mvn -B package -DskipTests
 
-
-
-# Use a lightweight runtime image for the final build
+#
+# Use a lightweight runtime image for the runtime container
+#
 FROM eclipse-temurin:17-jre AS runtime
 
 # Set the working directory inside the container
 WORKDIR /app
 
 # Set environment variables for runtime
-#ENV DB_USER=${DB_USER}
-#ENV DB_PASSWORD=${DB_PASSWORD}
-#ENV DB_NAME=${DB_NAME}
-#ENV DB_PORT=${DB_PORT}
-#
-## Debug: Print the environment variables
-#RUN set
+ENV QUARKUS_DATASOURCE_DB_KIND=$QUARKUS_DATASOURCE_DB_KIND
+ENV QUARKUS_DATASOURCE_USERNAME=$QUARKUS_DATASOURCE_USERNAME
+ENV QUARKUS_DATASOURCE_PASSWORD=$QUARKUS_DATASOURCE_PASSWORD
+ENV QUARKUS_DATASOURCE_JDBC_URL=$QUARKUS_DATASOURCE_JDBC_URL
+
+# Debug: Print the environment variables
+RUN set
+
 #
 # Copy the built application files from the build stage
 #COPY --from=build /build/target/quarkus-app/lib/ /app/lib/
