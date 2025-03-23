@@ -1,25 +1,22 @@
 services:
   app:
+    container_name: liquido-backend
+    env_file: # load environment variables already necessary for build stage
+      - .env
     build:
       context: ../
       dockerfile: docker/Dockerfile
-      args:
+      args:  # pass values into into build stage
         QUARKUS_DATASOURCE_DB_KIND:  ${QUARKUS_DATASOURCE_DB_KIND}
         QUARKUS_DATASOURCE_USERNAME: ${QUARKUS_DATASOURCE_USERNAME}
         QUARKUS_DATASOURCE_PASSWORD: ${QUARKUS_DATASOURCE_PASSWORD}
         QUARKUS_DATASOURCE_JDBC_URL: ${QUARKUS_DATASOURCE_JDBC_URL}
-    container_name: liquido-backend
     ports:
       - "8080:8080"
-    #volumes:
-    #  - ~/m2:/root/.m2   # persist maven cache
+    volumes:
+      - ~/m2:/root/.m2   # persist maven cache
     depends_on:
       - db
-    environment:
-      QUARKUS_DATASOURCE_DB_KIND:  ${QUARKUS_DATASOURCE_DB_KIND}
-      QUARKUS_DATASOURCE_USERNAME: ${QUARKUS_DATASOURCE_USERNAME}
-      QUARKUS_DATASOURCE_PASSWORD: ${QUARKUS_DATASOURCE_PASSWORD}
-      QUARKUS_DATASOURCE_JDBC_URL: ${QUARKUS_DATASOURCE_JDBC_URL}
 
   db:
     image: postgres:15-alpine
@@ -28,7 +25,7 @@ services:
     environment:
       POSTGRES_USER: ${QUARKUS_DATASOURCE_USERNAME}
       POSTGRES_PASSWORD: ${QUARKUS_DATASOURCE_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_DB: ${DB_NAME:-liquido_dev}
     ports:
       - "5432:5432"
     volumes:
