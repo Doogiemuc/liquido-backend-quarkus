@@ -1,7 +1,7 @@
 services:
   app:
     container_name: liquido-backend
-    image: liquido-backend:latest
+    image: liquido-backend:latest   # or set fixed liquido, eg. liquido-backend:15.0.1
     platform: linux/amd64  # Ensures it runs on an x86_64 machine
     env_file: # load environment variables already necessary for build stage
       - .env
@@ -19,7 +19,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ~/m2:/root/.m2   # persist maven cache
+      - ${HOME}/m2:/root/.m2   # persist maven cache
     depends_on:
       - db
 
