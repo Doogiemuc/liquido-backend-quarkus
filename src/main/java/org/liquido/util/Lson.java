@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -61,6 +62,15 @@ public class Lson extends HashMap<String, Object> implements Map<String, Object>
 	public static Lson builder(String key, Object value) {
 		Lson lson = Lson.builder();
 		return lson.put(key, value);
+	}
+
+	/**
+	 * Creates an immutable copy of this Map.
+	 * You actually don't need to call this.
+	 * You can keep working with the (mutable) return value of any Lson method here.
+	 */
+	public Lson build() {
+		return new Lson(Collections.unmodifiableMap(this));
 	}
 
 	/** Powerful fluid api to add key=value pairs

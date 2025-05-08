@@ -1,6 +1,8 @@
 package org.liquido.util;
 
+import io.quarkus.runtime.LaunchMode;
 import jakarta.json.Json;
+import jakarta.json.JsonObjectBuilder;
 import jakarta.json.JsonValue;
 import jakarta.ws.rs.ext.Provider;
 import lombok.extern.slf4j.Slf4j;
@@ -20,16 +22,31 @@ public class LiquidoErrorExtensionProvider implements io.smallrye.graphql.api.Er
 		return "liquidoException";
 	}
 
+	/**
+	 * Add fields to the "extensions" attribute in the GraphQL response.
+	 * Liquido always returns the same set of fields
+	 * @param throwable The thrown exception
+	 * @return JSON with info about what happend.
+	 */
 	@Override
 	public JsonValue mapValueFrom(Throwable throwable) {
-		if (throwable instanceof LiquidoException) {
-			LiquidoException le = (LiquidoException) throwable;
+		if (throwable instanceof LiquidoException le) {
 			return Json.createObjectBuilder()
 					.add("liquidoErrorName", le.getErrorName())
 					.add("liquidoErrorCode", le.getErrorCodeAsInt())
 					.add("liquidoErrorMessage", le.getMessage())
 					.build();
 		}
-		return Json.createValue("unknownException=" + throwable.getClass().getSimpleName());
+		JsonObjectBuilder builder = Json.createObjectBuilder()
+				.add("liquidoErrorName", "liquidoSystemError")
+				.add("liquidoErrorCode", LiquidoException.Errors.INTERNAL_ERROR.getLiquidoErrorCode())
+				.add("liquidoErrorMessage", "This should not have happend :-(   We are sorry.");
+
+		if (LaunchMode.current() == LaunchMode.DEVELOPMENT) {
+			builder
+					.add("throwableException", throwable.getClass().getName())
+					.add("throwableMessage", throwable.getMessage());
+		}
+		return builder.build();
 	}
 }
