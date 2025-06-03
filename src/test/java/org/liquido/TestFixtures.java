@@ -5,7 +5,6 @@ import io.restassured.http.ContentType;
 import io.restassured.response.ValidatableResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpHeaders;
-import org.liquido.user.UserEntity;
 import org.liquido.util.Lson;
 
 import static io.restassured.RestAssured.given;
@@ -29,7 +28,7 @@ public class TestFixtures {
 
 	public static final String staticDummyEmail = "staticDummyEmail@liquido.vote";
 
-	// GraphQL   This is port 8081 during testing, but 8080/8443 in prod!
+	// GraphQL   This is port 8081 during testing, but 8443 in prod!
 	public static final String GRAPHQL_URI = "http://localhost:8081/graphql";
 
 	public static final String JQL_USER =
@@ -104,14 +103,6 @@ public class TestFixtures {
 
 	}
 
-	/**
-	 * Get a random user from the DB.
-	 * @return a random UserEntity
-	 */
-	public static UserEntity getRandomUser() {
-		return UserEntity.<UserEntity>findAll().firstResultOptional().orElseThrow(
-				() -> new RuntimeException("Cannot getRandomUser. No user in DB!")
-		);
-	}
+
 
 }

@@ -14,6 +14,7 @@ import org.liquido.poll.ProposalEntity;
 import org.liquido.security.JwtTokenUtils;
 import org.liquido.user.UserEntity;
 import org.liquido.util.LiquidoException;
+import org.liquido.vote.RightToVoteEntity;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -29,8 +30,8 @@ public class EqualityTests {
 
 	@Test
 	public void twoNotYetPersistedUsersUserEntities_ShouldEqualByEmailOnly() {
-		UserEntity user1 = new UserEntity("DummyName_A", "dummy_A@email.de", "+49555111111");
-		UserEntity user2 = new UserEntity("DummyName_A", "dummy_A@email.de", "+49555111111");
+		UserEntity user1 = new UserEntity("DummyName_A", "dummy_A@email.de", "dummyPasswordHash_A");
+		UserEntity user2 = new UserEntity("DummyName_A", "dummy_A@email.de", "dummyPasswordHash_B");
 		assertNotEquals(user1, user2, "Not new not yet persisted user entities (even with same email and mobilephone) should NOT be equal!");
 	}
 
@@ -44,7 +45,7 @@ public class EqualityTests {
 	@Test
 	@TestTransaction
 	public void twoInstancesOfSamePersitedUserEntity_ShouldBeEqual() {
-		UserEntity user1 = new UserEntity("DummyName_A", "dummy_A@email.de", "+49555111111");
+		UserEntity user1 = new UserEntity("DummyName_A", "dummy_A@email.de", "dummyPasswordHash_A");
 		user1.persist();
 		assertNotNull(user1.id, "Persisted UserEntity MUST have an ID!");
 
@@ -55,8 +56,8 @@ public class EqualityTests {
 	@Test
 	@TestTransaction
 	public void twoPersistedUserEntitiesEvenWithSameData_ShouldNotBeEqual() {
-		UserEntity user1 = new UserEntity("DummyName_A", "dummy_A@email.de", "+49555111111");
-		UserEntity user2 = new UserEntity("DummyName_A", "dummy_A@email.de", "+49555111111");
+		UserEntity user1 = new UserEntity("DummyName_A", "dummy_A@email.de", "dummyPasswordHash_A");
+		UserEntity user2 = new UserEntity("DummyName_A", "dummy_A@email.de", "dummyPasswordHash_B");
 		user1.persist();
 		user2.persist();
 
@@ -87,6 +88,16 @@ public class EqualityTests {
 
 	@Test
 	@TestTransaction
+	public void twoBallotsWithSameVoterToken() {
+		String hasehdVoterToken1 = "superCoolHash1";
+		RightToVoteEntity rightToVote1 = new RightToVoteEntity(hasehdVoterToken1);
+		String hasehdVoterToken2 = "superCoolHash2";
+		RightToVoteEntity rightToVote2 = new RightToVoteEntity(hasehdVoterToken2);
+		assertNotEquals(rightToVote1, rightToVote2, "two RightToVoteEntity with different hashedVoterToken should not be equal!");
+	}
+
+	@Test
+	@TestTransaction
 	@TestSecurity(user = TestFixtures.staticDummyEmail, roles = {JwtTokenUtils.LIQUIDO_ADMIN_ROLE, JwtTokenUtils.LIQUIDO_USER_ROLE})
 	@JwtSecurity(claims = {
 			@Claim(key = "email", value = TestFixtures.staticDummyEmail),
@@ -94,7 +105,7 @@ public class EqualityTests {
 	})
 	public void testCollectionBehaviour() throws LiquidoException {
 		// Dummy login
-		UserEntity user = TestFixtures.getRandomUser();
+		UserEntity user = LiquidoTestUtils.getRandomUser();
 		jwtTokenUtils.setCurrentUserAndTeam(user, null);
 
 		ProposalEntity p1 = new ProposalEntity("Prop1 Title", "Prop1 Description");
@@ -113,4 +124,19 @@ public class EqualityTests {
 		assertTrue(poll.getProposals().contains(p2), "Poll.proposals should contain proposal2!");
 	}
 
-}
+	@Test
+	@TestTransaction
+	@TestSecurity(user = TestFixtures.staticDummyEmail, roles = {JwtTokenUtils.LIQUIDO_ADMIN_ROLE, JwtTokenUtils.LIQUIDO_USER_ROLE})
+	@JwtSecurity(claims = {
+			@Claim(key = "email", value = TestFixtures.staticDummyEmail),
+			@Claim(key = "groups", value = JwtTokenUtils.LIQUIDO_ADMIN_ROLE)
+	})
+	public void testCastVotesInTwoPolls() throws LiquidoException {
+		UserEntity user = LiquidoTestUtils.getRandomUser();
+		jwtTokenUtils.setCurrentUserAndTeam(user, null);
+
+		PollEntity.find("status=PollStatus.VOTING");
+
+	}
+
+	}

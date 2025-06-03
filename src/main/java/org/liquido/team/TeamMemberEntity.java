@@ -50,4 +50,5 @@ public class TeamMemberEntity extends PanacheEntity {
 	public static List<TeamEntity> findTeamsByMember(UserEntity user) {
 		return TeamMemberEntity.<TeamMemberEntity>find("user", user).stream().map(tm -> tm.getTeam()).toList();
 	}
+
 }
