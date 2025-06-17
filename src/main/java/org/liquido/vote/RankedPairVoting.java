@@ -9,9 +9,9 @@ import java.util.stream.Collectors;
  * Ranked Pairs voting
  * Ranked pairs (RP) or the Tideman method is an electoral system developed in 1987 by Nicolaus Tideman that selects a single winner using votes that express preferences.
  * If there is a candidate who is preferred over the other candidates, when compared in turn with each of the others, RP guarantees that candidate will win. Because of this property, RP is, by definition, a Condorcet method.
- * https://en.wikipedia.org/wiki/Ranked_pairs
+ * <a href="https://en.wikipedia.org/wiki/Ranked_pairs">...</a>
  *
- * The code here is adapted from the JavaScript at https://gist.github.com/asafh/a8e9af7a3e5282cbba27
+ * The code here is adapted from the JavaScript at <a href="https://gist.github.com/asafh/a8e9af7a3e5282cbba27">...</a>
  */
 public class RankedPairVoting {
 
@@ -26,7 +26,7 @@ public class RankedPairVoting {
 	 * @param allIds all proposal/candidate IDs that can be voted for in this poll.
 	 * @param idsInBallots the list of ballots. Each ballot consists of an ordered list of proposal/candidate IDs from allIds
 	 *                     A ballot does not necessarily need to contain all candidate IDs. It is also possible that
-	 *                     a voter only votes for some of the candidates. This means, that he preferes all the candidates
+	 *                     a voter only votes for some candidates. This means that he prefers all the candidates
 	 *                     that he sorted into his ballot over the candidates that hi did not vote for at all.
 	 *                     <h3>Example</h3>
 	 *                     <ul>
@@ -34,7 +34,7 @@ public class RankedPairVoting {
 	 *                     	 <li>idsInBallots[0] = { 2, 1}</li>
 	 *                     </ul>
 	 *                     This voter prefers candidate 2 over 1. And he prefers these two candidates over all the other ones
-	 *                     [ 2, 1 ] > { 3 4}   The candidates 3 and 4 do not have any preferred order within them. They
+	 *                     [ 2, 1 ] > { 3 4} The candidates 3 and 4 do not have any preferred order within them. They
 	 *                     are all just "low".
 	 * @throws IllegalArgumentException when one of the required param is null
 	 * @return the duelMatrix, which is a pairwise comparison of each preference i > j
@@ -136,9 +136,8 @@ public class RankedPairVoting {
 		// WINNERS
 		// In nearly every case, there is only one winner/one source.
 		Set<Integer> sources = digraph.getSources();
-		List<Integer> winningRowIndexes = new ArrayList(sources);
-		// TODO: Sort Ranked Pair winners, if there is more than one winner;
-		return winningRowIndexes;
+		// TODO: Sort Ranked Pair winners, if there is more than one winner
+		return new ArrayList<>(sources);
 	}
 
 }

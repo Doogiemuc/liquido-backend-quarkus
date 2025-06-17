@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
  * Delegation from a user to a proxy in a given area.
  * A user can only have none or exactly one proxy per area.
  * One user may be the proxy for several "delegees" in one area.
- * A delegation is always implicitly created by fromUser, since a user may only choose proxy for himself.
+ * A delegation is always implicitly created by fromUser, since a user may only choose proxy for themselves.
  * This entity only consists of three foreign keys.
  */
 @Entity(name = "delegations")
@@ -51,7 +51,7 @@ public class DelegationEntity extends BaseEntity {
 
 
 	// This was a big one: Delegations are always transitive!
-	// Because if my direct proxy forwards his right to vote and then his proxy votes, this is just as the direct proxy voted for himself.
+	// Because if my direct proxy forwards his right to vote and then his proxy votes, this is just as if the direct proxy voted for himself.
 	//public boolean transitive = true;
 
 	/**

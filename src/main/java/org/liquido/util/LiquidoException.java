@@ -175,6 +175,10 @@ public class LiquidoException extends Exception {
 		return () -> new LiquidoException(Errors.UNAUTHORIZED, msg);
 	}
 
+	public static void checkOrThrow(Supplier<Boolean> p, Errors err, String message) throws LiquidoException {
+		if (!p.get()) throw new LiquidoException(err, message);
+	}
+
 	/**
 	 * Supply an exception. This can be used in Optional methods, e.g.
 	 * <pre>Optional.orElseThrow(LiquidoException.supply(LiquidoException.SOME_NAME, "Some message"))</pre>

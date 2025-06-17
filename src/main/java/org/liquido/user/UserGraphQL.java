@@ -147,7 +147,7 @@ public class UserGraphQL {
 		if (verified) {
 			return "{ \"message\": \"Authy Factor successfully verified\" }";
 		} else {
-			throw new LiquidoException(Errors.UNAUTHORIZED, "Cannot verifyAuthyFactor. Invlaid authToken.");
+			throw new LiquidoException(Errors.UNAUTHORIZED, "Cannot verifyAuthyFactor. Invalid authToken.");
 		}
 	}
 

@@ -1,6 +1,7 @@
 package org.liquido.util;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
@@ -33,13 +34,15 @@ public class Lson extends HashMap<String, Object> implements Map<String, Object>
 	}
 
 	/**
-	 * Create an Lson from a json string
-	 * @param jsonString must be a valid Json String that can be read by Jackson
+	 * Create a Lson from a JSON string
+	 * @param jsonString must be a valid JSON String that Jackson can read
 	 * @throws JsonProcessingException when jsonString is invalid
 	 */
 	public Lson(String jsonString) throws JsonProcessingException {
-		// is this a crude hack or a missing feature in Java? Java is not good in handling JSON (from a developer perspective) compared for example to JavaScript
-		this(jsonString != null ? mapper.readValue(jsonString, Map.class) : new HashMap<>());
+		// is this a crude hack or a missing feature in Java? Java is not good at handling JSON (from a developer perspective) compared, for example, to JavaScript
+		this(jsonString != null
+				? mapper.readValue(jsonString, new TypeReference<Map<String, Object>>() {})
+				: new HashMap<>());
 	}
 
 	/**
@@ -58,7 +61,7 @@ public class Lson extends HashMap<String, Object> implements Map<String, Object>
 		return new Lson();
 	}
 
-	/** Factory method - shortcut for very simple JSON:  Lson.builder("key", "value") */
+	/** Factory method - shortcut for very simple JSON: Lson.builder("key", "value") */
 	public static Lson builder(String key, Object value) {
 		Lson lson = Lson.builder();
 		return lson.put(key, value);
@@ -86,7 +89,8 @@ public class Lson extends HashMap<String, Object> implements Map<String, Object>
 		if (idx > 0) {
 			String key       = path.substring(0, idx);
 			String childPath = path.substring(idx+1);
-			Map child = (Map)super.get(key);
+			@SuppressWarnings("unchecked")
+			Map<String, Object> child = (Map<String, Object>) super.get(key);
 			if (child != null) {
 				child.put(childPath, value);
 			} else {

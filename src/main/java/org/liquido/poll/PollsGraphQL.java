@@ -78,8 +78,7 @@ public class PollsGraphQL {
 	) throws LiquidoException {
 		TeamEntity team = jwtTokenUtils.getCurrentTeam()
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.UNAUTHORIZED, "Cannot create poll: Must be logged into a team!"));
-		PollEntity poll = pollService.createPoll(title, team);
-		return poll;
+		return pollService.createPoll(title, team);
 	}
 
 	/**
@@ -146,25 +145,6 @@ public class PollsGraphQL {
 	}
 
 	/**
-	 * Get a valid voter Token for casting a ballot.
-	 * @param tokenSecret secret that only the user must know!
-	 * @param becomePublicProxy if user's automatically wants to become a public proxy (default=false)
-	 * @return { "voterToken": "$2ADDgg33gva...." }
-	 * @throws LiquidoException when user is not logged into a team
-	 */
-	@Query
-	@Description("Get voter's secret voterToken. With this token you can then cast votes anonymously.")
-	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
-	public String voterToken(
-			@NonNull @Name("tokenSecret") String tokenSecret,
-			@DefaultValue("false") Boolean becomePublicProxy
-	) throws LiquidoException {
-		UserEntity voter = jwtTokenUtils.getCurrentUser()
-				.orElseThrow(LiquidoException.unauthorized("Must be logged in to getVoterToken!"));
-		return castVoteService.createVoterTokenAndStoreRightToVote(voter, tokenSecret, becomePublicProxy);
-	}
-
-	/**
 	 * Is a proposal already liked by the currently logged in user?
 	 *
 	 * @param proposal GraphQL context: the ProposalEntity
@@ -214,6 +194,28 @@ public class PollsGraphQL {
 	}
 
 	/**
+	 * Get a voter token for casting a ballot in this poll.
+	 *
+	 * @param pollId ID of the poll
+	 * @param becomePublicProxy if user's automatically wants to become a public proxy (default=false)
+	 * @return { "voterToken": "$2ADDgg33gva...." }
+	 * @throws LiquidoException when user is not logged into a team
+	 */
+	@Query
+	@Description("Get a voter token to cast a vote in this poll.")
+	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
+	public String voterToken(
+			@NonNull Long pollId,
+			@DefaultValue("false") Boolean becomePublicProxy
+	) throws LiquidoException {
+		UserEntity voter = jwtTokenUtils.getCurrentUser()
+				.orElseThrow(LiquidoException.unauthorized("Must be logged in to getVoterToken!"));
+		PollEntity poll = PollEntity.<PollEntity>findByIdOptional(pollId)
+				.orElseThrow(LiquidoException.notFound("Cannot get voterToken. poll.id=" + pollId + " not found!"));
+		return castVoteService.createVoterToken(voter, poll, becomePublicProxy);
+	}
+
+	/**
 	 * Cast a vote in a poll
 	 * A user may overwrite his previous ballot as long as the poll is still in its VOTING phase.
 	 * <b>This request can be sent anonymously!</b>
@@ -231,12 +233,13 @@ public class PollsGraphQL {
 	public CastVoteResponse castVote(
 			@NonNull long pollId,
 			@NonNull List<Long> voteOrderIds,   // Must be passed as [BigInteger!]!  in GraphQL
+			@Description("The plain voter token that the voter has received for this poll.")
 			@NonNull String voterToken
 	) throws LiquidoException {
 		PollEntity poll = PollEntity.<PollEntity>findByIdOptional(pollId)
 				.orElseThrow(LiquidoException.notFound("Cannot cast vote. Poll(id="+pollId+") not found!"));
 		CastVoteResponse res = castVoteService.castVote(voterToken, poll, voteOrderIds);
-		log.info("castVote: poll.id=" + pollId);		//TODO: log all user actions into seperate file
+		log.info("castVote: poll.id=" + pollId);		//TODO: log all user actions into separate file or even better into some business process data mining analytics tool. (buzzword bingo)
 		return res;
 	}
 
@@ -273,7 +276,28 @@ public class PollsGraphQL {
 	) throws LiquidoException {
 		PollEntity poll = PollEntity.<PollEntity>findByIdOptional(pollId)
 				.orElseThrow(LiquidoException.notFound("Cannot get Ballot for voterToken. Poll(id="+pollId+") not found!"));
-		return pollService.getBallotForVoterToken(poll, voterToken);
+		return pollService.getBallotOfCurrentUser(poll);
+	}
+
+	/**
+	 * Verify a voter's ballot with its checksum. When the checksum is valid, the
+	 * ballot with the correct voteOrder will be returned.
+	 *
+	 * @param pollId a poll
+	 * @param checksum checksum of a ballot in that poll
+	 * @return the voter's ballot if it matches the checksum.
+	 * @throws LiquidoException when poll cannot be found
+	 */
+	@Query
+	@Description("Verify that a voter's ballot was counted correctly")
+	public BallotEntity verifyBallot(
+			@NonNull long pollId,
+			@NonNull String checksum
+	) throws LiquidoException {
+		PollEntity poll = PollEntity.<PollEntity>findByIdOptional(pollId)
+				.orElseThrow(LiquidoException.notFound("Cannot verify checksum. Poll(id="+pollId+") not found!"));
+		return BallotEntity.findByPollAndChecksum(poll, checksum)
+				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_VERIFY_CHECKSUM, "No ballot for that checksum."));
 	}
 
 	

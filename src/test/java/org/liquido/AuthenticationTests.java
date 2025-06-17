@@ -159,7 +159,7 @@ public class AuthenticationTests {
 		reqEmailResponse.body(containsString("successfully"));
 		log.info("Successfully sent login email.");
 
-		//  AND an email with a one time password (nonce) is received
+		//  AND an email with a onetime password (nonce) is received
 		List<Mail> mails = mailbox.getMailsSentTo(user.email.toLowerCase());
 		assertEquals(1, mails.size());
 		String html = mails.get(0).getHtml();
@@ -167,7 +167,7 @@ public class AuthenticationTests {
 		log.info("Received (mock) login email.");
 		log.info(html);
 
-		// AND the email contains a login link with a one time password ("nonce")
+		// AND the email contains a login link with a onetime password ("nonce")
 		// Format of login link in HTML:   "<a id='loginLink' style='font-size: 20pt;' href='http://localhost:3001/login?email=testuser1681280391428@liquido.vote&emailToken=c199e7c2-fd13-423e-8648-ec4ae4375608'>Login TestUser1681280391428</a>"
 		Pattern p = Pattern.compile(".*<a.*?id='loginLink'.*?href='.+/login\\?email=(.+?)&emailToken=(.+?)'>.*", Pattern.DOTALL);
 		Matcher matcher = p.matcher(html);
