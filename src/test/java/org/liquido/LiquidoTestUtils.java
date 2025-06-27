@@ -242,6 +242,18 @@ public class LiquidoTestUtils {
 		return castVoteResponse;
 	}
 
+
+	public BallotEntity getBallotOfCurrentUser(Long pollId, String jwt) {
+		String myBallotQuery = "query myBallot($pollId: BigInteger!) { " +
+				"  myBallot(pollId: $pollId) " + JQL_BALLOT + "}";
+		Lson myBallotVars = Lson.builder()
+				.put("pollId", pollId);
+		return sendGraphQL(myBallotQuery, myBallotVars, jwt)
+				.extract().jsonPath().getObject("data.myBallot", BallotEntity.class);
+	}
+
+
+
 	public BallotEntity verifyBallot(Long pollId, String checksum) {
 		String verifyBallotQuery = "query verifyBallot($pollId: BigInteger!, $checksum: String!) { " +
 				"  verifyBallot(pollId: $pollId, checksum: $checksum) " + JQL_BALLOT + "}";

@@ -260,23 +260,23 @@ public class PollsGraphQL {
 	}
 
 
-	/*
+	/**
 	 * Get the ballot of a voter in a poll, if the voter has already cast one.
 	 * @param pollId poll.id
 	 * @return the voter's ballot if there is one
 	 * @throws LiquidoException when voterToken is invalid
-
-	@Query("ballot")
+   */
+	@Query("myBallot")
 	@Description("Get the ballot of a voter in a poll, if the voter has already casted one.")
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
-	public Optional<BallotEntity> getBallot(
+	public Optional<BallotEntity> getBallotOfCurrentUser(
 			@NonNull long pollId
 	) throws LiquidoException {
 		PollEntity poll = PollEntity.<PollEntity>findByIdOptional(pollId)
 				.orElseThrow(LiquidoException.notFound("Cannot get Ballot for voterToken. Poll(id="+pollId+") not found!"));
 		return pollService.getBallotOfCurrentUser(poll);
 	}
-	*/
+
 
 
 	/**
