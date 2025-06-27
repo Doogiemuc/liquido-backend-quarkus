@@ -5,6 +5,7 @@ import io.restassured.http.ContentType;
 import io.restassured.response.ValidatableResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpHeaders;
+import org.hamcrest.core.DescribedAs;
 import org.liquido.util.Lson;
 
 import static io.restassured.RestAssured.given;
@@ -88,7 +89,7 @@ public class TestFixtures {
 					.post(TestFixtures.GRAPHQL_URI)
 					.then() //.log().all()
 					.statusCode(200)  // But be careful: GraphQL always returns 200, so we need to
-					.body("errors", anyOf(nullValue(), hasSize(0)));    // check for no GraphQL errors: []
+					.body("errors", DescribedAs.describedAs("no GraphQL errors returned from anonymous query: "+query, anyOf(nullValue(), hasSize(0))));   // check for no GraphQL errors: []
 		} else {
 			return given() //.log().all()
 					.contentType(ContentType.JSON)
@@ -98,7 +99,7 @@ public class TestFixtures {
 					.post(TestFixtures.GRAPHQL_URI)
 					.then() //.log().all()
 					.statusCode(200)  // But be careful: GraphQL always returns 200, so we need to
-					.body("errors", anyOf(nullValue(), hasSize(0)));    // check for no GraphQL errors: []
+					.body("errors", DescribedAs.describedAs("no GraphQL errors returned from authenticated query: "+query, anyOf(nullValue(), hasSize(0))));    // check for no GraphQL errors: []
 		}
 
 	}

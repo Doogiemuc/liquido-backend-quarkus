@@ -260,33 +260,34 @@ public class PollsGraphQL {
 	}
 
 
-	/**
+	/*
 	 * Get the ballot of a voter in a poll, if the voter has already cast one.
-	 * @param voterToken voter's secret voterToken
 	 * @param pollId poll.id
 	 * @return the voter's ballot if there is one
 	 * @throws LiquidoException when voterToken is invalid
-	 */
+
 	@Query("ballot")
 	@Description("Get the ballot of a voter in a poll, if the voter has already casted one.")
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
 	public Optional<BallotEntity> getBallot(
-			@NonNull String voterToken,
 			@NonNull long pollId
 	) throws LiquidoException {
 		PollEntity poll = PollEntity.<PollEntity>findByIdOptional(pollId)
 				.orElseThrow(LiquidoException.notFound("Cannot get Ballot for voterToken. Poll(id="+pollId+") not found!"));
 		return pollService.getBallotOfCurrentUser(poll);
 	}
+	*/
+
 
 	/**
-	 * Verify a voter's ballot with its checksum. When the checksum is valid, the
-	 * ballot with the correct voteOrder will be returned.
+	 * Anonymously verify that a ballot with this checksum has been cast and was counted correctly.
+	 * When the checksum is valid, the ballot with its voteOrder will be returned.
+	 * This can be called anonymously.
 	 *
 	 * @param pollId a poll
 	 * @param checksum checksum of a ballot in that poll
 	 * @return the voter's ballot if it matches the checksum.
-	 * @throws LiquidoException when poll cannot be found
+	 * @throws LiquidoException when that poll cannot be found
 	 */
 	@Query
 	@Description("Verify that a voter's ballot was counted correctly")
@@ -297,7 +298,7 @@ public class PollsGraphQL {
 		PollEntity poll = PollEntity.<PollEntity>findByIdOptional(pollId)
 				.orElseThrow(LiquidoException.notFound("Cannot verify checksum. Poll(id="+pollId+") not found!"));
 		return BallotEntity.findByPollAndChecksum(poll, checksum)
-				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_VERIFY_CHECKSUM, "No ballot for that checksum."));
+				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_VERIFY_CHECKSUM, "No known ballot for that checksum."));
 	}
 
 	

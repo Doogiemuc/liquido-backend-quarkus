@@ -149,7 +149,7 @@ public class AuthenticationTests {
 	@Disabled   //TODO: needs update: LoginViaEmailAndPassword
 	@Transactional
 	public void loginViaEmail() {
-		UserEntity user = LiquidoTestUtils.getRandomUser();
+		UserEntity user = util.getRandomUser();
 
 		//  WHEN requesting and email token for this user
 		String reqEmailQuery = "query reqEmail($email: String) { requestEmailToken(email: $email) }";

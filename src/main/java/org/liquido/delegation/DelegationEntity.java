@@ -1,4 +1,4 @@
-package org.liquido.user;
+package org.liquido.delegation;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Entity;
@@ -8,6 +8,7 @@ import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 import org.liquido.model.BaseEntity;
+import org.liquido.user.UserEntity;
 import org.liquido.vote.RightToVoteEntity;
 
 import java.time.LocalDateTime;

@@ -16,6 +16,7 @@ import org.liquido.user.UserEntity;
 import org.liquido.util.DoogiesUtil;
 
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -73,7 +74,7 @@ public class TeamEntity extends BaseEntity {
 	 * @return true if admin actually is an admin of this team
 	 */
 	public boolean isAdmin(UserEntity admin) {
-		return members.stream().filter(tm -> tm.role.equals(TeamMemberEntity.Role.ADMIN)).anyMatch(tm -> admin.id == tm.user.id);
+		return members.stream().filter(tm -> tm.role.equals(TeamMemberEntity.Role.ADMIN)).anyMatch(tm -> Objects.equals(admin.id, tm.user.id));
 
 	}
 

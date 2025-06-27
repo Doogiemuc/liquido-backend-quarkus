@@ -13,6 +13,7 @@ import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.liquido.delegation.DelegationEntity;
 import org.liquido.model.BaseEntity;
 import org.liquido.poll.PollEntity;
 import org.liquido.poll.ProposalEntity;
@@ -288,6 +289,7 @@ public class TestDataCreator {
 
 		entityManager.flush();
 
+		DelegationEntity.deleteAll();
 		TeamMemberEntity.deleteAll();
 		TeamEntity.deleteAll();
 		UserEntity.deleteAll();

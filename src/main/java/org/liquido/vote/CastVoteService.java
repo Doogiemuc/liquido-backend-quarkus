@@ -33,30 +33,7 @@ public class CastVoteService {
 	/**
 	 * When a user wants to cast a vote in LIQUIDO, then they need
 	 *   1. A general RightToVote to be allowed to vote at all and
-	 *   2. A one time token for that specific poll they want to cast a vote in.
-	 *
-	 *
-	 *
-	 *
-	 * The backend calculates two values:
-	 *
-	 * (1) The voterToken which will be returned to the voter. It is secret and must only be known to him.
-	 *     With this voterToken the voter is able to anonymously cast a vote.
-	 *     The voterToken is calculated from several seeds, including a serverSecret, so that we can be sure
-	 *     only "we" create valid voterTokens. Each user has one voter Token per area.
-	 *
-	 * <pre>voterToken = hash(user.id + voterSecret + area.id + serverSecret)</pre>
-	 *
-	 * (2) The hashed voterToken is the digital representation of the user's right to vote. Only that user knows his voterToken,
-	 *     so only he can prove that this is his rightToVote. The rightToVote is only stored on the server and not returned.
-	 * <pre>rightToVote = hash(voterToken + serverSecret)</pre>
-	 *
-	 * When creating new voterTokens, then we do not calculate a new BCrypt salt. Because a voter might request his voterToken
-	 * multiple times. And we have to return the same voterToken every time.
-	 *
-	 * When a user requests a new voterToken, he may immediately decide to become a public proxy. Then his rightToVote
-	 * is associated with his username, so that other voters can immediately delegate their right to vote to his.
-	 * A voter may also later decide to become a public proxy.
+	 *   2. A one-time token for that specific poll they want to cast a vote in.
 	 *
 	 * @param voter the currently logged in and correctly authenticated user
 	 * @param becomePublicProxy true if voter wants to become (or stay) a public proxy. A voter can also decide this later with becomePublicProxy
@@ -71,7 +48,7 @@ public class CastVoteService {
 		RightToVoteEntity rightToVote = RightToVoteEntity.findByVoter(voter, config.hashSecret())
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_GET_TOKEN, "You are not allowed to vote!"));
 
-		// Create a new voter token for this poll and hash it with some additional salts
+		// Create a new one-time voter token for this poll and hash it with an additional salt.
 		// The hash input must exactly be the same as in castVote(). It CANNOT contain voter.id, because that is not known in castVote()
 		// I thought about adding an additional voterSecret, that a user passes in here and in castVote.
 		// But plainVoterToken is already random. This would only add little security.
@@ -80,20 +57,7 @@ public class CastVoteService {
 		int ttl = config.voterTokenExpirationMinutes();
 		VoterTokenEntity ott = VoterTokenEntity.buildAndPersist(hashedVoterToken, poll, rightToVote, ttl);
 
-		System.out.println("getVoterToken: VoterTokenEntity.buildAndPersist " + plainVoterToken + " => " + ott + " hashedVoterToken="+hashedVoterToken);
-
 		//TODO: becomePublicProxy. But should that be done here?? Do that in delegations.
-
-		System.out.println("=========== all RightToVotes");
-		RightToVoteEntity.findAll().stream().forEach(rtv -> {
-			System.out.println(((RightToVoteEntity)rtv).hash + " => " + rtv.toString());
-		});
-		System.out.println("=========== all VoterTokens");
-		VoterTokenEntity.findAll().stream().forEach(token -> {
-			System.out.println(token.toString());
-		});
-
-
 
 		// Only return the plainOneTimeToken to the voter. They can then use this token to anonymously cast one vote in this poll.
 		return plainVoterToken;
@@ -170,7 +134,7 @@ public class CastVoteService {
 
 		// check voterToken
 		String hashedVoterToken = DigestUtils.sha3_256Hex(plainVoterToken + poll.id + config.hashSecret());
-		System.out.println("consumeVoterToken: plainVoterToken = "+ plainVoterToken + "  hashedVoterToken = "+hashedVoterToken);
+		log.info("consumeVoterToken: plainVoterToken = {} hashedVoterToken = {} in poll.id = {}", plainVoterToken, hashedVoterToken, poll.id);
 		VoterTokenEntity voterToken = VoterTokenEntity.<VoterTokenEntity>findByIdOptional(hashedVoterToken)
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.INVALID_VOTER_TOKEN, "This voterToken is invalid."));
 		if (LocalDateTime.now().isAfter(voterToken.expiresAt))
@@ -180,8 +144,8 @@ public class CastVoteService {
 		if (voterToken.getRightToVote() == null)
 			throw new LiquidoException(LiquidoException.Errors.INVALID_VOTER_TOKEN, "You are not allowed to cast a vote.");
 
-		voterToken.setUsed(true);
-		voterToken.persistAndFlush();
+		// Delete the consumed voterToken
+		voterToken.delete();
 
 		return voterToken.getRightToVote();
 	}
@@ -279,28 +243,28 @@ public class CastVoteService {
 			//----- Update existing ballot if the level of newBallot is smaller.  Proxy must not overwrite a voter's own vote OR a vote from a proxy below him
 			BallotEntity existingBallot = existingBallotOpt.get();
 			if (existingBallot.getLevel() < newBallot.getLevel()) {
-				log.trace("   Voter has already voted for himself {}", existingBallot);
+				log.debug("   Voter has already voted for himself {}", existingBallot);
 				return null;
 			}
-			log.trace("  Update existing ballot {}", existingBallot.id);
+			log.debug("  Update existing ballot {}", existingBallot.id);
 			existingBallot.setVoteOrder(newBallot.getVoteOrder());
 			existingBallot.setLevel(newBallot.getLevel());
 			existingBallot.persist();
 			savedBallot = existingBallot;
 		} else {
 			//----- If there is no existing ballot yet with that rightToVote, then builder a completely new one.
-			log.trace("   Saving new ballot");
+			log.debug("   Saving new ballot");
 			newBallot.persist();
 			savedBallot = newBallot;
 		}
 
 		//----- When a user is a proxy, then recursively cast a ballot for each delegated rightToVote
-		long voteCount = 0;   // count for how many delegees (that have not voted yet for themselves) the proxies ballot is also casted
+		long voteCount = 0;   // count for how many delegees (that have not voted yet for themselves) the proxy's ballot is also cast
 		for (RightToVoteEntity delegatedRightToVote : savedBallot.rightToVote.delegations) {
 			List<ProposalEntity> voteOrderClone = new ArrayList<>(newBallot.getVoteOrder());   // BUGFIX for org.hibernate.HibernateException: Found shared references to a collection
 			BallotEntity childBallot = new BallotEntity(newBallot.getPoll(), newBallot.getLevel() + 1, voteOrderClone, delegatedRightToVote);
 			log.debug("   Proxy casts vote for delegated childBallot {}", childBallot);
-			CastVoteResponse childRes = castVoteRec(childBallot);  // will return null when level of an existing childBallot is smaller then the childBallot that the proxy would cast. => this ends the recursion
+			CastVoteResponse childRes = castVoteRec(childBallot);  // will return null when level of an existing childBallot is smaller than the childBallot that the proxy would cast. => this ends the recursion
 			if (childRes != null) voteCount += 1 + childRes.getVoteCount();
 		}
 
@@ -347,7 +311,7 @@ public class CastVoteService {
 		}
 
 		// Every ballot must be linked to an existing & persisted RightToVote
-		RightToVoteEntity rightToVote = RightToVoteEntity.findByHash(ballot.getRightToVote().hash)
+		RightToVoteEntity rightToVote = RightToVoteEntity.findByHash(ballot.getRightToVote().hashedVoterInfo)
 				.orElseThrow(() -> new LiquidoException(LiquidoException.Errors.CANNOT_CAST_VOTE, "Cannot cast vote: Ballot must be linked to an existing RightToVote."));
 	}
 

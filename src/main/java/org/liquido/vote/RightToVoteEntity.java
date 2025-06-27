@@ -5,6 +5,7 @@ import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.*;
 import lombok.*;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.liquido.delegation.DelegationEntity;
 import org.liquido.poll.PollEntity;
 import org.liquido.user.UserEntity;
 
@@ -26,12 +27,13 @@ import java.util.Set;
 @Data
 @NoArgsConstructor
 @RequiredArgsConstructor
-@EqualsAndHashCode(callSuper = false)
+@EqualsAndHashCode(onlyExplicitlyIncluded = true, callSuper = true)
 @Entity(name = "righttovote")
 //@Table(name = "rightToVote", uniqueConstraints= {
 //TODO:		@UniqueConstraint(columnNames = {"public_proxy_id"})  // A proxy cannot be public proxy more than once in one area.
 //})
 public class RightToVoteEntity extends PanacheEntityBase {
+	// RightToVoteEntity extends PanacheEntityBase! not our own BaseEntity. No createdBy! And we have our own ID.
 	//TODO: Should a RightToVote be per user? Or per user and team?
 	//TODO: Should a RightToVote.hash include the user's passwordHash? Change password -> need to recreate all RightToVotes for this user.
 
@@ -41,7 +43,8 @@ public class RightToVoteEntity extends PanacheEntityBase {
    */
 	@Id
 	@NonNull
-	public String hash;  // == hash(user.email + user.passwordHash + serverConfig.hashSecret)
+	@EqualsAndHashCode.Include      //FIX: only use this in Lombok equals and Hash code
+	public String hashedVoterInfo;  // == SHA256(user.email + user.passwordHash + serverConfig.hashSecret)
 
 	/** A RightToVote is only valid for a given time */
 	@NonNull
@@ -49,18 +52,19 @@ public class RightToVoteEntity extends PanacheEntityBase {
 
 	// ======= Bidirectional hibernate relation: Voter ---(delegates to)---> Proxy
 
+	//TODO: Create a custom Hibernate validator that prevents delegation to onself: https://docs.jboss.org/hibernate/stable/validator/reference/en-US/html_single/?v=9.0#section-class-level-constraints
 	/**
-	 * This RightToVote delegates to a proxy RightToVoteEntity.
-	 * Each RightToVote can delegate to only **one** other RightToVote.
+	 * A voter can delegate his RightToVote to a proxy.
+	 * This attribute anonymously delegates to the proxy's RightToVote.
 	 */
 	@ManyToOne
-	@JoinColumn(name = "delegated_to", referencedColumnName = "hash")
+	@JoinColumn(name = "delegated_to", referencedColumnName = "hashedVoterInfo")
 	@JsonIgnore
 	RightToVoteEntity delegatedTo = null;
 
 	/**
 	 * A voter can delegate his right to vote to a proxy. Then the proxy will vote for him.
-	 * The delegation is stored in the {@link org.liquido.user.DelegationEntity}.
+	 * The delegation is stored in the {@link DelegationEntity}.
 	 * Here we only store the RightToVotes that have been delegated to this proxy.
 	 * There is no direct relation between a RightToVote and a voter, because votes are anonymous.
 	 */
@@ -74,51 +78,33 @@ public class RightToVoteEntity extends PanacheEntityBase {
 	 * Then the proxy does not need to accept delegations. They can automatically be delegated.
 	 */
 	@OneToOne
-	UserEntity publicProxy = null;		// by default, no username is stored together with a hashedVoterToken!!!
+	UserEntity publicProxy = null;
 
+	/**
+	 * Grant a user the right to vote.
+	 * @return a RightToVote that you still need to persist
+	 */
 	public static RightToVoteEntity build(UserEntity voter, int expirationDays, String salt) {
 		String hashedUserInfo = DigestUtils.sha3_256Hex(voter.email + voter.passwordHash + salt);
-		System.out.println("building RightToVote for "+voter);
-		System.out.println("hashedUserInfo = "+hashedUserInfo);
 		// ConfigProvider.getConfig().getValue("liquido.right-to-vote-expiration-days", Integer.class); - would be possible but not clean. So we simply pass the salt as parameter.
 		LocalDateTime expiresAt = LocalDateTime.now().plusDays(expirationDays);
 		return new RightToVoteEntity(hashedUserInfo, expiresAt);
 	}
 
 	/**
-	 * Check if adding this delegation would create a cycle.
+	 * Delegate to a proxies right to vote
+	 * Before you call this, check that this delegation is valid!
+	 * Does not create a circle etc.
 	 */
-	public boolean wouldCauseCycle(RightToVoteEntity proxy) {
-		RightToVoteEntity current = proxy;
-		while (current != null) {
-			if (this.equals(current)) return true;
-			current = current.delegatedTo;
-		}
-		return false;
-	}
-
-	/**
-	 * Delegate to another RightToVoteEntity (with validation).
-	 */
-	public void delegateTo(RightToVoteEntity proxy) {
-		if (proxy == null) throw new IllegalArgumentException("Cannot delegate to null");
-
-		if (this.equals(proxy)) {
-			throw new IllegalArgumentException("Cannot delegate to self");
-		}
-
-		if (wouldCauseCycle(proxy)) {
-			throw new IllegalArgumentException("Delegation would cause a cycle");
-		}
-
-		// Remove from previous delegate if necessary
-		if (this.delegatedTo != null) {
-			this.delegatedTo.delegations.remove(this);
+	public void delegateToProxy(RightToVoteEntity proxy) {
+		// Remove from previous delegate if necessary. On both sides of the bidirectional association.
+		if (this.getDelegatedTo() != null) {
+			this.getDelegatedTo().getDelegations().remove(this);
 		}
 
 		// Set new delegation
-		this.delegatedTo = proxy;
-		proxy.delegations.add(this);
+		this.setDelegatedTo(proxy);
+		proxy.getDelegations().add(this);
 	}
 
 	/**
@@ -145,10 +131,10 @@ public class RightToVoteEntity extends PanacheEntityBase {
 	}
 
 	/**
-	 * Lookup the RightToVote of a voter. This is used to find a cast ballot
+	 * Lookup the RightToVote of a voter. This is used to find a submitted ballot
 	 * and to {@link org.liquido.poll.PollService#findEffectiveProxy(PollEntity, UserEntity)}
 	 *
-	 * Only the server cna lookup the RightToVote for a given voter, because a hashSecret is included in the hash.
+	 * Only the server can look up the RightToVote for a given voter, because a hashSecret is included in the hash.
 	 * It is not possible the other way round. It is not possible to find the voter that belongs to a right to vote.
 	 * This is the beauty of the hash algorithm.
 	 *
@@ -169,10 +155,9 @@ public class RightToVoteEntity extends PanacheEntityBase {
 	public String toString() {
 		return new StringBuilder()
 				.append("RightToVote[")  // do not expose hash
-				.append("delegatesTo=").append(this.delegatedTo != null ? this.delegatedTo.hash : "<null>")
-				.append(", isPublicProxy=").append(this.getPublicProxy() != null ? this.getPublicProxy().toStringShort() : "<null>")
+				.append("delegatedTo=").append(this.delegatedTo != null ? this.delegatedTo.hashedVoterInfo : "<null>")
 				.append(", expiresAt=").append(this.expiresAt)
-				.append(", isPublicProxy=").append(this.publicProxy)
+				.append(", isPublicProxy=").append(this.getPublicProxy() != null ? this.getPublicProxy().toStringShort() : "<null>")
 				.append("]").toString();
 	}
 
