@@ -197,7 +197,6 @@ public class PollsGraphQL {
 	 * Get a voter token for casting a ballot in this poll.
 	 *
 	 * @param pollId ID of the poll
-	 * @param becomePublicProxy if user's automatically wants to become a public proxy (default=false)
 	 * @return { "voterToken": "$2ADDgg33gva...." }
 	 * @throws LiquidoException when user is not logged into a team
 	 */
@@ -205,14 +204,13 @@ public class PollsGraphQL {
 	@Description("Get a voter token to cast a vote in this poll.")
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
 	public String voterToken(
-			@NonNull Long pollId,
-			@DefaultValue("false") Boolean becomePublicProxy
+			@NonNull Long pollId
 	) throws LiquidoException {
 		UserEntity voter = jwtTokenUtils.getCurrentUser()
-				.orElseThrow(LiquidoException.unauthorized("Must be logged in to getVoterToken!"));
+				.orElseThrow(LiquidoException.unauthorized("You MUST be logged in to get a voterToken!"));
 		PollEntity poll = PollEntity.<PollEntity>findByIdOptional(pollId)
 				.orElseThrow(LiquidoException.notFound("Cannot get voterToken. poll.id=" + pollId + " not found!"));
-		return castVoteService.createVoterToken(voter, poll, becomePublicProxy);
+			return castVoteService.createVoterToken(voter, poll);
 	}
 
 	/**

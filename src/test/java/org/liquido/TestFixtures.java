@@ -17,6 +17,7 @@ import static org.hamcrest.Matchers.*;
 @Slf4j
 public class TestFixtures {
 
+
 	// Test Data Set
 
 	// every test data item will contain this "now" in one of its attributes
@@ -25,6 +26,7 @@ public class TestFixtures {
 	public static String adminEmail   = "testadmin" + now + "@liquido.vote";
 	public static String memberEmail  = "testmember" + now + "@liquido.vote";
 	public static String pollTitle    = "TestPoll " + now;
+	public static final String PASSWORD_SUFFIX = "_PWD"; // plainPassword = email + this sufix
 	public static String tokenSecret  = "testTokenSecret";
 
 	public static final String staticDummyEmail = "staticDummyEmail@liquido.vote";

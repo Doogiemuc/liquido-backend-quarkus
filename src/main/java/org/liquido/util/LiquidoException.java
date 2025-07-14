@@ -2,6 +2,7 @@ package org.liquido.util;
 
 
 import jakarta.ws.rs.core.Response;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Map;
@@ -56,6 +57,7 @@ import java.util.function.Supplier;
 public class LiquidoException extends Exception {
 
 	/** LIQUIDO error code */
+	@Getter
 	Errors error;
 
 	/**
@@ -191,17 +193,29 @@ public class LiquidoException extends Exception {
 		return () -> new LiquidoException(error, msg);
 	}
 
-	public static Supplier<LiquidoException> supplyAndLog(Errors error, String msg) {
-		if (error.httpResponseStatus.getStatusCode() >= 500) {
-			log.error(error.name() + ": " + msg);
-		} else {
-			log.info(error.name() + ": " + msg);
-		}
-		return () -> new LiquidoException(error, msg);
+	/* Just for fun. In the end this is not easier than my supply() for the caller
+	public static <T> T getOrThrow(Optional<T> o, Errors error, String msg) throws LiquidoException{
+		if (o.isPresent()) return o.get();
+		throw new LiquidoException(error, msg);
 	}
+	*/
 
-	public Errors getError() {
-		return this.error;
+
+	/**
+	 * Supply a LiquidoException that will automatically log the error message when thrown.
+	 * @param error
+	 * @param msg
+	 * @return
+	 */
+	public static Supplier<LiquidoException> supplyAndLog(Errors error, String msg) {
+		return () -> {
+			if (error.httpResponseStatus.getStatusCode() >= 500) {
+				log.error(error.name() + ": " + msg);
+			} else {
+				log.info(error.name() + ": " + msg);
+			}
+			return new LiquidoException(error, msg);
+		};
 	}
 
 	public int getErrorCodeAsInt() {
