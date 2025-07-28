@@ -12,7 +12,7 @@ import lombok.extern.slf4j.Slf4j;
  * This class MUST be registered in
  * META-INF/services/io.smallrye.graphql.api.ErrorExtensionProvider (this is a ServiceLoader)
  *
- * https://smallrye.io/smallrye-graphql/2.13.0/custom-error-extensions/
+ * <a href="https://smallrye.io/smallrye-graphql/2.13.0/custom-error-extensions/">...</a>
  */
 @Slf4j
 @Provider
@@ -26,7 +26,7 @@ public class LiquidoErrorExtensionProvider implements io.smallrye.graphql.api.Er
 	 * Add fields to the "extensions" attribute in the GraphQL response.
 	 * Liquido always returns the same set of fields
 	 * @param throwable The thrown exception
-	 * @return JSON with info about what happend.
+	 * @return JSON with info about what happened.
 	 */
 	@Override
 	public JsonValue mapValueFrom(Throwable throwable) {
@@ -40,7 +40,7 @@ public class LiquidoErrorExtensionProvider implements io.smallrye.graphql.api.Er
 		JsonObjectBuilder builder = Json.createObjectBuilder()
 				.add("liquidoErrorName", "liquidoSystemError")
 				.add("liquidoErrorCode", LiquidoException.Errors.INTERNAL_ERROR.getLiquidoErrorCode())
-				.add("liquidoErrorMessage", "This should not have happend :-(   We are sorry.");
+				.add("liquidoErrorMessage", "This should not have happened :-(   We are sorry.");
 
 		if (LaunchMode.current() == LaunchMode.DEVELOPMENT) {
 			builder
