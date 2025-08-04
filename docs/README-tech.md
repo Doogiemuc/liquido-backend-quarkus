@@ -14,6 +14,8 @@ See also the LIQUIDO theses for a more in depth look into the theoretical backgr
  * 2025-03-18 Can now build docker container - with help of AI
  * 2025-05-08 Added Passwords for users.
  * 2025-05-24 Found drastic issue with RightToVote, when voting in more thant one poll!
+ * 2025-07-10 Fixed issue with RightToVote by introducing a new VoterToken entity.
+ * 2025-07-10 Worked on username password login in backend.
 
 # Next TODOs
 
