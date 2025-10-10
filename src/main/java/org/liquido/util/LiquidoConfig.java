@@ -28,6 +28,8 @@ public interface LiquidoConfig {
 
     String devLoginToken();
 
+    int minPasswordLength();
+
     Jwt jwt();
     interface Jwt {
         //String secret();   not used

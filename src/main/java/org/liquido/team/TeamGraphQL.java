@@ -156,6 +156,8 @@ public class TeamGraphQL {
 	 * @throws LiquidoException When another user with same email or mobilephone already exists
 	 */
 	private void createNewLiquidoUser(UserEntity user, String plainPassword) throws LiquidoException {
+		if (plainPassword == null || plainPassword.length() < config.minPasswordLength())
+			throw new LiquidoException(Errors.PASSWORD_TOO_SHORT, "Password too short");
 		// IF a user with that email or mobilephone already exists, throw error.
 		user.setMobilephone(DoogiesUtil.cleanMobilephone(user.mobilephone));
 		user.setEmail(DoogiesUtil.cleanEmail(user.email));
@@ -167,7 +169,7 @@ public class TeamGraphQL {
 		// Create new user
 		log.info("Creating new liquido user {}", user);
 		user.setPasswordHash(PasswordServiceBcrypt.hashPassword(plainPassword));   // MUST set passwordHash before persisting UserEntity!
-		user.persist();   // New user This will set the ID on the "user" entity.
+		user.persist();
 
 		//TODO: should the RightToVote include the users password? When the user changes his password, should his old right to votes be invalidated?
 		RightToVoteEntity rightToVote = RightToVoteEntity.build(user, config.rightToVoteExpirationDays(), config.hashSecret());

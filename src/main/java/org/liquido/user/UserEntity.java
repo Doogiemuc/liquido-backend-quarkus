@@ -74,7 +74,8 @@ public class UserEntity extends BaseEntity {
 	public String mobilephone;
 
 	/** User's hashed password */
-	public String passwordHash;
+	@JsonIgnore
+	public String passwordHash = null;
 
 	/** (optional) User's website or bio or social media profile link */
 	public String website = null;
