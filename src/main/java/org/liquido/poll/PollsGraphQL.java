@@ -169,7 +169,7 @@ public class PollsGraphQL {
 	 * @param proposal GraphQL context: the ProposalEntity
 	 * @return true, if currently logged in user is already a supporter of this proposal
 	 */
-	//@Query
+	@Query
 	@Description("Is a proposal already liked by the currently logged in user?")
 	public boolean isLikedByCurrentUser(@Source(name = "isLikedByCurrentUser")
 																				@Description("Is a proposal already liked by the currently logged in user?")
@@ -181,7 +181,7 @@ public class PollsGraphQL {
 
 	/**
 	 * Is a proposal created by the currently logged in user
-	 * This of course assumes that there is a currently logged in user. But polls and propos can only be fetched by authenticated users.
+	 * This of course assumes that there is a currently logged in user. But polls and proposals can only be fetched by authenticated users.
 	 *
 	 * @param proposal A proposal in a poll.
 	 * @return true if proposal was created by the currently logged in user.
@@ -193,6 +193,8 @@ public class PollsGraphQL {
 		Optional<UserEntity> user = jwtTokenUtils.getCurrentUser();
 		return proposal != null && user.isPresent() && user.get().equals(proposal.createdBy);
 	}
+
+	//Reminder: It is not possible to check if a user has already voted in a poll. Pools and ballots are not linked via username! Only via hashedVoterTokens
 
 	/**
 	 * Start the voting Phase of a poll

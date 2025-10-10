@@ -48,7 +48,9 @@ public class Liquido {
 		try {
 			System.out.println("   DB Connection : " + dataSource.getConnection().getMetaData().getURL());
 		} catch (SQLException e) {
-			log.error("Cannot connect to DB!");
+			log.error("=====================================");
+			log.error("Cannot connect to DB!" + e.getMessage());
+			log.error("=====================================");
 			throw new RuntimeException(e);
 		}
 		System.out.println("   #Users        : " + UserEntity.count());

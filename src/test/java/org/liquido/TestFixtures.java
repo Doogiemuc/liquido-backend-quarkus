@@ -105,7 +105,7 @@ public class TestFixtures {
 	}
 
 	/**
-	 * Get a random user from the DB. Will create one if no user exists yet.
+	 * Get a random user from the DB.
 	 * @return a random UserEntity
 	 */
 	public static UserEntity getRandomUser() {
