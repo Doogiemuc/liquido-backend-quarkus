@@ -28,6 +28,8 @@ public interface LiquidoConfig {
 
     String devLoginToken();
 
+    String testPasswordResetToken();
+
     int minPasswordLength();
 
     Jwt jwt();

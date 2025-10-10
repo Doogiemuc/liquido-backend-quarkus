@@ -17,6 +17,7 @@ import org.liquido.delegation.DelegationEntity;
 import org.liquido.model.BaseEntity;
 import org.liquido.poll.PollEntity;
 import org.liquido.poll.ProposalEntity;
+import org.liquido.security.OneTimeToken;
 import org.liquido.team.TeamDataResponse;
 import org.liquido.team.TeamEntity;
 import org.liquido.team.TeamMemberEntity;
@@ -277,6 +278,7 @@ public class TestDataCreator {
 		BallotEntity.deleteAll();
 		VoterTokenEntity.deleteAll();
 		RightToVoteEntity.deleteAll();
+		OneTimeToken.deleteAll();
 
 		entityManager.flush();
 

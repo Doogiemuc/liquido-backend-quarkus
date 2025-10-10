@@ -2,6 +2,7 @@ package org.liquido.user;
 
 import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.Mailer;
+import io.quarkus.runtime.LaunchMode;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +30,7 @@ public class UserService {
 		UserEntity user = UserEntity.findByEmail(emailLowerCase)
 				.orElseThrow(() -> {
 					log.warn("[Security] Requested password reset for <{}>, but this email is not registered.", email);
-					return new LiquidoException(LiquidoException.Errors.CANNOT_RESET_PASSWORD, "Won't reset password!");   // No details to caller!
+					return new LiquidoException(LiquidoException.Errors.WONT_RESET_PASSWORD, "Won't reset password!");   // No details to caller!
 				});
 
 		// Delete old one time tokens of this user. Also others that might have been generated for login via email.
@@ -59,21 +60,31 @@ public class UserService {
 		try {
 			mailer.send(Mail.withHtml(emailLowerCase, "Reset Password for LIQUIDO", body).setFrom("info@liquido.vote"));
 		} catch (Exception e) {
-			throw new LiquidoException(LiquidoException.Errors.CANNOT_RESET_PASSWORD, "Internal server error: Cannot send Email: " + e, e);
+			log.error("[requestPasswordReset] Cannot send email: "+e.getMessage());
+			throw new LiquidoException(LiquidoException.Errors.WONT_RESET_PASSWORD, "Internal server error: Cannot send Email: " + e, e);
 		}
 
 		return "{ \"message\": \"Reset password email sent successfully.\" }";
 	}
 
 
-	public String resetPassword(String email, String nonce, String newPassword) throws LiquidoException {
+	public String resetPassword(String email, String resetPasswordToken, String newPassword) throws LiquidoException {
 		email = email.toLowerCase();
-		OneTimeToken ott = OneTimeToken.findByNonce(nonce).orElseThrow(
-				LiquidoException.supplyAndLog(LiquidoException.Errors.CANNOT_RESET_PASSWORD, "Won't reset password for <" + email + ">. Invalid or expired one time token")
-		);
 		UserEntity user = UserEntity.findByEmail(email).orElseThrow(
-				LiquidoException.supplyAndLog(LiquidoException.Errors.CANNOT_RESET_PASSWORD, "Won't reset password for <" + email + ">. Cannot find user.")
+				LiquidoException.supply(LiquidoException.Errors.WONT_RESET_PASSWORD, "Won't reset password for <" + email + ">. Cannot find user.")
 		);
+		if (DoogiesUtil.isEqual(config.testPasswordResetToken(), resetPasswordToken) && LaunchMode.current() != LaunchMode.NORMAL) {
+			log.info("[TEST/DEV] reset password of {} in LaunchMode={}", user.toStringShort(), LaunchMode.current());
+			user.setPasswordHash(PasswordServiceBcrypt.hashPassword(newPassword));
+			user.persist();
+			return "{ \"message\": \"Your password has been reset with testPasswordResetToken.\" }";
+		}
+
+		String finalEmail = email;
+		OneTimeToken ott = OneTimeToken.findByNonce(resetPasswordToken).orElseThrow(() -> {
+			log.info("Won't reset password for <{}>. Invalid or expired one time token", finalEmail);
+			return new LiquidoException(LiquidoException.Errors.WONT_RESET_PASSWORD, "Won't reset password for <" + finalEmail + ">. Invalid or expired one time token");
+		});
 		log.info("Resetting password of {}", user.toStringShort());
 		ott.delete();
 		user.setPasswordHash(PasswordServiceBcrypt.hashPassword(newPassword));

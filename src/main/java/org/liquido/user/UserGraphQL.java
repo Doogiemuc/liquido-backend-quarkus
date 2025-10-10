@@ -1,5 +1,6 @@
 package org.liquido.user;
 
+import io.quarkus.runtime.LaunchMode;
 import io.quarkus.vertx.http.runtime.CurrentVertxRequest;
 import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
@@ -154,10 +155,10 @@ public class UserGraphQL {
 	@Transactional
 	public String resetPassword(
 			@Description("Must be a registered mail.") @Name("email") @NonNull String email,
-			@Description("The OTT user received from requestPasswordReset") @NonNull String nonce,
+			@Description("The OTT user received from requestPasswordReset") @NonNull String resetPasswordToken,
 			@NonNull String newPassword
 	) throws LiquidoException {
-		return userService.resetPassword(email, nonce, newPassword);
+		return userService.resetPassword(email, resetPasswordToken, newPassword);
 	}
 
 
@@ -230,8 +231,8 @@ public class UserGraphQL {
 			@Name("email") String email
 			//TODO:  @Name("team") Optional<Long> teamId   // optional
 	) throws LiquidoException {
-		if (!devLoginToken.equals(config.devLoginToken()))
-			throw new LiquidoException(Errors.CANNOT_LOGIN_TOKEN_INVALID, "Invalid devLoginToken");
+		if (!devLoginToken.equals(config.devLoginToken()) || LaunchMode.current() == LaunchMode.NORMAL)
+			throw new LiquidoException(Errors.CANNOT_LOGIN_TOKEN_INVALID, "Invalid devLoginToken or in normal/prod LaunchMode.");
 		UserEntity user = UserEntity.findByEmail(email)
 				.orElseThrow(LiquidoException.supply(Errors.CANNOT_LOGIN_EMAIL_NOT_FOUND, "Cannot do devLogin. Email not found: "+email));
 		log.info("DevLogin: "+user.toStringShort());
