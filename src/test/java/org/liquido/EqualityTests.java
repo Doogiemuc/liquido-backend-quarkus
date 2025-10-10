@@ -30,6 +30,9 @@ public class EqualityTests {
 	@Inject
 	JwtTokenUtils jwtTokenUtils;
 
+	@Inject
+	LiquidoTestUtils util;
+
 	@Test
 	public void twoNotYetPersistedUsersUserEntities_ShouldEqualByEmailOnly() {
 		UserEntity user1 = new UserEntity("DummyName_A", "dummy_A@email.de", "dummyPasswordHash_A");
@@ -108,7 +111,7 @@ public class EqualityTests {
 	})
 	public void testCollectionBehaviour() throws LiquidoException {
 		// Dummy login
-		UserEntity user = LiquidoTestUtils.getRandomUser();
+		UserEntity user = util.getRandomUser();
 		jwtTokenUtils.setCurrentUserAndTeam(user, null);
 
 		ProposalEntity p1 = new ProposalEntity("Prop1 Title", "Prop1 Description");
@@ -135,7 +138,7 @@ public class EqualityTests {
 			@Claim(key = "groups", value = JwtTokenUtils.LIQUIDO_ADMIN_ROLE)
 	})
 	public void testCastVotesInTwoPolls() throws LiquidoException {
-		UserEntity user = LiquidoTestUtils.getRandomUser();
+		UserEntity user = util.getRandomUser();
 		jwtTokenUtils.setCurrentUserAndTeam(user, null);
 
 		PollEntity.find("status=PollStatus.VOTING");

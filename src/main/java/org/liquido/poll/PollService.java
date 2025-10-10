@@ -8,10 +8,10 @@ import jakarta.transaction.Transactional;
 import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.graphql.NonNull;
+import org.liquido.delegation.DelegationEntity;
 import org.liquido.model.BaseEntity;
 import org.liquido.security.JwtTokenUtils;
 import org.liquido.team.TeamEntity;
-import org.liquido.user.DelegationEntity;
 import org.liquido.user.UserEntity;
 import org.liquido.util.LiquidoConfig;
 import org.liquido.util.LiquidoException;
@@ -295,23 +295,28 @@ public class PollService {
 				.put("duelMatrix", poll.getDuelMatrix());
 	}
 
-	/**
+	/*
 	 * Get the number of ballots in a currently running poll in VOTING.
 	 * @param poll a poll in VOTING
 	 * @return the number of cast ballots.
-	 */
+	 *
 	public long getNumCastedBallots(PollEntity poll) {
 		return BallotEntity.count("poll", poll);
 	}
 
-	/**
+	 */
+
+
+	// If a user is logged in, it WOULD be possible to lookup HIS ballot.
+	// But currently we don't offer that. Instead a user must present the checksum of an anonymous ballot to verify it.
+	/*
 	 * Find the ballot that a user cast in a poll. Since every ballot is anonymous,
 	 * we look up the user's RightToVote and then can find the linked ballot.
 	 *
 	 * @param poll a poll at least in the voting phase
 	 * @return the ballot of the currently logged in user in that poll (if any)
 	 * @throws LiquidoException when something is wrong
-	 */
+	 *
 	public Optional<BallotEntity> getBallotOfCurrentUser(PollEntity poll) throws LiquidoException {
 		if (PollEntity.PollStatus.ELABORATION.equals(poll.getStatus()))
 				throw new LiquidoException(LiquidoException.Errors.INVALID_POLL_STATUS, "Cannot get ballot of poll in ELABORATION");
@@ -322,6 +327,7 @@ public class PollService {
 
 		return BallotEntity.findByPollAndRightToVote(poll, rightToVote);
 	}
+	*/
 
 	/**
 	 * Checks if the ballot with that checksum was counted correctly in the poll.
@@ -338,7 +344,7 @@ public class PollService {
 	}
 
 	/**
-	 * When a user wants to check how his direct proxy has voted for him.
+	 * When a user wants to check how their direct proxy has voted for them.
 	 * @param poll a poll
 	 * @param rightToVote the voter's checksum
 	 * @return (optionally) the ballot of the vote's direct proxy in this poll, if voter has a direct proxy
@@ -354,8 +360,8 @@ public class PollService {
 		if (PollEntity.PollStatus.ELABORATION.equals(poll.getStatus()))
 			throw new LiquidoException(LiquidoException.Errors.INVALID_POLL_STATUS, "Cannot get ballot of poll in ELABORATION");
 		if (rightToVote.getDelegatedTo() == null) return Optional.empty();
-		RightToVoteEntity topChecksum = findTopChecksumRec(rightToVote);
-		return BallotEntity.findByPollAndRightToVote(poll, topChecksum);
+		RightToVoteEntity topRightToVote = findTopChecksumRec(rightToVote);
+		return BallotEntity.findByPollAndRightToVote(poll, topRightToVote);
 	}
 
 	private RightToVoteEntity findTopChecksumRec(RightToVoteEntity rightToVote) {

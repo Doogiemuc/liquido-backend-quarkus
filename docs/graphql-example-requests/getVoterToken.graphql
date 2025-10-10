@@ -1,0 +1,14 @@
+query voterToken($pollId: BigInteger!, $becomePublicProxy: Boolean!) {
+  voterToken(pollId: $pollId, becomePublicProxy: $becomePublicProxy)
+}
+
+variables:
+{
+  "pollId": 51,
+  "becomePublicProxy": false
+}
+
+headers:
+{
+  "Authorization": "Bearer eyJraW........"
+}

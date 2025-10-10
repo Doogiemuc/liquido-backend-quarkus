@@ -29,9 +29,9 @@ import java.util.stream.Collectors;
 @NoArgsConstructor(force = true)
 @RequiredArgsConstructor                      //BUGFIX: https://jira.spring.io/browse/DATAREST-884
 @EqualsAndHashCode(callSuper = true)
-@Table(uniqueConstraints = {
-		@UniqueConstraint(columnNames = {"poll_id", "hashedVoterToken"})   // a voter is only allowed to vote once per poll with his hashedVoterToken!
-})
+//@Table(uniqueConstraints = {
+//		@UniqueConstraint(columnNames = {"poll_id", "hashedVoterInfo"})   // a voter is only allowed to vote once per poll with his hashedVoterToken!
+//})
 public class BallotEntity extends PanacheEntity {
 	//BallotModel deliberately does NOT extend BaseEntity!
 	//No @CreatedDate, No @LastModifiedDate! This could lead to timing attacks.  <=== maybe reconsider? Should I have a CreatedDate on Ballots?
@@ -45,17 +45,6 @@ public class BallotEntity extends PanacheEntity {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JsonBackReference
 	public PollEntity poll;
-
-	/**
-	 * Get current status of poll that this ballot was casted in.
-	 * This will expose the PollStatus in the JSON response.
-	 * If the poll is still in its voting phase (poll.status == VOTING),
-	 * then the ballot can still be changed by the voter.
-	 * @return PollStatus, e.g. VOTING or FINISHED
-	 */
-	public PollEntity.PollStatus getPollStatus() {
-		return poll.getStatus();
-	}
 
 	/**
 	 * level = 0: user voted for himself
@@ -90,15 +79,14 @@ public class BallotEntity extends PanacheEntity {
 	}
 
 	/**
-	 * Encrypted and anonymous information about the voter that casts this vote into the ballot.
-	 * Only the voter knows the voterToken that this ballot was created from.
-	 *   rightToVote.hashedVoterToken = hash(voterToken)
-	 * If a proxy casts a vote, this is still the voter's (delegated) rightToVote.
+	 * Link to the right to vote that this ballot was cast with.
+	 * This cannot be traced back to the actual voter that did cast the vote.
+	 * If a proxy casts a vote for a voter, then this still is the voter's ballot. It links to the voter's delegated rightToVote.
 	 */
 	@NotNull
 	@NonNull
 	@ManyToOne
-	@JoinColumn(name = "hashedVoterToken")    // The @Id of a RightToVoteModel is the hashedVoterToken itself
+	//@JoinColumn(name = "hashedVoterInfo")    // The @Id of a RightToVoteModel is the hashedVoterToken itself
 	@JsonIgnore                               // [SECURITY] Do not expose voter's private right to vote (which might also include public proxies name)
 	public RightToVoteEntity rightToVote;
 
@@ -116,7 +104,7 @@ public class BallotEntity extends PanacheEntity {
 				// Cannot include this.ID in checksum. It's not present when saving a new Ballot!
 				this.getVoteOrder().hashCode() +
 						this.getPoll().hashCode() +
-						this.getRightToVote().hash);
+						this.getRightToVote().hashedVoterInfo);
 	}
 
 
