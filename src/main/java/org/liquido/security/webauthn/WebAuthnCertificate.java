@@ -12,7 +12,7 @@ public class WebAuthnCertificate extends PanacheEntity {
 	public WebAuthnCredential webAuthnCredential;
 
 	/**
-	 * The list of X509 certificates encoded as base64url.
+	 * A X509 certificate encoded as base64url.
 	 */
 	public String x5c;
 }

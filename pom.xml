@@ -103,6 +103,8 @@
       <scope>compile</scope>
     </dependency -->
 
+    <!-- and there would also be https://github.com/webauthn4j/webauthn4j -->
+
     <!-- Quarkus passwordless authentication with fingerprint or FaceID -->
     <dependency>
       <groupId>io.quarkus</groupId>
