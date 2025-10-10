@@ -33,13 +33,16 @@ public class CastVoteService {
 	/**
 	 * When a user wants to cast a vote in LIQUIDO, then they need
 	 *   1. A general RightToVote to be allowed to vote at all and
-	 *   2. A one-time token for that specific poll they want to cast a vote in.
+	 *   2. A one-time voterToken for that specific poll
+	 *
+	 * This method will generate a plainVoterToken, hash it and create a one-time VoterTokenEntity from this hash.
 	 *
 	 * @param voter the currently logged in and correctly authenticated user
-	 * @return the user's voterToken, that only the user must know, and that will hash to the stored rightToVote. The user can cast votes with this voterToken in that area.
+	 * @param poll the voterToken is only valid for one vote in this poll
+	 * @return the voter's plainVoterToken, that only this user must know
 	 */
 	@Transactional
-	public String createVoterToken(UserEntity voter, PollEntity poll) throws LiquidoException {
+	public String createOneTimeVoterToken(UserEntity voter, PollEntity poll) throws LiquidoException {
 		log.debug("getVoterToken: for {} in poll.id={}", voter.toStringShort(), poll.id);
 		if (DoogiesUtil.isEmpty(voter.getEmail()))
 			throw new LiquidoException(LiquidoException.Errors.CANNOT_GET_TOKEN, "Need voter to build a OneTimeToken!");
@@ -56,72 +59,13 @@ public class CastVoteService {
 		int ttl = config.voterTokenExpirationMinutes();
 		VoterTokenEntity ott = VoterTokenEntity.buildAndPersist(hashedVoterToken, poll, rightToVote, ttl);
 
-		//TODO: becomePublicProxy. But should that be done here?? Do that in delegations.
-
 		// Only return the plainOneTimeToken to the voter. They can then use this token to anonymously cast one vote in this poll.
 		return plainVoterToken;
-
-		/*
-
-
-				OLD CODE
-
-
-		String hashedVoterToken = calcHashedVoterToken(oneTimeToken);             // hash of voterToken that can only be generated from the users voterToken and only by the server.
-
-		//   IF there is an already existing rightToVote for that voter as public proxy
-		//  AND there is NO existing rightToVote for that hashedVoterSecret OR one that does not match the public proxies rightToVote,
-		// THEN the user has changed his voterSecret
-		//  AND we must invalidate (delete) the old rightToVote.
-		//  AND we must delete all delegations.
-		Optional<RightToVoteEntity> rightToVoteOpt = RightToVoteEntity.findByHashedVoterToken(hashedVoterToken);
-		Optional<RightToVoteEntity> rightToVoteOfPublicProxyOpt  = RightToVoteEntity.findByPublicProxy(voter);
-		if (rightToVoteOfPublicProxyOpt.isPresent() &&
-				!rightToVoteOfPublicProxyOpt.equals(rightToVoteOpt)) {
-			log.trace("Voter changed his voterSecret. Replacing old rightToVote of former public proxy with new one.");
-
-			throw new RuntimeException("Change of voterSecret is NOT YET IMPLEMENTED!");
-			/*
-			List<DelegationModel> delegations = delegationRepo.findByAreaAndToProxy(area, voter);
-			List<ChecksumModel> delegees = checksumRepo.findByDelegatedTo(existingChecksumOfPublicProxy);
-			if (becomePublicProxy) {
-				for(ChecksumModel delegatedChecksum : delegees) {
-					delegatedChecksum.setDelegatedTo(checksumModel);
-					checksumRepo.save(delegatedChecksum);
-				}
-			} else {
-				for(ChecksumModel delegatedChecksum : delegees) {
-					delegatedChecksum.setDelegatedTo(null);
-					checksumRepo.save(delegatedChecksum);
-				}
-				delegationRepo.deleteAll(delegations);
-			}
-			checksumRepo.delete(existingChecksumOfPublicProxy);
-
-		}
-
-		// ----- upsert rightToVote (BUGFIX: must be done BEFORE becomePublicProxy)
-		if (rightToVoteOpt.isPresent()) { log.trace("  Update existing rightToVote");	}
-		RightToVoteEntity rightToVote = rightToVoteOpt.orElse(new RightToVoteEntity(hashedVoterToken));
-		refreshRightToVote(rightToVote);
-		rightToVote.persist();
-
-		//   IF a user wants to become a public proxy,
-		// THEN stores his username with his rightToVote
-		//  AND automatically accept all pending delegationRequests
-		if (becomePublicProxy) {
-			//TODO: proxyService.becomePublicProxy(voter, voterToken);
-		}
-
-		return oneTimeToken;		// IMPORTANT! return the voterToken and not the rightToVote. The rightToVote is only stored on the server.
-
-
-		 */
-
 	}
 
 	/**
-	 * Check if a voterToken is valid, known and hashes to a not yet expired VoterTokenEntity.
+	 * Consume the one-time voterToken.
+	 * Check that it is valid, known and hashes to a not yet expired VoterTokenEntity.
 	 * And that a valid RightToVote is linked.
 	 *
 	 * @param plainVoterToken the plain voter token that the voter sent
@@ -135,7 +79,7 @@ public class CastVoteService {
 
 		// check voterToken
 		String hashedVoterToken = calcHashedVoterToken(plainVoterToken, poll.id);
-		log.info("consumeVoterToken: plainVoterToken = {} hashedVoterToken = {} in poll.id = {}", plainVoterToken, hashedVoterToken, poll.id);
+		log.info("consumeVoterToken: plainVoterToken = {} hashedVoterToken = {} in poll.id = {}", "XXXXXX", hashedVoterToken, poll.id);
 		VoterTokenEntity voterToken = VoterTokenEntity.<VoterTokenEntity>findByIdOptional(hashedVoterToken)
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.INVALID_VOTER_TOKEN, "This voterToken is invalid."));
 		if (LocalDateTime.now().isAfter(voterToken.expiresAt))
@@ -168,7 +112,7 @@ public class CastVoteService {
 	 * User casts their own vote. Keep in mind that this method is called anonymously. No UserEntity involved.
 	 * If that user is a proxy for other voters, then their ballots will also be added automatically.
 	 *
-	 * @param plainVoterToken The anonymous voter must present a valid plainVoterToken that he fetched via {@link #createVoterToken(UserEntity, PollEntity)}
+	 * @param plainVoterToken The anonymous voter must present a valid plainVoterToken that he fetched via {@link #createOneTimeVoterToken(UserEntity, PollEntity)}
 	 * @param poll the poll to cast the vote in.
 	 * @param voteOrderIds ordered list of proposal.IDs as sorted by the user. No ID may appear more than once!
 	 * @return CastVoteResponse with ballot and the voteCount how often the vote was actually counted for this proxy. (Some voters might already have voted on their own.)

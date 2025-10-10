@@ -17,7 +17,6 @@ import org.liquido.twillio.TwilioVerifyClient;
 import org.liquido.util.DoogiesUtil;
 import org.liquido.util.LiquidoConfig;
 import org.liquido.util.LiquidoException;
-import org.liquido.util.Lson;
 
 import static org.liquido.util.LiquidoException.Errors;
 
@@ -76,10 +75,8 @@ public class UserGraphQL {
 		if (log.isDebugEnabled() && request != null) {
 			log.debug("Ping API from {}", request.getCurrent().request().remoteAddress());
 		}
-		return Lson.builder()
-				.put("message", "Welcome to the LIQUIDO API")
-				.put("version", "3.0")
-				.toString();
+		// Keep this very simple! Just return a string!
+		return "Welcome to LIQUIDO GraphQL API " + config.apiVersion();
 	}
 
 	/**
