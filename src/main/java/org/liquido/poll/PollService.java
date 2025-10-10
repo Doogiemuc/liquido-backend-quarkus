@@ -307,16 +307,14 @@ public class PollService {
 	 */
 
 
-	// If a user is logged in, it WOULD be possible to lookup HIS ballot.
-	// But currently we don't offer that. Instead a user must present the checksum of an anonymous ballot to verify it.
-	/*
+	/**
 	 * Find the ballot that a user cast in a poll. Since every ballot is anonymous,
 	 * we look up the user's RightToVote and then can find the linked ballot.
 	 *
 	 * @param poll a poll at least in the voting phase
 	 * @return the ballot of the currently logged in user in that poll (if any)
 	 * @throws LiquidoException when something is wrong
-	 *
+	 */
 	public Optional<BallotEntity> getBallotOfCurrentUser(PollEntity poll) throws LiquidoException {
 		if (PollEntity.PollStatus.ELABORATION.equals(poll.getStatus()))
 				throw new LiquidoException(LiquidoException.Errors.INVALID_POLL_STATUS, "Cannot get ballot of poll in ELABORATION");
@@ -327,7 +325,7 @@ public class PollService {
 
 		return BallotEntity.findByPollAndRightToVote(poll, rightToVote);
 	}
-	*/
+
 
 	/**
 	 * Checks if the ballot with that checksum was counted correctly in the poll.
