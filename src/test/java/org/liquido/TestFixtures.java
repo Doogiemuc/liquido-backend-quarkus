@@ -3,6 +3,7 @@ package org.liquido;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.ValidatableResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpHeaders;
 import org.liquido.user.UserEntity;
 import org.liquido.util.Lson;
@@ -13,6 +14,7 @@ import static org.hamcrest.Matchers.*;
 /**
  * This is used throughout all tests.
  */
+@Slf4j
 public class TestFixtures {
 
 	// Test Data Set
@@ -40,7 +42,7 @@ public class TestFixtures {
 	public static final String JQL_TEAM_MEMBER =
 			"{ id role joinedAt user " + JQL_USER + "}";
 	public static final String JQL_PROPOSAL =
-			"{ id title description icon status createdAt likedByCurrentUser createdBy " + JQL_USER + "}";  //TODO: isLikedByCurrentUser numSupporters
+			"{ id title description icon status createdAt likedByCurrentUser createdBy " + JQL_USER + "}";  //no "is" before likedByCurrentUser !   //TODO: numSupporters
 	public static final String JQL_POLL =
 			"{ id title status proposals " + JQL_PROPOSAL +  // TODO: votingStartAt votingEndAt
 					" winner " + JQL_PROPOSAL +
@@ -73,16 +75,6 @@ public class TestFixtures {
 	}
 
 	/**
-	 * Get a random user from the DB. Will create one if no user exists yet.
-	 * @return a random UserEntity
-	 */
-	public static UserEntity getRandomUser() {
-		return UserEntity.<UserEntity>findAll().firstResultOptional().orElseThrow(
-				() -> new RuntimeException("Cannot getRandomUser. No user in DB!")
-		);
-	}
-
-	/**
 	 * send a GraphQL request to our backend
 	 *
 	 * @param query     the GraphQL query string
@@ -93,7 +85,7 @@ public class TestFixtures {
 		RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
 		if (variables == null) variables = new Lson();
 		String body = String.format("{ \"query\": \"%s\", \"variables\": %s }", query, variables);
-		//log.info("Sending GraphQL request:\n     " + body);
+		log.debug("Sending GraphQL request:\n     " + body);
 
 		if (jwt == null) {
 			return given() //.log().all()
@@ -116,23 +108,16 @@ public class TestFixtures {
 					.body("errors", anyOf(nullValue(), hasSize(0)));    // check for no GraphQL errors: []
 		}
 
+	}
 
-		/*  DEPRECATED.  With plain HttpRequest
-		try {
-			HttpRequest request = HttpRequest.newBuilder()
-					.uri(new URI(GRAPHQL_URI))
-					.POST(HttpRequest.BodyPublishers.ofString(body))
-					.build();
-			HttpResponse<String> res = HttpClient.newBuilder()
-					.build().send(request, HttpResponse.BodyHandlers.ofString());
-			return res;
-		} catch (Exception e) {
-			log.error("Cannot send graphQL request. Query:\n" + query + "\nVariables:" + variables + "\n ERROR: " + e.getMessage());
-			throw e;
-		}
-
-		 */
-
+	/**
+	 * Get a random user from the DB. Will create one if no user exists yet.
+	 * @return a random UserEntity
+	 */
+	public static UserEntity getRandomUser() {
+		return UserEntity.<UserEntity>findAll().firstResultOptional().orElseThrow(
+				() -> new RuntimeException("Cannot getRandomUser. No user in DB!")
+		);
 	}
 
 }

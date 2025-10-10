@@ -120,7 +120,7 @@ public class JwtTokenUtils {
 	public Optional<UserEntity> getCurrentUser() {
 		if (this.currentUser != null) return Optional.of(currentUser);
 		if (jwt == null || DoogiesUtil.isEmpty(jwt.getName())) return Optional.empty();
-		String email = jwt.getName();
+		String email = jwt.getName();   //TODO: or getClaim(Claims.sub)   ?
 		log.debug("Loading current user from DB ... " + email);
 		Optional<UserEntity> userOpt = UserEntity.findByEmail(email);
 		if (userOpt.isEmpty()) {
