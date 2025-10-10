@@ -26,12 +26,14 @@ public class WebAuthnSetup implements WebAuthnUserProvider {
 	@Transactional
 	@Override
 	public Uni<List<Authenticator>> findWebAuthnCredentialsByUserName(String userName) {
+		log.info("findWebAuthnCredentialsByUserName: "+userName);
 		return Uni.createFrom().item(toAuthenticators(WebAuthnCredential.findByUserName(userName)));
 	}
 
 	@Transactional
 	@Override
 	public Uni<List<Authenticator>> findWebAuthnCredentialsByCredID(String credID) {
+		log.info("findWebAuthnCredentialsByCredID: "+credID);
 		return Uni.createFrom().item(toAuthenticators(WebAuthnCredential.findByCredID(credID)));
 
 	}
@@ -40,21 +42,32 @@ public class WebAuthnSetup implements WebAuthnUserProvider {
 	@Transactional
 	@Override
 	public Uni<Void> updateOrStoreWebAuthnCredentials(Authenticator authenticator) {
-		log.debug("and this is a message");
+		log.info("updateOrStoreWebAuthnCredentials" + authenticator);
 
-		log.debug("updateOrStoreWebAuthnCredentials" + authenticator);
-		// We assume that a user must already exist beofre WebAuthnCredentials can be added and stored
+		// We assume that a user must already exist before WebAuthnCredentials can be added and stored
 		//TODO: create own LiquidoException Error code for this exception
 		UserEntity user = UserEntity.findByEmail(authenticator.getUserName())
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_LOGIN_EMAIL_NOT_FOUND, "Cannot updateOrStoreWebAuthnCredentials. No user with username: " + authenticator.getUserName()));
 
-		WebAuthnCredential credential = new WebAuthnCredential(authenticator, user);
-		credential.persist();
-		user.webAuthnCredential.counter = authenticator.getCounter();
-		user.persist();
+
+		// IF this user has no credential yet, THEN Create one
+		if (user.getWebAuthnCredential() == null) {
+			log.info("Create new webAuthnCredentials for "+user.toStringShort());
+			WebAuthnCredential credential = new WebAuthnCredential(authenticator, user);
+			credential.persist();
+			user.webAuthnCredential.counter = authenticator.getCounter();
+			user.persist();
+		} else {
+			// ELSE update the counter of the webAuthnCredential
+			log.info("Updating webAuthnCredentials for "+user.toStringShort()+ "from counter=" + user.webAuthnCredential.counter + " to counter="+authenticator.getCounter());
+			user.webAuthnCredential.counter = authenticator.getCounter();
+		}
+
+		log.info("========== updateOrStoreWebAuthnCredentials: " + user.toString());
+
 		return Uni.createFrom().nullItem();
 
-		/*
+		/*  original code from example that we adapted
 		return UserEntity.findByEmail(authenticator.getUserName())
 				.flatMap(user -> {
 					// new user
