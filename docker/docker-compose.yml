@@ -1,16 +1,21 @@
 services:
   app:
     container_name: liquido-backend
+    image: liquido-backend:latest
+    platform: linux/amd64  # Ensures it runs on an x86_64 machine
     env_file: # load environment variables already necessary for build stage
       - .env
     build:
       context: ../
       dockerfile: docker/Dockerfile
-      args:  # pass values into into build stage
+      args:  # pass values from .env file into build stage
         QUARKUS_DATASOURCE_DB_KIND:  ${QUARKUS_DATASOURCE_DB_KIND}
         QUARKUS_DATASOURCE_USERNAME: ${QUARKUS_DATASOURCE_USERNAME}
         QUARKUS_DATASOURCE_PASSWORD: ${QUARKUS_DATASOURCE_PASSWORD}
         QUARKUS_DATASOURCE_JDBC_URL: ${QUARKUS_DATASOURCE_JDBC_URL}
+    environment:
+      - QUARKUS_CONFIG_LOCATIONS=/app/config/
+      - QUARKUS_PROFILE=dev  # Forces Quarkus to use application-dev.properties
     ports:
       - "8080:8080"
     volumes:
@@ -29,7 +34,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data   # Persist data across restarts
+      - liquido_postgres:/var/lib/postgresql/data   # Persist data across restarts
 
 volumes:
-  postgres_data:
+  liquido_postgres:
