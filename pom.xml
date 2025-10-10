@@ -141,6 +141,12 @@
       <artifactId>quarkus-test-security-jwt</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- BCrypt for strong password hashing -->
+    <dependency>
+      <groupId>at.favre.lib</groupId>
+      <artifactId>bcrypt</artifactId>
+      <version>0.10.2</version>
+    </dependency>
 
     <!-- Schedule tasks -->
     <dependency>

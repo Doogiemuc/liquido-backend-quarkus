@@ -1,8 +1,10 @@
 package org.liquido.security;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.quarkus.scheduler.Scheduled;
 import jakarta.persistence.Entity;
 import jakarta.persistence.OneToOne;
+import jakarta.transaction.Transactional;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 import org.liquido.user.UserEntity;
@@ -39,5 +41,16 @@ public class OneTimeToken extends PanacheEntity {
 
 	public static Optional<OneTimeToken> findByNonce(String nonce) {
 		return OneTimeToken.find("nonce", nonce).firstResultOptional();
+	}
+
+	public static void deleteUsersOldTokens(UserEntity user) {
+		OneTimeToken.delete("user", user);
+		//OneTimeToken.find("user", user).stream().forEach(token -> token.delete());
+	}
+
+	@Scheduled(every = "P1D")
+	@Transactional
+	public void deleteExpiredTokens() {
+		OneTimeToken.delete("validUntil < ?1", LocalDateTime.now());
 	}
 }

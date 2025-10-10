@@ -1,4 +1,4 @@
-package org.liquido.services;
+package org.liquido.twillio;
 
 import com.twilio.Twilio;
 import com.twilio.exception.ApiException;

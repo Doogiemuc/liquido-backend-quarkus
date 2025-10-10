@@ -57,7 +57,7 @@ public class Liquido {
 		System.out.println("   DB generation   : " + hibernateDbGeneration);
 		System.out.println("   Frontend URL    : " + config.frontendUrl());
 		//System.out.println("   Backend        : http://"+httpConfig.host+":"+httpConfig.port);
-		System.out.println("   Backend (SSL)  : https://"+httpConfig.host+":"+httpConfig.sslPort);
+		System.out.println("   Backend (SSL)   : https://"+httpConfig.host+":"+httpConfig.sslPort);
 		System.out.println("=============== DB INFO ===============");
 		System.out.println("   DB Username     : " + datasourceUsername);
 		System.out.println("   DB JDBC URL     : " + jdbcUrl);

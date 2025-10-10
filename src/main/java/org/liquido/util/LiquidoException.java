@@ -123,6 +123,7 @@ public class LiquidoException extends Exception {
 		CANNOT_FIND_ENTITY(404, Response.Status.NOT_FOUND),                  // 404: cannot find entity
 		INTERNAL_ERROR(500, Response.Status.INTERNAL_SERVER_ERROR);
 
+
 		final int liquidoErrorCode;
 		final Response.Status httpResponseStatus;
 
