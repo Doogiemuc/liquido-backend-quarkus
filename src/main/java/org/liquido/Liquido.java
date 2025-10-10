@@ -3,7 +3,6 @@ package org.liquido;
 import io.agroal.api.AgroalDataSource;
 import io.quarkus.runtime.LaunchMode;
 import io.quarkus.runtime.StartupEvent;
-import io.quarkus.vertx.http.runtime.HttpConfiguration;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
@@ -42,8 +41,15 @@ public class Liquido {
 	@ConfigProperty(name = "quarkus.profile")
 	String quarkusProfile;
 
-	@Inject
-	HttpConfiguration httpConfig;
+
+	@ConfigProperty(name="quarkus.http.host")
+	String host;
+
+	@ConfigProperty(name="quarkus.http.port")
+	int port;
+
+	@ConfigProperty(name="quarkus.http.ssl-port")
+	int sslPort;
 
 	/**
 	 * This is called when app has started.
@@ -56,8 +62,7 @@ public class Liquido {
 		System.out.println("   QUARKUS_PROFILE : " + quarkusProfile);
 		System.out.println("   DB generation   : " + hibernateDbGeneration);
 		System.out.println("   Frontend URL    : " + config.frontendUrl());
-		//System.out.println("   Backend        : http://"+httpConfig.host+":"+httpConfig.port);
-		System.out.println("   Backend (SSL)   : https://"+httpConfig.host+":"+httpConfig.sslPort);
+		System.out.println("   Backend (SSL)   : https://" + host + ":" + sslPort);
 		System.out.println("=============== DB INFO ===============");
 		System.out.println("   DB Username     : " + datasourceUsername);
 		System.out.println("   DB JDBC URL     : " + jdbcUrl);

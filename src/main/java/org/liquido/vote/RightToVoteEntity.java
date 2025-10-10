@@ -2,125 +2,179 @@ package org.liquido.vote;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToOne;
+import jakarta.persistence.*;
 import lombok.*;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.liquido.poll.PollEntity;
 import org.liquido.user.UserEntity;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 
 /**
- * This entity is the digital representation of a voters right to vote. The right to vote is anonymous.
- * It is not directly linked to a voter. Votes are secret.
- * Only the voter knows his secret voterToken that he received via TeamGraphQL#getVoterToken
- * Only that voter can prove that this is his RightToVote by presenting his voterToken which hashes to
- * the stored hashedVoterToken.
+ * This entity is the digital representation of a voters right to vote.
+ * Every voter has one RightToVote for all polls in their LIQUIDO team.
+ * But a voter needs a new VoterTokenEntity for every vote they want to cast.
  *
- * When a voter requests a voterToken for an area, then the server calculates two values:
- * 1. voterToken  = hash(user.email, userSecret, serverSecret, area)   This voterToken is returned to the voter.
- * 2. rightToVote = hash(voterToken, serverSecret)    The rightToVote is anonymously stored on the server.
+ * The RightToVote of a given user can be looked up by hashing their user info.
+ * But for a RightToVote it cannot be found out whom it belongs to.
  *
- * When a user wants to cast a vote, then he sends his voterToken for this area.
- * Then the server checks if he already knows the corresponding rightToVote value.
- * If yes, then the cast vote is valid and will be counted.
+ * Every Ballot is linked to one RightToVote. But not to the voter!
  */
 @Data
-@NoArgsConstructor(force = true)
+@NoArgsConstructor
 @RequiredArgsConstructor
-@EqualsAndHashCode(of = "hashedVoterToken", callSuper = false)
+@EqualsAndHashCode(callSuper = false)
 @Entity(name = "righttovote")
 //@Table(name = "rightToVote", uniqueConstraints= {
 //TODO:		@UniqueConstraint(columnNames = {"public_proxy_id"})  // A proxy cannot be public proxy more than once in one area.
 //})
-//TODO: RightToVote is <b>per area!</b>. The user needs to request a separate right to vote for each area.
 public class RightToVoteEntity extends PanacheEntityBase {
+	//TODO: Should a RightToVote be per user? Or per user and team?
+	//TODO: Should a RightToVote.hash include the user's passwordHash? Change password -> need to recreate all RightToVotes for this user.
 
 	/**
-	 * A checksum that validates a voter token.
-	 * hashedVotertoken = hash(voterToken)
-	 * This is also the ID of this entity.  ("Fachlicher Schlüssel")
-	 */
+	 * Hashed info about voter. The ID of this entity.
+	 * Every voter has one RightToVote in LIQUIDO
+   */
 	@Id
 	@NonNull
-	public String hashedVoterToken;
+	public String hash;  // == hash(user.email + user.passwordHash + serverConfig.hashSecret)
 
-	/** A RightToVote are only valid for a given time */
+	/** A RightToVote is only valid for a given time */
+	@NonNull
 	LocalDateTime expiresAt;
+
+	// ======= Bidirectional hibernate relation: Voter ---(delegates to)---> Proxy
+
+	/**
+	 * This RightToVote delegates to a proxy RightToVoteEntity.
+	 * Each RightToVote can delegate to only **one** other RightToVote.
+	 */
+	@ManyToOne
+	@JoinColumn(name = "delegated_to", referencedColumnName = "hash")
+	@JsonIgnore
+	RightToVoteEntity delegatedTo = null;
 
 	/**
 	 * A voter can delegate his right to vote to a proxy. Then the proxy will vote for him.
 	 * The delegation is stored in the {@link org.liquido.user.DelegationEntity}.
-	 * In here we only store the delegation from one anonymous RightToVote to proxy's RightToVote.
+	 * Here we only store the RightToVotes that have been delegated to this proxy.
 	 * There is no direct relation between a RightToVote and a voter, because votes are anonymous.
 	 */
-	@ManyToOne
-	@JsonIgnore                        // Do not reveal if or to whom a RightToVote is delegated
-	RightToVoteEntity delegatedTo;
-
-	// only expose WHETHER a checksum is delegated or not
-	public boolean isDelegated() {
-		return delegatedTo != null;
-	}
-
-	 /* List of checksums that are delegated to this as a proxy. This would be the inverse link of bidirectional delegatedToProxy association
-	@OneToMany(mappedBy = "proxyFor", fetch = FetchType.EAGER)
-	List<ChecksumModel> proxyFor;
-  */
+	@OneToMany(mappedBy = "delegatedTo")
+	@JsonIgnore  // Do not reveal if or to whom a RightToVote is delegated
+	Set<RightToVoteEntity> delegations = new HashSet<>();
 
 	/**
-	 * If a user want's to be a public proxy, then he CAN link his user to his righttovote.
+	 * If a user want's to be a public proxy, then they CAN link their user to their RightToVote.
 	 * Then voters can automatically delegate their vote to this proxy.
 	 * Then the proxy does not need to accept delegations. They can automatically be delegated.
 	 */
 	@OneToOne
-	UserEntity publicProxy = null;		// by default no username is stored together with a hashedVoterToken!!!
+	UserEntity publicProxy = null;		// by default, no username is stored together with a hashedVoterToken!!!
 
-	public String toString() {
-		StringBuffer buf = new StringBuffer();
-		buf.append("RightToVote[");
-		buf.append("hashedVoterToken="+this.getHashedVoterToken());			//MAYBE: do not expose sensible hashedVoterToken  ?
-		buf.append(", publicProxy="+ (this.getPublicProxy() != null ? this.getPublicProxy().toStringShort() : "<null>"));
-		buf.append(", delegatedTo.checksum="+ (this.getDelegatedTo() != null ? this.getDelegatedTo().getHashedVoterToken() : "<null>"));
-		buf.append("]");
-		return buf.toString();
-	}
-
-	//REFACTORED: I decided to store delegation requests in the DelegationModel
-	/*
-	 * When a voter wants to delegate his vote to a proxy, but that proxy is not a public proxy,
-	 * then the delegated is requested until the proxy accepts it.
-
-  @OneToOne
-	UserModel requestedDelegationTo;
-
-  /* When was the delegation to that proxy requested
-  LocalDateTime requestedDelegationAt;
-
-	*/
-
-	//There is deliberately no createdBy in this class
-	//For the same reason there is also no createdAt or updatedAt. They might lead to timing attacks.
-
-
-	public static Optional<RightToVoteEntity> findByHashedVoterToken(String token) {
-		return RightToVoteEntity.find("hashedVoterToken", token).firstResultOptional();
-	}
-
-	public static Optional<RightToVoteEntity> findByPublicProxy(UserEntity proxy) {
-		return RightToVoteEntity.find("publicProxy", proxy).firstResultOptional();
+	public static RightToVoteEntity build(UserEntity voter, int expirationDays, String salt) {
+		String hashedUserInfo = DigestUtils.sha3_256Hex(voter.email + voter.passwordHash + salt);
+		System.out.println("building RightToVote for "+voter);
+		System.out.println("hashedUserInfo = "+hashedUserInfo);
+		// ConfigProvider.getConfig().getValue("liquido.right-to-vote-expiration-days", Integer.class); - would be possible but not clean. So we simply pass the salt as parameter.
+		LocalDateTime expiresAt = LocalDateTime.now().plusDays(expirationDays);
+		return new RightToVoteEntity(hashedUserInfo, expiresAt);
 	}
 
 	/**
-	 * Find the RightToVote of all voters that delegated their RightToVote to this proxy.
-	 * @param delegatedTo the RightToVote of the proxy
-	 * @return a list of all RightToVotes that are delegated to the given one
+	 * Check if adding this delegation would create a cycle.
 	 */
-	public static List<RightToVoteEntity> findByDelegatedTo(RightToVoteEntity delegatedTo) {
-		return RightToVoteEntity.list("delegatedTo", delegatedTo);
+	public boolean wouldCauseCycle(RightToVoteEntity proxy) {
+		RightToVoteEntity current = proxy;
+		while (current != null) {
+			if (this.equals(current)) return true;
+			current = current.delegatedTo;
+		}
+		return false;
 	}
+
+	/**
+	 * Delegate to another RightToVoteEntity (with validation).
+	 */
+	public void delegateTo(RightToVoteEntity proxy) {
+		if (proxy == null) throw new IllegalArgumentException("Cannot delegate to null");
+
+		if (this.equals(proxy)) {
+			throw new IllegalArgumentException("Cannot delegate to self");
+		}
+
+		if (wouldCauseCycle(proxy)) {
+			throw new IllegalArgumentException("Delegation would cause a cycle");
+		}
+
+		// Remove from previous delegate if necessary
+		if (this.delegatedTo != null) {
+			this.delegatedTo.delegations.remove(this);
+		}
+
+		// Set new delegation
+		this.delegatedTo = proxy;
+		proxy.delegations.add(this);
+	}
+
+	/**
+	 * Removes the delegation from this RightToVote to its proxy (if any).
+	 */
+	public void removeDelegationToProxy() {
+		if (this.delegatedTo != null) {
+			this.delegatedTo.delegations.remove(this);
+			this.delegatedTo = null;
+		}
+	}
+
+	//REFACTORED: I decided to store delegation requests in the DelegationModel
+
+	/**
+	 * Lookup a RightToVoteEntity for a given hash.
+	 * This is only possible in this direction: User -> RightToVote.
+	 * It is not possible to find the corresponding user of one given RightToVote.
+	 * @param hash the hashed info about a user
+	 * @return the rightToVote with that hash value.
+	 */
+	public static Optional<RightToVoteEntity> findByHash(String hash) {
+		return RightToVoteEntity.findByIdOptional(hash);
+	}
+
+	/**
+	 * Lookup the RightToVote of a voter. This is used to find a cast ballot
+	 * and to {@link org.liquido.poll.PollService#findEffectiveProxy(PollEntity, UserEntity)}
+	 *
+	 * Only the server cna lookup the RightToVote for a given voter, because a hashSecret is included in the hash.
+	 * It is not possible the other way round. It is not possible to find the voter that belongs to a right to vote.
+	 * This is the beauty of the hash algorithm.
+	 *
+	 * @param voter a voter
+	 * @return RightToVote of this voter if he has one.
+	 */
+	public static Optional<RightToVoteEntity> findByVoter(UserEntity voter, String salt) {
+		String hashedUserInfo = DigestUtils.sha3_256Hex(voter.email + voter.passwordHash + salt);
+		return RightToVoteEntity.findByIdOptional(hashedUserInfo);
+	}
+
+	/*
+	public static Optional<RightToVoteEntity> findByPublicProxy(UserEntity proxy) {
+		return RightToVoteEntity.find("publicProxy", proxy).firstResultOptional();
+	}
+	 */
+
+	public String toString() {
+		return new StringBuilder()
+				.append("RightToVote[")  // do not expose hash
+				.append("delegatesTo=").append(this.delegatedTo != null ? this.delegatedTo.hash : "<null>")
+				.append(", isPublicProxy=").append(this.getPublicProxy() != null ? this.getPublicProxy().toStringShort() : "<null>")
+				.append(", expiresAt=").append(this.expiresAt)
+				.append(", isPublicProxy=").append(this.publicProxy)
+				.append("]").toString();
+	}
+
 
 }

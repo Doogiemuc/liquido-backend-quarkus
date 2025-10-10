@@ -1,0 +1,64 @@
+classDiagram
+    User  <--  Delegation: tree of Delegations
+    User "1" --> "N" Team: Members in Tam
+    Poll "N" --> "1" Team: Polls in Team
+    Poll "1" --> "N" Proposal: Proposals in Poll
+    Ballot "N" --> "1" Poll: Ballots in Poll
+    Ballot "N" --> "1" RightToVote: casted with
+    RightToVote --> RightToVote: anonmyous Delegations
+    OneTimeToken "N" --> "1" RightToVote: anonymously cast a vote
+
+    class User {
+        username
+        email
+        hashedPassword
+    }
+
+    class Proposal {
+        title
+        description
+    }
+
+    class Poll {
+        title
+        PollStatus
+        Team
+    }
+
+    class Delegation {
+        fromUser
+        toProxy
+    }
+
+    class RightToVote {
+        Date expiresAt
+        UserEntity publicProxy
+        RightToVote[] delegations to this roxy
+    }
+
+    note for RightToVote "RightToVote is completely anonymous!<br/>It has no relation ot a user/voter."
+
+    class Ballot {
+        poll.id
+        voteOrder
+        level
+        +findByRightToVote()
+    }
+
+    class OneTimeToken {
+        hashedOneTimeToken
+        expiresAt
+        rightToVote.id
+    }
+
+    note for OneTimeToken "hashedVoter Token = hash(oneTimetokenPlain +<br/> poll.id + user.id + serverSecret, salt)"
+
+    class Team {
+        teamName
+        members & admin
+    }
+
+    class CastVoteService {
+        +getOneTimeToken(poll.id) oneTimeTokenPlain
+        +castVote(poll.id, voteOrder, oneTimeTokenPlain) ballotChecksum
+    }

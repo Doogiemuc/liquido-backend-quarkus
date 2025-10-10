@@ -34,7 +34,7 @@ import java.util.stream.Collectors;
 })
 public class BallotEntity extends PanacheEntity {
 	//BallotModel deliberately does NOT extend BaseEntity!
-	//No @CreatedDate, No @LastModifiedDate! This could lead to timing attacks.
+	//No @CreatedDate, No @LastModifiedDate! This could lead to timing attacks.  <=== maybe reconsider? Should I have a CreatedDate on Ballots?
 	//No @CreatedBy ! When voting it is confidential who did cast this ballot and when.
 
 	/**
@@ -72,7 +72,7 @@ public class BallotEntity extends PanacheEntity {
 	 * But of course every proposal may appear only once in his voteOrder!
 	 * And one proposal may be voted for by several voters => ManyToMany relationship
 	 */
-	//BE CAREFUL: Lists are not easy to handle in hibernate: https://vladmihalcea.com/hibernate-facts-favoring-sets-vs-bags/
+	//BE CAREFUL: Lists are not easy to handle in Hibernate: https://vladmihalcea.com/hibernate-facts-favoring-sets-vs-bags/
 	//In Quarkus GraphQL this is serialized as a list of objects with id attribute, eg. [{id:4711},{id:4712},{id:4713}]
 	@NonNull
 	@NotNull
@@ -84,40 +84,41 @@ public class BallotEntity extends PanacheEntity {
 
 
 	public void setVoteOrder(List<ProposalEntity> voteOrder) {
-		if (voteOrder == null || voteOrder.size() == 0)
+		if (voteOrder == null || voteOrder.isEmpty())
 			throw new IllegalArgumentException("Vote Order must not be null or empty!");
 		this.voteOrder = voteOrder;
 	}
 
 	/**
-	 * Encrypted and anonymous information about the voter that cast this vote into the ballot.
+	 * Encrypted and anonymous information about the voter that casts this vote into the ballot.
 	 * Only the voter knows the voterToken that this ballot was created from.
 	 *   rightToVote.hashedVoterToken = hash(voterToken)
 	 * If a proxy casts a vote, this is still the voter's (delegated) rightToVote.
 	 */
 	@NotNull
 	@NonNull
-	@OneToOne
+	@ManyToOne
 	@JoinColumn(name = "hashedVoterToken")    // The @Id of a RightToVoteModel is the hashedVoterToken itself
-	@JsonIgnore                                // [SECURITY] Do not expose voter's private right to vote (which might also include public proxies name)
+	@JsonIgnore                               // [SECURITY] Do not expose voter's private right to vote (which might also include public proxies name)
 	public RightToVoteEntity rightToVote;
 
 	/**
 	 * The MD5 checksum of a ballot uniquely identifies this ballot.
-	 * The checksum is calculated from the voteOrder, poll.hashCode and rightToVote.hashedVoterToken.
+	 * The checksum is calculated from the voteOrder, poll.hashCode and rightToVote.hash.
 	 * It deliberately does not depend on level or rightToVote.delegatedTo !
 	 */
 	public String checksum;
 
-	@PreUpdate
+	@PostUpdate
 	@PrePersist
 	public void calcMD5Checksum() {
 		this.checksum = DigestUtils.md5Hex(
-				// Cannot include ID. Its not not present when saving a new Ballot!
+				// Cannot include this.ID in checksum. It's not present when saving a new Ballot!
 				this.getVoteOrder().hashCode() +
 						this.getPoll().hashCode() +
-						this.getRightToVote().hashedVoterToken);
+						this.getRightToVote().hash);
 	}
+
 
 	public static Optional<BallotEntity> findByPollAndRightToVote(PollEntity poll, RightToVoteEntity rightToVote) {
 		return BallotEntity.find("poll = ?1 and rightToVote = ?2", poll, rightToVote).firstResultOptional();

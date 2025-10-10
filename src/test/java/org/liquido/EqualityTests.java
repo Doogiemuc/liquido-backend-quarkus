@@ -16,6 +16,8 @@ import org.liquido.user.UserEntity;
 import org.liquido.util.LiquidoException;
 import org.liquido.vote.RightToVoteEntity;
 
+import java.time.LocalDateTime;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 @Slf4j
@@ -89,10 +91,11 @@ public class EqualityTests {
 	@Test
 	@TestTransaction
 	public void twoBallotsWithSameVoterToken() {
-		String hasehdVoterToken1 = "superCoolHash1";
-		RightToVoteEntity rightToVote1 = new RightToVoteEntity(hasehdVoterToken1);
-		String hasehdVoterToken2 = "superCoolHash2";
-		RightToVoteEntity rightToVote2 = new RightToVoteEntity(hasehdVoterToken2);
+		String hashedVoterToken1 = "superCoolHash1";
+		LocalDateTime expiresAt = LocalDateTime.now().plusYears(1);
+		RightToVoteEntity rightToVote1 = new RightToVoteEntity(hashedVoterToken1, expiresAt);
+		String hashedVoterToken2 = "superCoolHash2";
+		RightToVoteEntity rightToVote2 = new RightToVoteEntity(hashedVoterToken2, expiresAt);
 		assertNotEquals(rightToVote1, rightToVote2, "two RightToVoteEntity with different hashedVoterToken should not be equal!");
 	}
 

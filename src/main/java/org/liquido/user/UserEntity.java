@@ -7,10 +7,11 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-import lombok.RequiredArgsConstructor;
+import lombok.NonNull;
 import org.eclipse.microprofile.graphql.DefaultValue;
 import org.eclipse.microprofile.graphql.Ignore;
 import org.liquido.model.BaseEntity;
+import org.liquido.security.PasswordServiceBcrypt;
 import org.liquido.util.DoogiesUtil;
 
 import java.time.LocalDateTime;
@@ -22,9 +23,8 @@ import java.util.Optional;
  * A user may also join other teams. Then he is a member in those teams.
  */
 @Data  // automatically creates an equals and hashcode for all transient fields. But does NOT automatically create a no-args constructor!!!
+@NoArgsConstructor
 @EqualsAndHashCode(of={"email"}, callSuper = true)  // will also call equals of super class BaseEntity. TODO: So ID must also be equal? TODO: Is that check in my BaseEntity?
-@NoArgsConstructor(force = true)
-@RequiredArgsConstructor
 @Entity(name = "liquido_user")
 //DEPRECATED: @GraphQLType(name="user", description = "A LiquidoUser that can be an admin or member in a team.")  // well be named "userInput" by graphql-spqr
 //TODO: Do I need separate API entity types for GraphQL? The type in the exposed API might be different from this ORM Panache entity!
@@ -74,8 +74,6 @@ public class UserEntity extends BaseEntity {
 	public String mobilephone;
 
 	/** User's hashed password */
-	@NotNull
-	@lombok.NonNull
 	public String passwordHash;
 
 	/** (optional) User's website or bio or social media profile link */
@@ -91,7 +89,21 @@ public class UserEntity extends BaseEntity {
 	/** timestamp of last login */
 	LocalDateTime lastLogin = null;   // this is set in doLoginInternal()
 
+	/**
+	 * Create a new user with this password. The password will of course only be stored in a hashed form.
+	 */
+	public UserEntity(@NonNull String name, @NonNull String email, @NonNull String plainPassword, String mobilephone, String website, String picture) {
+		this.name = name;
+		this.email = email;
+		this.passwordHash = PasswordServiceBcrypt.hashPassword(plainPassword);
+		this.mobilephone = mobilephone;
+		this.website = website;
+		this.picture = picture;
+	}
 
+	public UserEntity(@NonNull String name, @NonNull String email, @NonNull String plainPassword) {
+		this(name, email, plainPassword, null, null, null);
+	}
 
 
 	// ========= Security related fields (NOT exposed in GraphQL) =============

@@ -10,10 +10,9 @@ import lombok.*;
 import org.liquido.user.UserEntity;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 /**
- * One time token that is used for login without a password.
+ * One time token that is used for login without a password or to reset a user's password.
  * A OTT allows a user to login <b>once</b> with this token. After that
  * the token will be deleted. Each OTT has a limited time to live (TTL).
  */
@@ -23,7 +22,7 @@ import java.util.Optional;
 @EqualsAndHashCode(callSuper = true)
 @Entity(name = "onetimetokens")
 public class OneTimeToken extends PanacheEntity {
-	/** Nonce of the token. Can for example be a UUID. */
+	/** Nonce of the token. Can, for example, be a UUID. */
 	@NonNull
 	@NotNull
 	String nonce;
@@ -34,14 +33,10 @@ public class OneTimeToken extends PanacheEntity {
 	@OneToOne
 	UserEntity user;
 
-	/** Expiry date of token. After this date the token is not valid anymore. */
+	/** Expiry date of token. After this date, the token is not valid anymore. */
 	@NonNull
 	@NotNull
 	LocalDateTime validUntil;
-
-	public static Optional<OneTimeToken> findByNonce(String nonce) {
-		return OneTimeToken.find("nonce", nonce).firstResultOptional();
-	}
 
 	public static void deleteUsersOldTokens(UserEntity user) {
 		OneTimeToken.delete("user", user);

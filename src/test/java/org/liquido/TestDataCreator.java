@@ -24,22 +24,26 @@ import org.liquido.util.LiquidoConfig;
 import org.liquido.vote.BallotEntity;
 import org.liquido.vote.CastVoteResponse;
 import org.liquido.vote.RightToVoteEntity;
+import org.liquido.vote.VoterTokenEntity;
 
 import java.io.*;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static org.liquido.TestFixtures.*;
 
 /**
  * Many test cases rely on specific test data as their precondition.
  * This class creates all this test data.
- *
+ * <p>
  * Here we use GraphQL calls against our backend in the same way as a client would call it.
- *
+ * </p>
+ * <p>
  * The result is an SQL script file, that can quickly be imported into the DB for future test runs.
+ * </p>
  */
 @Slf4j
 @Disabled   // <<<<<<==== DO NOT run during regular maven build. Only manually on request
@@ -56,12 +60,10 @@ public class TestDataCreator {
 	LiquidoTestUtils util;
 
 
-
   String sampleDbFile = "import-testData.sql";
 
 	/**
-	 * DANGER ZOME!!! BE CAREFULL!
-	 *
+	 * DANGER ZOME!!! BE careful!
 	 * TestDataCreator can delete and re-create everything!
 	 */
 	boolean purgeDb = true;
@@ -87,17 +89,17 @@ public class TestDataCreator {
 			url = dataSource.getConnection().getMetaData().getURL();
 
 		} catch (SQLException e) {
-			log.error("TestDataCreator Cannot connect to DB" + e.getMessage());
+			log.error("TestDataCreator Cannot connect to DB{}", e.getMessage());
 		}
 
 		RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
 
 		if (purgeDb) {
-			log.warn("Going to delete everything in DB!" + url);
+			log.warn("Going to delete everything in DB!{}", url);
 			purgeDb();
 		}
 		if (createTestData) {
-			log.info("Creating testdata in " + url);
+			log.info("Creating testdata in {}", url);
 
 			// Create a new team
 			TeamDataResponse adminRes = util.createTeam(teamName, adminEmail, 5);
@@ -105,7 +107,7 @@ public class TestDataCreator {
 			// Let another user join that team
 			TeamDataResponse memberRes = util.joinTeam(adminRes.team.inviteCode, memberEmail);
 
-			// Make sure that team has enough members to create more polls & proposals
+			// Make sure that the team has enough members to create more polls & proposals
 			adminRes.team = util.ensureNumMembers(adminRes.team.id, 10);
 
 			// Create some polls in ELABORATION
@@ -120,8 +122,11 @@ public class TestDataCreator {
 			poll = util.seedRandomProposals(poll, adminRes.team, 4);
 
 			// Like a proposal
-			ProposalEntity prop = poll.getProposals().stream().findFirst().get();
-			poll = util.likeProposal(poll, prop.id, adminRes.jwt);
+
+			Optional<ProposalEntity> prop = poll.getProposals().stream().findFirst();
+			if (prop.isPresent()) {
+				poll = util.likeProposal(poll, prop.get().getId(), adminRes.jwt);
+			}
 
 			// Create Poll in VOTING with started voting phase
 			poll = util.createPoll(pollTitle+" in voting", adminRes.jwt);
@@ -134,12 +139,12 @@ public class TestDataCreator {
 			poll = util.startVotingPhase(poll.getId(), adminRes.jwt);
 
 			// A member casts a vote
-			String voterToken = util.getVoterToken(tokenSecret, memberRes.jwt);
+			String voterToken = util.getVoterToken(poll.id, memberRes.jwt);
 			List<Long> voteOrderIds = poll.getProposals().stream().map(BaseEntity::getId).toList();
 			CastVoteResponse castVoteResponse = util.castVote(poll.id, voteOrderIds, voterToken);
 
 			// Admin also casts a vote
-			String adminVoterToken = util.getVoterToken(tokenSecret, adminRes.jwt);
+			String adminVoterToken = util.getVoterToken(poll.id, adminRes.jwt);
 			CastVoteResponse adminCastVoteResponse = util.castVote(poll.id, voteOrderIds, adminVoterToken);
 
 			// Verify ballot of admin
@@ -152,10 +157,6 @@ public class TestDataCreator {
 			log.info("Winner: " + winner.toString());
 		}
 	}
-
-
-
-
 
 
 	static class IsString extends TypeSafeMatcher<String> {
@@ -217,7 +218,7 @@ public class TestDataCreator {
 			BufferedReader reader = new BufferedReader(new FileReader(sqlScript));
 			List<String> lines = new ArrayList<>();
 			String currentLine;
-			Boolean removeBlock = false;
+			boolean removeBlock = false;
 			while ((currentLine = reader.readLine()) != null) {
 				currentLine = currentLine.trim();
 				//log.trace("Checking line "+currentLine);
@@ -268,18 +269,18 @@ public class TestDataCreator {
 		log.info("       PURGE Test Data");
 		log.info("================================");
 
-		// order is important!
-
+		// ORDER IS IMPORTANT HERE IN EVERY LINE!!
 		// entityManager::remove  ????
-		//BUGFIX: PanacheEntityBase::delete  ignores FK and relations:  https://github.com/quarkusio/quarkus/issues/13941
+		//BUGFIX: PanacheEntityBase::delete ignores FK and relations: https://github.com/quarkusio/quarkus/issues/13941
 
 		BallotEntity.deleteAll();
+		VoterTokenEntity.deleteAll();
 		RightToVoteEntity.deleteAll();
-		//BUGFIX: Cannot delete all proposals as long as they are referenced in a poll.
-		//ProposalEntity.deleteAll();
+
+		entityManager.flush();
 
 		PollEntity.findAll().stream().forEach(poll -> {
-			System.out.println("Going to delete " + poll.toString());
+			//System.out.println("Going to delete " + poll.toString());
 			// Must delete each proposal in this poll individually
 			ProposalEntity.find("poll", poll).stream().forEach(PanacheEntityBase::delete);
 			poll.delete();
