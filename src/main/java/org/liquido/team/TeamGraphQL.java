@@ -1,6 +1,5 @@
 package org.liquido.team;
 
-import io.smallrye.common.constraint.NotNull;
 import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -51,7 +50,7 @@ public class TeamGraphQL {
 
 
 	@Mutation
-	@Description("Create a new team. If you call this anonymously a new user will be registered. If you call this with a JWT, you must provide the matching data of your already registered user.")
+	@Description("Create a new team. If you call this anonymously a new user will be registered. If this is called with a JWT, then the matching data of that already registered user must be passed.")
 	@Transactional
 	@PermitAll
 	public TeamDataResponse createNewTeam(
@@ -61,6 +60,8 @@ public class TeamGraphQL {
 	) throws LiquidoException {
 		admin.setMobilephone(DoogiesUtil.cleanMobilephone(admin.mobilephone));
 		admin.setEmail(DoogiesUtil.cleanEmail(admin.email));
+
+		//TODO: Split this into two separate GraphQl endpoints: RegisterAndCreateNewTeam  &  CreateNewTeamForExistingUser.
 
 		// IF team with same name exist, then throw error
 		if (TeamEntity.findByTeamName(teamName).isPresent())
@@ -130,9 +131,9 @@ public class TeamGraphQL {
 	@Description("Join an existing team with an inviteCode")
 	//TODO: @PermitAll  Do I need it? Works without.
 	public TeamDataResponse joinTeam(
-			@Name("inviteCode") @NotNull String inviteCode,
-			@Name("member") @NotNull UserEntity member,  //grouped as one argument of type UserModel:  OUTDATED?? https://graphql-rules.com/rules/input-grouping
-			@Name("password") String plainPassword
+			@Name("inviteCode") @NonNull String inviteCode,
+			@Name("member") @NonNull UserEntity member,
+			@Name("password") @NonNull String plainPassword
 	) throws LiquidoException {
 		member.setMobilephone(DoogiesUtil.cleanMobilephone(member.mobilephone));
 		member.setEmail(DoogiesUtil.cleanEmail(member.email));

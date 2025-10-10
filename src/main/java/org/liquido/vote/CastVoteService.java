@@ -1,17 +1,19 @@
-package org.liquido.poll;
+package org.liquido.vote;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.eclipse.microprofile.graphql.Description;
+import org.eclipse.microprofile.graphql.NonNull;
+import org.eclipse.microprofile.graphql.Query;
+import org.liquido.poll.PollEntity;
+import org.liquido.poll.ProposalEntity;
 import org.liquido.user.UserEntity;
 import org.liquido.util.DoogiesUtil;
 import org.liquido.util.LiquidoConfig;
 import org.liquido.util.LiquidoException;
-import org.liquido.vote.BallotEntity;
-import org.liquido.vote.CastVoteResponse;
-import org.liquido.vote.RightToVoteEntity;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -31,15 +33,18 @@ public class CastVoteService {
 	//TODO: RSA Tokens  https://stackoverflow.com/questions/37722090/java-jwt-with-public-private-keys
 	// OpenID Nice article  https://connect2id.com/learn/openid-connect#id-token
 
+	//TODO: I could make this more secure by creating different voter tokens for each poll.
+
 	/**
-	 * When a user wants to cast a vote in LIQUIDO, then he requests a voterToken
+	 * When a user wants to cast a vote in LIQUIDO, then they need a voterToken
 	 *
-	 * In the backend two values are calculated:
+	 * The backend calculates two values:
 	 *
 	 * (1) The voterToken which will be returned to the voter. It is secret and must only be known to him.
-	 *     With this voterToken the voter will later be able to anonymously cast a vote.
+	 *     With this voterToken the voter is able to anonymously cast a vote.
 	 *     The voterToken is calculated from several seeds, including a serverSecret, so that we can be sure
 	 *     only "we" create valid voterTokens. Each user has one voter Token per area.
+	 *
 	 * <pre>voterToken = hash(user.id + voterTokenSecret + area.id + serverSecret)</pre>
 	 *
 	 * (2) The hashed voterToken is the digital representation of the user's right to vote. Only that user knows his voterToken,
@@ -108,7 +113,7 @@ public class CastVoteService {
 		refreshRightToVote(rightToVote);
 		rightToVote.persist();
 
-		//   IF user wants to become a public proxy
+		//   IF a user wants to become a public proxy,
 		// THEN stores his username with his rightToVote
 		//  AND automatically accept all pending delegationRequests
 		if (becomePublicProxy) {
@@ -340,6 +345,27 @@ public class CastVoteService {
 
 	}
 
+	/**
+	 * Verify a voter's ballot with its checksum. When the checksum is valid, the
+	 * ballot with the correct voteOrder will be returned.
+	 *
+	 * @param pollId a poll
+	 * @param checksum checksum of a ballot in that poll
+	 * @return the voter's ballot if it matches the checksum.
+	 * @throws LiquidoException when poll cannot be found
+	 */
+	@Query
+	@Description("Verify that a voter's ballot was counted correctly")
+	public BallotEntity verifyBallot(
+			@NonNull long pollId,
+			@NonNull String checksum
+	) throws LiquidoException {
+		PollEntity poll = PollEntity.<PollEntity>findByIdOptional(pollId)
+				.orElseThrow(LiquidoException.notFound("Cannot verify checksum. Poll(id="+pollId+") not found!"));
+		return BallotEntity.findByPollAndChecksum(poll, checksum)
+				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_VERIFY_CHECKSUM, "No ballot for that checksum."));
+	}
+
 	//====================== private methods ========================
 
 	/**
@@ -360,7 +386,7 @@ public class CastVoteService {
 	 * A rightToVote is hashed from the voterToken together with a secret.
 	 *
 	 * @param voterToken token passed from user
-	 * @return hashedVoterToken = BCrypt.hashpw(voterToken + serverSecret, bcryptSalt)
+	 * @return hashedVoterToken = hash(voterToken + serverSecret)
 	 */
 	private String calcHashedVoterToken(String voterToken) {
 		return DigestUtils.sha3_256Hex(voterToken + config.hashSecret());

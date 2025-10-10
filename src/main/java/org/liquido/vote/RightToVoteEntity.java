@@ -17,10 +17,10 @@ import java.util.Optional;
  * This entity is the digital representation of a voters right to vote. The right to vote is anonymous.
  * It is not directly linked to a voter. Votes are secret.
  * Only the voter knows his secret voterToken that he received via TeamGraphQL#getVoterToken
- * Only that voter can proof that this is his RightToVote by presenting his voterToken which hashes to
+ * Only that voter can prove that this is his RightToVote by presenting his voterToken which hashes to
  * the stored hashedVoterToken.
  *
- * When a voter requests a voterToken for an area , then the server calculates two values:
+ * When a voter requests a voterToken for an area, then the server calculates two values:
  * 1. voterToken  = hash(user.email, userSecret, serverSecret, area)   This voterToken is returned to the voter.
  * 2. rightToVote = hash(voterToken, serverSecret)    The rightToVote is anonymously stored on the server.
  *
@@ -52,12 +52,13 @@ public class RightToVoteEntity extends PanacheEntityBase {
 	LocalDateTime expiresAt;
 
 	/**
-	 * A voter can delegate his right to vote to a proxy. This delegation is stored in the DelegationModel.
-	 * Here we store the completely anonymous delegation from one checksum to another one.
-	 * There is no relation between a checksum and a voter (except for public proxies).
+	 * A voter can delegate his right to vote to a proxy. Then the proxy will vote for him.
+	 * The delegation is stored in the {@link org.liquido.user.DelegationEntity}.
+	 * In here we only store the delegation from one anonymous RightToVote to proxy's RightToVote.
+	 * There is no direct relation between a RightToVote and a voter, because votes are anonymous.
 	 */
 	@ManyToOne
-	@JsonIgnore                        // Do not reveal to whom a checksum is delegated
+	@JsonIgnore                        // Do not reveal if or to whom a RightToVote is delegated
 	RightToVoteEntity delegatedTo;
 
 	// only expose WHETHER a checksum is delegated or not

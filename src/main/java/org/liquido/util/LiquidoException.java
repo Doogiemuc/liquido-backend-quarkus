@@ -10,7 +10,7 @@ import java.util.function.Supplier;
 /**
  * <h1>LiquidoException</h1>
  *
- * is the one central place for handling exceptions in the application.
+ * LiquidoException is the one central place for handling exceptions in the application.
  * There are two kind of exceptions:
  * <ul>
  * <li>Severe system error. Things that should never happen.</li>

@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor                      //BUGFIX: https://jira.spring.io/browse/DATAREST-884
 @EqualsAndHashCode(callSuper = true)
 @Table(uniqueConstraints = {
-		@UniqueConstraint(columnNames = {"POLL_ID", "hashedVoterToken"})   // a voter is only allowed to vote once per poll with his hashedVoterToken!
+		@UniqueConstraint(columnNames = {"poll_id", "hashedVoterToken"})   // a voter is only allowed to vote once per poll with his hashedVoterToken!
 })
 public class BallotEntity extends PanacheEntity {
 	//BallotModel deliberately does NOT extend BaseEntity!
@@ -90,10 +90,10 @@ public class BallotEntity extends PanacheEntity {
 	}
 
 	/**
-	 * Encrypted and anonymous information about the voter that casted this vote into the ballot.
-	 * Only the voter knows the voterToken that this checksumModel was created from as
+	 * Encrypted and anonymous information about the voter that cast this vote into the ballot.
+	 * Only the voter knows the voterToken that this ballot was created from.
 	 *   rightToVote.hashedVoterToken = hash(voterToken)
-	 * If a vote was cast by a proxy, this is still the voters (delegated) checksum.
+	 * If a proxy casts a vote, this is still the voter's (delegated) rightToVote.
 	 */
 	@NotNull
 	@NonNull

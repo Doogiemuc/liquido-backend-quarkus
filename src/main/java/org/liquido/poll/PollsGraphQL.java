@@ -12,6 +12,7 @@ import org.liquido.util.LiquidoConfig;
 import org.liquido.util.LiquidoException;
 import org.liquido.vote.BallotEntity;
 import org.liquido.vote.CastVoteResponse;
+import org.liquido.vote.CastVoteService;
 
 import java.util.List;
 import java.util.Optional;
@@ -152,7 +153,7 @@ public class PollsGraphQL {
 	 * @throws LiquidoException when user is not logged into a team
 	 */
 	@Query
-	@Description("Get voter's the secret voterToken")
+	@Description("Get voter's secret voterToken. With this token you can then cast votes anonymously.")
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
 	public String voterToken(
 			@NonNull @Name("tokenSecret") String tokenSecret,
@@ -238,27 +239,6 @@ public class PollsGraphQL {
 		log.info("castVote: poll.id=" + pollId);		//TODO: log all user actions into seperate file
 		return res;
 	}
-
-	/**
-	 * Verify a voter's ballot with its checksum. When the checksum is valid, the
-	 * ballot with the correct voteOrder will be returned.
-	 * @param pollId a poll
-	 * @param checksum checksum of a ballot in that poll
-	 * @return the voter's ballot if it matches the checksum.
-	 * @throws LiquidoException when poll cannot be found
-	 */
-	@Query
-	@Description("Verify that a voter's ballot was counted correctly")
-	public BallotEntity verifyBallot(
-			@NonNull long pollId,
-			@NonNull String checksum
-	) throws LiquidoException {
-		PollEntity poll = PollEntity.<PollEntity>findByIdOptional(pollId)
-				.orElseThrow(LiquidoException.notFound("Cannot verify checksum. Poll(id="+pollId+") not found!"));
-		return BallotEntity.findByPollAndChecksum(poll, checksum)
-				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_VERIFY_CHECKSUM, "No ballot for that checksum."));
-	}
-
 
 	/**
 	 * Finish the voting phase of a poll

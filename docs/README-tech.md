@@ -1,5 +1,7 @@
 # LIQUIDO - Technical Reference
 
+See also the LIQUIDO theses for a more in depth look into the theoretical backgroudn of liquid democracy.
+
 # CHANGELOG (only most important new features)
 
  * 2023-06-23 GREEN Test with complete Happy Case
@@ -10,15 +12,17 @@
  * 2023-11-22 Even more work on UI layout. It's starting to look smooth.
  * 2023-12-24 Debugging WebAuthn since 3 weeks :-( No luck.
  * 2025-03-18 Can now build docker container - with help of AI
+ * 2025-05-08 Added Passwords for users.
+ * 2025-05-24 Found drastic issue with RightToVote, when voting in more thant one poll!
 
 # Next TODOs
 
  * Native Build
  * Checkout all the //TODO annotations in the code 
  * Checkout Quarkus SimpleScheduler for cleanup operations in the background.
-
-
-
+ * Fix bug so that user can vote more than once.  Ballot <-> Poll
+ * Make sure that a "human" can only register once. (as good as this is technically feasable. -> mobile numbers?)
+ * Prevent loops in delegation chain!
 
 
 
