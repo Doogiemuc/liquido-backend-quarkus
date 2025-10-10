@@ -10,7 +10,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.graphql.NonNull;
 import org.liquido.model.BaseEntity;
 import org.liquido.security.JwtTokenUtils;
-import org.liquido.services.CastVoteService;
 import org.liquido.team.TeamEntity;
 import org.liquido.user.DelegationEntity;
 import org.liquido.user.UserEntity;

@@ -139,6 +139,13 @@
       <artifactId>commons-logging-jboss-logging</artifactId>
     </dependency>
 
+    <!-- Expose GraphQL (REST) API as AWS Lambda Function https://mvnrepository.com/artifact/io.quarkus/quarkus-amazon-lambda -->
+    <!-- dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-amazon-lambda-rest</artifactId>
+      <version>3.9.0</version>
+    </dependency -->
+
 
   </dependencies>
   <build>

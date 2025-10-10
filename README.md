@@ -57,23 +57,43 @@ The application, packaged as an _über-jar_, is now runnable using `java -jar ta
 
 ## Creating a native executable
 
-You can create a native executable using: 
+You can create a native executable with this command. For this you must have GraalVM installed.
 ```shell script
 ./mvnw package -Pnative
 ```
+You can then execute your native executable with: `./target/liquido-backend-quarkus-0.1.0-BETA-runner`
+Keep in mind that this is "native" to the platform you are running on, e.g. Windows or Mac. But most container virtualization platfroms expect a Linux executable.
+
+# Creating a native Linux executable for running inside a Docker container
 You can then execute your native executable with: `./target/liquido-backend-quarkus-*-runner`
 
 
 
-Or, if you don't have GraalVM installed, you can run the native executable build in a container using: 
+ 1. Build a native linux/amd64 executable inside a "builder" container. (This way you don't even have to install GraalVM locally.)
+ 2. Build a Docker IMAGE in amd64 format with the native application executable inside.
+ 3. Run a Docker CONTAINER with that image. Environment variables can be set. And the liquido app inside the container can access the DB outside, ie. on the host.
+
 ```shell script
 ./mvnw package -Pnative -Dquarkus.native.container-build=true
+
+docker build -f src/main/docker/Dockerfile.native-micro --platform linux/amd64 -t doogiemuc/liquido .
+
+docker run --name=liquido-container-1 --env=QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://host.docker.internal:5432/LIQUIDO-DEV --workdir=/work -p 8443:8443 --restart=no --runtime=runc --user=1001 -d liquido/liquido-backend4:latest
 ```
 
 
 If you want to learn more about building native executables, please consult https://quarkus.io/guides/maven-tooling.
 
-## Related Guides
+# Deploy to fly.io
+
+[Fly.io](www.fly.io) is a cloud service that offers to run images on dedicated edge nodes. This is configured in `fly.toml`.
+To deploy the image build above run:
+
+```shell script
+fly deploy --local-only
+```
+
+### Further Related Quarkus Guides
 
 - JDBC Driver - H2 ([guide](https://quarkus.io/guides/datasource)): Connect to the H2 database via JDBC
 - YAML Configuration ([guide](https://quarkus.io/guides/config#yaml)): Use YAML to configure your Quarkus application
