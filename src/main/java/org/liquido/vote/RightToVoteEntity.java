@@ -52,7 +52,8 @@ public class RightToVoteEntity extends PanacheEntityBase {
 
 	// ======= Bidirectional hibernate relation: Voter ---(delegates to)---> Proxy
 
-	//TODO: Create a custom Hibernate validator that prevents delegation to onself: https://docs.jboss.org/hibernate/stable/validator/reference/en-US/html_single/?v=9.0#section-class-level-constraints
+	//MAYBE: Create a custom Hibernate validator that prevents delegation to onself: https://docs.jboss.org/hibernate/stable/validator/reference/en-US/html_single/?v=9.0#section-class-level-constraints
+	//       But this is also checked in DelegationService.java
 	/**
 	 * A voter can delegate his RightToVote to a proxy.
 	 * This attribute anonymously delegates to the proxy's RightToVote.

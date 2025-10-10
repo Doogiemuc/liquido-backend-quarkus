@@ -55,7 +55,7 @@ public class LiquidoTestUtils {
 		Lson variables = Lson.builder()
 				.put("teamName", teamName)
 				.put("admin", admin)
-				.put("password", adminEmail+"pwd");
+				.put("password", adminEmail+TestFixtures.PASSWORD_SUFFIX);
 
 		String body = String.format("{ \"query\": \"%s\", \"variables\": %s }", query, variables);
 
@@ -95,7 +95,7 @@ public class LiquidoTestUtils {
 		Lson variables = Lson.builder()
 				.put("inviteCode", inviteCode)
 				.put("member", member)
-				.put("password", memberEmail+"pwd");
+				.put("password", memberEmail+ PASSWORD_SUFFIX);
 
 		String body = String.format("{ \"query\": \"%s\", \"variables\": %s }", query, variables);
 
@@ -209,11 +209,10 @@ public class LiquidoTestUtils {
 
 
 	public String getVoterToken(Long pollId, String jwt) {
-		String query = "query voterToken($pollId: BigInteger!, $becomePublicProxy: Boolean!) { " +
-				" voterToken(pollId: $pollId, becomePublicProxy: $becomePublicProxy) }";
+		String query = "query voterToken($pollId: BigInteger!) { " +
+				" voterToken(pollId: $pollId) }";
 		Lson vars  = Lson.builder()
-				.put("pollId", pollId)
-				.put("becomePublicProxy", false);
+				.put("pollId", pollId);
 		ValidatableResponse graphQlRes = sendGraphQL(query, vars, jwt);
 		log.debug("graphQlRes" + graphQlRes);
 		String voterToken = graphQlRes.extract().jsonPath().getObject("data.voterToken", String.class);

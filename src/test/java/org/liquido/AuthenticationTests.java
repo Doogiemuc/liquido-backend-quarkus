@@ -33,9 +33,9 @@ import static org.liquido.TestFixtures.GRAPHQL_URI;
 import static org.liquido.security.JwtTokenUtils.LIQUIDO_ISSUER;
 
 /**
- * Some simple test cases for authenticate.
+ * Some simple test cases for authenticating.
  * <h3>Precondition!</h3>
- * These test cases rely on the data that is created by TestDataCreator!
+ * These test cases rely on the data created by TestDataCreator!
  * They will fail without that data!
  */
 @Slf4j
@@ -76,6 +76,26 @@ public class AuthenticationTests {
 		TestFixtures.sendGraphQL(query);
 		// my sendGraphQL() helper method already checks for errors.
 		// so no additional assertions necessary here.
+	}
+
+	@Test
+	public void testLoginWithUsernameAndPassword() {
+		// GIVEN a random user
+		UserEntity user = util.getRandomUser();
+		String plainPassword = user.getEmail() + TestFixtures.PASSWORD_SUFFIX;  // easy hack for testing
+		String query = "query loginWithEmailPassword($email: String!, $password: String!) {" +
+				" loginWithEmailPassword(email: $email, password: $password)" + CREATE_OR_JOIN_TEAM_RESULT + "}";
+		Lson vars = Lson.builder()
+				.put("email", user.getEmail())
+				.put("password", plainPassword);
+
+		// WHEN logging in with username and password
+		ValidatableResponse res = TestFixtures.sendGraphQL(query, vars);
+		TeamDataResponse teamData = res.extract().jsonPath().getObject("data.loginWithEmailPassword", TeamDataResponse.class);
+
+		// THEN a valid team data is returned.
+		assertNotNull(teamData.jwt);
+		assertEquals(teamData.user.email, user.email);
 	}
 
 	@Test

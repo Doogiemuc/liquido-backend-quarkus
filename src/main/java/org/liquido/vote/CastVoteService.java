@@ -36,12 +36,11 @@ public class CastVoteService {
 	 *   2. A one-time token for that specific poll they want to cast a vote in.
 	 *
 	 * @param voter the currently logged in and correctly authenticated user
-	 * @param becomePublicProxy true if voter wants to become (or stay) a public proxy. A voter can also decide this later with becomePublicProxy
 	 * @return the user's voterToken, that only the user must know, and that will hash to the stored rightToVote. The user can cast votes with this voterToken in that area.
 	 */
 	@Transactional
-	public String createVoterToken(UserEntity voter, PollEntity poll, boolean becomePublicProxy) throws LiquidoException {
-		log.debug("getVoterToken: for {} in poll.id={}, becomePublicProxy={}", voter.toStringShort(), poll.id, becomePublicProxy);
+	public String createVoterToken(UserEntity voter, PollEntity poll) throws LiquidoException {
+		log.debug("getVoterToken: for {} in poll.id={}", voter.toStringShort(), poll.id);
 		if (DoogiesUtil.isEmpty(voter.getEmail()))
 			throw new LiquidoException(LiquidoException.Errors.CANNOT_GET_TOKEN, "Need voter to build a OneTimeToken!");
 
@@ -53,7 +52,7 @@ public class CastVoteService {
 		// I thought about adding an additional voterSecret, that a user passes in here and in castVote.
 		// But plainVoterToken is already random. This would only add little security.
 		String plainVoterToken  =  UUID.randomUUID().toString();
-		String hashedVoterToken =  DigestUtils.sha3_256Hex(plainVoterToken + poll.id + config.hashSecret());
+		String hashedVoterToken =  calcHashedVoterToken(plainVoterToken, poll.id);
 		int ttl = config.voterTokenExpirationMinutes();
 		VoterTokenEntity ott = VoterTokenEntity.buildAndPersist(hashedVoterToken, poll, rightToVote, ttl);
 
@@ -64,6 +63,8 @@ public class CastVoteService {
 
 		/*
 
+
+				OLD CODE
 
 
 		String hashedVoterToken = calcHashedVoterToken(oneTimeToken);             // hash of voterToken that can only be generated from the users voterToken and only by the server.
@@ -133,7 +134,7 @@ public class CastVoteService {
 			throw new LiquidoException(LiquidoException.Errors.INVALID_VOTER_TOKEN, "This voterToken is valid.");
 
 		// check voterToken
-		String hashedVoterToken = DigestUtils.sha3_256Hex(plainVoterToken + poll.id + config.hashSecret());
+		String hashedVoterToken = calcHashedVoterToken(plainVoterToken, poll.id);
 		log.info("consumeVoterToken: plainVoterToken = {} hashedVoterToken = {} in poll.id = {}", plainVoterToken, hashedVoterToken, poll.id);
 		VoterTokenEntity voterToken = VoterTokenEntity.<VoterTokenEntity>findByIdOptional(hashedVoterToken)
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.INVALID_VOTER_TOKEN, "This voterToken is invalid."));
@@ -150,12 +151,24 @@ public class CastVoteService {
 		return voterToken.getRightToVote();
 	}
 
+	/**
+	 * Hash a plain voter token. Server will add an internal hashSecret for more security.
+	 * Keep in mind that the hashedVoterToken is anonymous. It is not traceable back to a voter.
+	 *
+	 * @param plainVoterToken the plain token
+	 * @param pollId voter token is only valid for this poll
+	 * @return the hashed voterToken
+	 */
+	private String calcHashedVoterToken(String plainVoterToken, Long pollId) {
+		return DigestUtils.sha3_256Hex(plainVoterToken + pollId + config.hashSecret());
+	}
+
 
 	/**
 	 * User casts their own vote. Keep in mind that this method is called anonymously. No UserEntity involved.
 	 * If that user is a proxy for other voters, then their ballots will also be added automatically.
-	 * @param plainVoterToken The anonymous voter must present a valid plainVoterToken that he fetched via {@link #createVoterToken(UserEntity, PollEntity, boolean)}
 	 *
+	 * @param plainVoterToken The anonymous voter must present a valid plainVoterToken that he fetched via {@link #createVoterToken(UserEntity, PollEntity)}
 	 * @param poll the poll to cast the vote in.
 	 * @param voteOrderIds ordered list of proposal.IDs as sorted by the user. No ID may appear more than once!
 	 * @return CastVoteResponse with ballot and the voteCount how often the vote was actually counted for this proxy. (Some voters might already have voted on their own.)
@@ -163,7 +176,7 @@ public class CastVoteService {
 	 */
 	@Transactional
 	public CastVoteResponse castVote(String plainVoterToken, PollEntity poll, List<Long> voteOrderIds) throws LiquidoException {
-		//TODO: implement a challenge response mechanism for verifying OneTimeTokens
+		//TODO: For even more security we could implement a challenge response mechanism for verifying plainVoterToken
 		log.info("castVote(poll={}, voteOrderIds={})", poll, voteOrderIds);
 
 		// CastVoteRequest must contain a poll
