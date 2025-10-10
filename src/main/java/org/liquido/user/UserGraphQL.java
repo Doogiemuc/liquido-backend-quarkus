@@ -178,11 +178,11 @@ public class UserGraphQL {
 		String emailLowerCase = DoogiesUtil.cleanEmail(email);
 		UserEntity user = UserEntity.findByEmail(emailLowerCase)
 				.orElseThrow(() -> {
-					log.warn("Email " + emailLowerCase + " tried to request email token, but no registered user with that email.");
-					return new LiquidoException(Errors.CANNOT_LOGIN_EMAIL_NOT_FOUND, "User with that email <" + emailLowerCase + "> is not found.");
+					log.warn("Email " + emailLowerCase + " tried to login via email, but there is no registered user with that email.");
+					return new LiquidoException(Errors.CANNOT_LOGIN_EMAIL_NOT_FOUND, "I don't know any user with email <" + emailLowerCase + ">");
 				});
 
-		// Create new email login link with a token time token in it.
+		// Create new email login link with a one time token in it.
 		UUID tokenUUID = UUID.randomUUID();
 		LocalDateTime validUntil = LocalDateTime.now().plusHours(config.loginLinkExpirationHours());
 		OneTimeToken oneTimeToken = new OneTimeToken(tokenUUID.toString(), user, validUntil);
