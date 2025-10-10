@@ -23,6 +23,8 @@ import java.util.List;
 @Blocking  // Defer calls to worker pool and not the IO thread
 public class WebAuthnSetup implements WebAuthnUserProvider {
 
+	// Adapted from https://github.com/FroMage/quarkus-renarde-todo/blob/main/src/main/java/util/MyWebAuthnSetup.java
+
 	@Transactional
 	@Override
 	public Uni<List<Authenticator>> findWebAuthnCredentialsByUserName(String userName) {

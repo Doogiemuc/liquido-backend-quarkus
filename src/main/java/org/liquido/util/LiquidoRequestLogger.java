@@ -10,12 +10,24 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class LiquidoRequestLogger {
 
+	public static boolean logHeaders = false;
+
 	@RouteFilter(100)
 	void myLogFilter(RoutingContext ctx) {
 		String msg = "=> " +
 				ctx.request().method() + " " +
 				ctx.request().absoluteURI();
-		log.info(msg);
+		log.debug(msg);
+		ctx.request().headers().forEach((key, value) -> log.debug("  " + key + ": " + value));
+
+		msg = "<= " +
+				ctx.response().getStatusCode() + " " +
+				ctx.response().getStatusMessage();
+		log.debug(msg);
+
+		if (logHeaders)
+			ctx.response().headers().forEach((key, value) -> log.debug("  " + key + ": " + value));
+
 		ctx.next();  // important!
 	}
 }

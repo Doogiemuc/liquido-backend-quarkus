@@ -1,0 +1,40 @@
+
+
+
+
+Very detailed infos about SameSite Cookies
+https://andrewlock.net/understanding-samesite-cookies/
+
+
+# A Working Example
+
+## Frontend
+
+In Safari:  https://localhost:8443/webAuthnLogin.html
+
+LIQUIDO_API_URL: "https://localhost:8443"
+
+
+## Backend
+
+`application.properties`
+
+# in dev allow all CORS origins
+quarkus.http.cors=true
+quarkus.http.cors.origins=/.*/
+#quarkus.http.cors.credentials=true
+#quarkus.http.cors.headers=origin, accept, authorization, content-type, x-requested-with
+#quarkus.http.cors.methods=GET, PUT, POST, OPTIONS
+quarkus.http.cors.access-control-allow-credentials=true
+
+# WebAuthn - authenticate via fingerprint or FaceID
+# See io.quarkus.security.webauthn.WebAuthnRunTimeConfig
+quarkus.webauthn.enabled=true
+quarkus.webauthn.cookie-same-site=lax   # Intererstingly 'none' does not work
+quarkus.webauthn.origin=https://localhost:8443
+
+#quarkus.http.same-site-cookie._quarkus_webauthn_challenge.value=none
+#quarkus.http.same-site-cookie._quarkus_webauthn_username.value=none
+
+
+# Not working

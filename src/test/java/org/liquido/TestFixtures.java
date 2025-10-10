@@ -42,7 +42,7 @@ public class TestFixtures {
 	public static final String JQL_TEAM_MEMBER =
 			"{ id role joinedAt user " + JQL_USER + "}";
 	public static final String JQL_PROPOSAL =
-			"{ id title description icon status createdAt likedByCurrentUser createdBy " + JQL_USER + "}";  //no "is" before likedByCurrentUser !   //TODO: numSupporters
+			"{ id title description icon status createdAt likedByCurrentUser numSupporters createdBy " + JQL_USER + "}";  //no "is" before likedByCurrentUser !
 	public static final String JQL_POLL =
 			"{ id title status proposals " + JQL_PROPOSAL +  // TODO: votingStartAt votingEndAt
 					" winner " + JQL_PROPOSAL +
