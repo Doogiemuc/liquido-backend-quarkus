@@ -14,16 +14,19 @@ import java.time.LocalDateTime;
 /**
  * Base class for all LIQUIDO database entities.
  * Each entity by default has a createdAt, updatedAt and createdBy that is automatically filled on save.
+ * See {@link LoggedInUserGenerator}
+ *
+ * Do not forget to add a @NoArgsConstructor to every parent class
  *
  * <h3>Equality</h3>
- * Entities are considered to be equal if and only if their ID is the same!
- * This does have important consequences. For example a LiquidoUser stays the same user
- * even when he changes his mobile phone number or his email address.
+ * By default, Liquido Entities are considered to be equal if and only if their ID is set and the same.
+ * Two not yet persisted entities are *not* equal, even if they share the same data.
+ * Parent classes should adapt and extend this. For example two UserEntities are only equal if their IDs
+ * <b>and</b> email addresses match.
  *
  */
-//@EqualsAndHashCode(onlyExplicitlyIncluded = true, callSuper = false)
+//@EqualsAndHashCode(onlyExplicitlyIncluded = true, callSuper = true)  // This also works. In the same way as the code below. But I don't want to rely on super.equals()
 @MappedSuperclass  // This JPA class does not have a DB table itself. Only its "mapped" superclasses have.
-//Do not forget to add a @NoArgsConstructor to every parent class
 public class BaseEntity extends PanacheEntity {
 
 	@CreationTimestamp
@@ -46,11 +49,8 @@ public class BaseEntity extends PanacheEntity {
 	/*
 	 * Two BaseEntities are equal when their ID field is not null and has the same value
 	 * @param obj a BaseEntity instance
-	 * @return true if IDs are equal
-	 *
-	 *
-	//TODO: check and test consequences, eg. equality of UserEntity: only ID or also email?
-
+	 * @return true if IDs are not null and equal
+	 */
 	@Override
 	public boolean equals(Object obj) {
 		if (this == obj) {
@@ -67,5 +67,4 @@ public class BaseEntity extends PanacheEntity {
 	public int hashCode() {
 		return id != null ? id.hashCode() : 0;
 	}
-	*/
 }

@@ -50,7 +50,7 @@ public class JwtTokenUtils {
 	 * generate JWTs. The userId becomes the JWT.subject and teamId is set as additional claim.
 	 */
 	public String generateToken(@NonNull String email, @NonNull Long teamId, boolean isAdmin) {
-		Set<String> groups = new HashSet<String>();
+		Set<String> groups = new HashSet<>();
 		groups.add(LIQUIDO_USER_ROLE);
 		if (isAdmin) groups.add(LIQUIDO_ADMIN_ROLE);
 		return Jwt
@@ -90,7 +90,7 @@ public class JwtTokenUtils {
 	public TeamDataResponse doLoginInternal(UserEntity user, TeamEntity team) throws LiquidoException {
 		if (team == null) {
 			List<TeamEntity> teams = TeamMemberEntity.findTeamsByMember(user);
-			if (teams.size() == 0) {
+			if (teams.isEmpty()) {
 				log.warn("User ist not member of any team. This should not happen: " + user);
 				throw new LiquidoException(LiquidoException.Errors.UNAUTHORIZED, "Cannot login. User is not member of any team " + user);
 			} else if (teams.size() == 1) {
@@ -133,7 +133,7 @@ public class JwtTokenUtils {
 	}
 
 	/**
-	 * Manually set the currently logged in user and team.
+	 * Manually set the currently logged-in user and team.
 	 * @param user a UserEntity
 	 * @param team the team the user shall be logged into
 	 */
