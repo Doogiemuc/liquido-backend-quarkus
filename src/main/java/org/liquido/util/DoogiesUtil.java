@@ -29,11 +29,12 @@ public class DoogiesUtil {
     return s == null || s.trim().length() == 0;
   }
 
+
 	/**
 	 * null safe equals that also compares array elements.
 	 * @param o1 object may be null
 	 * @param o2 object may be null
-	 * @return true if o1 equals o2 (also when o1 == o2 == null)
+	 * @return true if o1 equals o2 (also true, when o1 == o2 == null)
 	 */
   public static boolean isEqual(Object o1, Object o2) {
 		//copy of org.springframework.util.ObjectUtils.nullSafeEquals(o1, o2)
@@ -251,19 +252,6 @@ public class DoogiesUtil {
 	}
 
 	/**
-	 * Null safe equals()
-	 * @param o1 any object, may be null
-	 * @param o2 any object, may be null
-	 * @eturn true if o1.equals(o2) and false otherwise (specifically when o1, o2 or both of them are null)
-	 */
-	public static boolean equals(Object o1, Object o2) {
-		//if (o1 == null && o2 == null) return true;    Mmmmhhhh ...
-		if (o1 == null || o2 == null) return false;
-		return o1.equals(o2);
-	}
-
-
-	/**
 	 * Clean mobile phone number: Replace everything except plus('+') and number (0-9).
 	 * Specifically spaces will be removed.
 	 * This is a very simple thing. Have a look at google phone lib for sophisticated phone number parsing
@@ -282,6 +270,6 @@ public class DoogiesUtil {
 	 */
 	public static String cleanEmail(String email) {
 		if (email == null) return null;
-		return email.toLowerCase();
+		return email.toLowerCase().trim();
 	}
 }

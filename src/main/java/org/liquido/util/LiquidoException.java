@@ -8,10 +8,49 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 /**
- * Liquido general purpose exception.
- * There is quite some logic in here.
- * Each LiquidoException MUST contain an error code. This error code also decides which HTTP status code will be returned
- * to the client.
+ * <h1>LiquidoException</h1>
+ *
+ * is the one central place for handling exceptions in the application.
+ * There are two kind of exceptions:
+ * <ul>
+ * <li>Severe system error. Things that should never happen.</li>
+ * <li>And normal business exceptions. For example when a poll cannot be finished, because there are no votes yet.</li>
+ * </ul>
+ * When a LiquidoException is thrown, then this is handled in the {@link LiquidoErrorExtensionProvider}. There
+ * the errorName and errorCode are added to the GraphQL extensions JSON field:
+ *
+ * <h3>Example GraphQL response with errors</h3>
+ *
+ * There might still be data for some attributes, while there are errors for other attributes.
+ *
+ * <pre>
+ * {
+ *   "data": {
+ *     "requestEmailToken": null
+ *   },
+ *   "errors": [
+ *     {
+ *       "message": "Cannot login. No user with that email.",
+ *       "locations": [
+ *         {
+ *           "line": 1,
+ *           "column": 9
+ *         }
+ *       ],
+ *       "path": [
+ *         "requestEmailToken"
+ *       ],
+ *       "extensions": {
+ *         "liquidoException": {
+ *           "liquidoErrorName": "CANNOT_LOGIN_EMAIL_NOT_FOUND",
+ *           "liquidoErrorCode": 21,
+ *           "liquidoErrorMessage": "I don't know any user with email <werfsd@xn--fdsasdffd-nzb.de>"
+ *         }
+ *       }
+ *     }
+ *   ]
+ * }
+ * </pre>
  */
 @Slf4j
 public class LiquidoException extends Exception {
