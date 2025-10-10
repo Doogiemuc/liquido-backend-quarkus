@@ -173,7 +173,7 @@ public class DoogiesUtil {
   }
 
   /**
-   * Create a string that consists of random digits [0-9] of that length. Can be used as validation token.
+   * Create a string that consists of random digits [0-9] of that length.
    * @param len number of digits to produce
    * @return a string of length "len" that consists of random digits
    */

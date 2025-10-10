@@ -83,17 +83,20 @@ public class LiquidoException extends Exception {
 		CANNOT_JOIN_TEAM_ALREADY_MEMBER(13, Response.Status.CONFLICT),            // there already is a member (or admin) with the same email or mobilephone
 		CANNOT_JOIN_TEAM_ALREADY_ADMIN(14, Response.Status.CONFLICT),
 		CANNOT_CREATE_TWILIO_USER(15, Response.Status.INTERNAL_SERVER_ERROR),
-		USER_EMAIL_EXISTS(16, Response.Status.CONFLICT),                         // user with that email already exists
-		USER_MOBILEPHONE_EXISTS(17, Response.Status.CONFLICT),                   // user with that mobile phone already exists
+		USER_EMAIL_EXISTS(16, Response.Status.CONFLICT),                         	// user with that email already exists
+		USER_MOBILEPHONE_EXISTS(17, Response.Status.CONFLICT),                   	// user with that mobile phone already exists
+		PASSWORD_TOO_SHORT(18, Response.Status.BAD_REQUEST),
 
 		//Login Errors
-		CANNOT_LOGIN_MOBILE_NOT_FOUND(20, Response.Status.UNAUTHORIZED),          // when requesting an SMS login token and mobile number is not known
-		CANNOT_LOGIN_EMAIL_NOT_FOUND(21, Response.Status.UNAUTHORIZED),          // when requesting a login email and email is not known
-		CANNOT_LOGIN_TOKEN_INVALID(22, Response.Status.UNAUTHORIZED),            // when a email or sms login token is invalid or expired
-		CANNOT_LOGIN_TEAM_NOT_FOUND(23, Response.Status.UNAUTHORIZED),           // when changing team
-		CANNOT_LOGIN_USER_NOT_MEMBER_OF_TEAM(24, Response.Status.UNAUTHORIZED),  // when changing team and user is not member or admin of target team
-		CANNOT_LOGIN_INTERNAL_ERROR(25, Response.Status.INTERNAL_SERVER_ERROR),  // when sending of email is not possible
-		CANNOT_REQUEST_SMS_TOKEN(26, Response.Status.UNAUTHORIZED),              // eg. when entered mobile number is not valid
+		CANNOT_LOGIN_MOBILE_NOT_FOUND(20, Response.Status.UNAUTHORIZED),       		// when requesting an SMS login token and mobile number is not known
+		CANNOT_LOGIN_EMAIL_NOT_FOUND(21, Response.Status.UNAUTHORIZED),          	// when requesting a login email and email is not known
+		CANNOT_LOGIN_TOKEN_INVALID(22, Response.Status.UNAUTHORIZED),            	// when a email or sms login token is invalid or expired
+		CANNOT_LOGIN_TEAM_NOT_FOUND(23, Response.Status.UNAUTHORIZED),           	// when changing team
+		CANNOT_LOGIN_USER_NOT_MEMBER_OF_TEAM(24, Response.Status.UNAUTHORIZED),  	// when changing team and user is not member or admin of target team
+		CANNOT_LOGIN_INTERNAL_ERROR(25, Response.Status.INTERNAL_SERVER_ERROR),  	// when sending of email is not possible
+		CANNOT_REQUEST_SMS_TOKEN(26, Response.Status.UNAUTHORIZED),              	// eg. when entered mobile number is not valid
+		WONT_RESET_PASSWORD(28, Response.Status.UNAUTHORIZED),										// Someone requested a password reset for a non registered email. But don't expose that. Return just a generic error
+		CANNOT_RESET_PASSWORD_TOKEN_INVALID(29, Response.Status.UNAUTHORIZED),
 
 		//JWT Errors  // these are now handled by Quarkus
 		JWT_TOKEN_INVALID(30, Response.Status.UNAUTHORIZED),
@@ -106,7 +109,7 @@ public class LiquidoException extends Exception {
 		CANNOT_ADD_PROPOSAL(53, Response.Status.BAD_REQUEST),
 		CANNOT_START_VOTING_PHASE(54, Response.Status.BAD_REQUEST),
 		CANNOT_ASSIGN_PROXY(55, Response.Status.BAD_REQUEST),                // assign or remove
-		CANNOT_ASSIGN_CIRCULAR_PROXY(56, Response.Status.BAD_REQUEST),
+		CANNOT_ASSIGN_CIRCULAR_PROXY(56, Response.Status.CONFLICT),
 		CANNOT_REMOVE_PROXY(57, Response.Status.BAD_REQUEST),
 		CANNOT_CAST_VOTE(58, Response.Status.BAD_REQUEST),
 		CANNOT_GET_TOKEN(59, Response.Status.BAD_REQUEST),
@@ -125,7 +128,6 @@ public class LiquidoException extends Exception {
 		UNAUTHORIZED(401, Response.Status.UNAUTHORIZED),                     // when client tries to call something without being authenticated!
 		CANNOT_FIND_ENTITY(404, Response.Status.NOT_FOUND),                  // 404: cannot find entity
 		INTERNAL_ERROR(500, Response.Status.INTERNAL_SERVER_ERROR);
-
 
 		final int liquidoErrorCode;
 		final Response.Status httpResponseStatus;

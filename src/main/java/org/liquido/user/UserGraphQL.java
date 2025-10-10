@@ -1,8 +1,5 @@
 package org.liquido.user;
 
-import at.favre.lib.crypto.bcrypt.BCrypt;
-import io.quarkus.mailer.Mail;
-import io.quarkus.mailer.Mailer;
 import io.quarkus.vertx.http.runtime.CurrentVertxRequest;
 import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
@@ -12,7 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.graphql.*;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.liquido.security.JwtTokenUtils;
-import org.liquido.security.OneTimeToken;
+import org.liquido.security.PasswordServiceBcrypt;
 import org.liquido.team.TeamDataResponse;
 import org.liquido.team.TeamEntity;
 import org.liquido.twillio.TwilioVerifyClient;
@@ -20,9 +17,6 @@ import org.liquido.util.DoogiesUtil;
 import org.liquido.util.LiquidoConfig;
 import org.liquido.util.LiquidoException;
 import org.liquido.util.Lson;
-
-import java.time.LocalDateTime;
-import java.util.UUID;
 
 import static org.liquido.util.LiquidoException.Errors;
 
@@ -37,10 +31,11 @@ public class UserGraphQL {
 	JwtTokenUtils jwtTokenUtils;
 
 	@Inject
-	Mailer mailer;
+	UserService userService;
+
+
 
 	/*
-
 	@Inject
 	io.smallrye.graphql.api.Context smallryeContext;
 
@@ -78,16 +73,13 @@ public class UserGraphQL {
 	@PermitAll
 	public String pingApi() {
 		if (log.isDebugEnabled() && request != null) {
-			log.debug("Ping API from "+request.getCurrent().request().remoteAddress());
+			log.debug("Ping API from {}", request.getCurrent().request().remoteAddress());
 		}
 		return Lson.builder()
 				.put("message", "Welcome to the LIQUIDO API")
 				.put("version", "3.0")
 				.toString();
 	}
-
-
-
 
 	/**
 	 * For debugging: Log information about the currently logged in user. Extracted from the JWT.
@@ -100,12 +92,12 @@ public class UserGraphQL {
 	public String requireUser() throws LiquidoException {
 		//log.info("SecurityContext="+ ctx);
 		//log.info("SecurityContext.getUserPrincipal()" + ctx.getUserPrincipal());
-		log.info("VertexRequest="+request);
+		log.info("VertexRequest={}", request);
 		//log.info("SecurityIdentity="+securityIdentity);
-		log.info("JsonWebToken="+jwt);
-		log.info("jwt.getName="+jwt.getName());  // UPN
+		log.info("JsonWebToken={}", jwt);
+		log.info("jwt.getName={}", jwt.getName());  // UPN
 		String email = jwt.getSubject();
-		log.info("jwt.subject="+email);  // user's email
+		log.info("jwt.subject={}", email);  // user's email
 
 		UserEntity currentUser = jwtTokenUtils.getCurrentUser()
 				.orElseThrow(LiquidoException.supply(Errors.UNAUTHORIZED, "Valid JWT but user email not found in DB."));
@@ -121,9 +113,53 @@ public class UserGraphQL {
 	public TeamDataResponse loginWithJwt() throws LiquidoException {
 		UserEntity currentUser = jwtTokenUtils.getCurrentUser()
 				.orElseThrow(LiquidoException.supplyAndLog(Errors.UNAUTHORIZED, "Valid JWT but user XXX email not found in DB."));
-		log.info("loginWithJwt(): currentUser = " + currentUser);
+		log.info("loginWithJwt(): currentUser = {}", currentUser);
 		return jwtTokenUtils.doLoginInternal(currentUser, null);
 	}
+
+
+	@Query
+	@Description("Standard login with email and password")
+	public TeamDataResponse loginWithEmailPassword(
+			@Name("email") @NonNull String email,
+			@Name("password") @NonNull String plainPassword
+	) throws LiquidoException {
+		email = DoogiesUtil.cleanEmail(email);
+		UserEntity user = UserEntity.findByEmail(email)
+				.orElseThrow(() -> new LiquidoException(Errors.CANNOT_LOGIN_EMAIL_NOT_FOUND, "Cannot login. There is no register user with that email."));
+		boolean verified = PasswordServiceBcrypt.verifyPassword(plainPassword, user.getPasswordHash());
+		if (verified) {
+			TeamEntity team = TeamEntity.findById(user.getLastTeamId());  // team maybe null!
+			log.debug("LOGIN via email link: " + user.toStringShort());
+			return jwtTokenUtils.doLoginInternal(user, team);
+		} else {
+			throw new LiquidoException(Errors.UNAUTHORIZED, "Cannot login. Password is invalid");
+		}
+	}
+
+
+	@Query
+	@Description("Request a password reset. Will send a mail with a link where user can reset his password.")
+	@Transactional
+	public String requestPasswordReset(
+			@Description("Must be a registered mail.") @Name("email") @NonNull String email
+	) throws LiquidoException {
+		return userService.requestPasswordReset(email);
+	}
+
+
+
+	@Query
+	@Description("Reset a user's password. Needs valid one time token.")
+	@Transactional
+	public String resetPassword(
+			@Description("Must be a registered mail.") @Name("email") @NonNull String email,
+			@Description("The OTT user received from requestPasswordReset") @NonNull String nonce,
+			@NonNull String newPassword
+	) throws LiquidoException {
+		return userService.resetPassword(email, nonce, newPassword);
+	}
+
 
 	/**
 	 * Before the Authy app can be used for login, the authy factor, ie. the Authy Mobile App, must be verified once.
@@ -136,7 +172,7 @@ public class UserGraphQL {
 	@Mutation
 	@Description("Verify a new factor for authentication, ie. the Authy Mobile App. User must be logged in and must send one first TOTP from the authy app.")
 	@Transactional
-	@RolesAllowed("LIQUIDO_USER")
+	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
 	public String verifyAuthyFactor(
 			@Name("authToken") @NonNull @Description("Time based one time password (TOTP) from the Authy mobile app") String authToken
 	) throws LiquidoException {
@@ -175,68 +211,8 @@ public class UserGraphQL {
 	@Query
 	@Description("Request a login link via email.")
 	@Transactional
-	public String requestEmailToken(@Name("email") String email) throws LiquidoException {
-		String emailLowerCase = DoogiesUtil.cleanEmail(email);
-		UserEntity user = UserEntity.findByEmail(emailLowerCase)
-				.orElseThrow(() -> {
-					log.warn("[Security] <{}> tried to login via email, but there is no registered user with that email.", emailLowerCase);
-					return new LiquidoException(Errors.CANNOT_LOGIN_EMAIL_NOT_FOUND, "Cannot login. There is no register user with that email.");
-				});
-
-		// If user already has a not used code, then delete it and create a new one
-		OneTimeToken.deleteUsersOldTokens(user);
-
-		// Create new email login link with a one time token in it.
-		UUID tokenUUID = UUID.randomUUID();
-		LocalDateTime validUntil = LocalDateTime.now().plusHours(config.loginLinkExpirationHours());
-		OneTimeToken oneTimeToken = new OneTimeToken(tokenUUID.toString(), user, validUntil);
-		oneTimeToken.persist();
-		log.info("User " + user.getEmail() + " may login via email link.");
-
-		// This link is parsed in a cypress test case. Must update test if you change this.
-		String loginLink = "<a id='loginLink' style='font-size: 20pt;' href='" + config.frontendUrl() + "/login?email=" + user.getEmail() + "&emailToken=" + oneTimeToken.getNonce() + "'>Login " + user.getName() + "</a>";
-		String body = String.join(
-				System.lineSeparator(),
-				"<html><h1>Liquido Login Token</h1>",
-				"<h3>Hello " + user.getName() + "</h3>",
-				"<p>With this link you can login to Liquido.</p>",
-				"<p>&nbsp;</p>",
-				"<b>" + loginLink + "</b>",
-				"<p>&nbsp;</p>",
-				"<p>This login link can only be used once!</p>",
-				"<p style='color:grey; font-size:10pt;'>You received this email, because a login token for the <a href='https://www.liquido.net'>LIQUIDO</a> eVoting webapp was requested. If you did not request a login yourself, than you may simply ignore this message.</p>",
-				"</html>"
-		);
-
-		try {
-			mailer.send(Mail.withHtml(emailLowerCase, "Login Link for LIQUIDO", body).setFrom("info@liquido.vote"));
-		} catch (Exception e) {
-			throw new LiquidoException(Errors.CANNOT_LOGIN_INTERNAL_ERROR, "Internal server error: Cannot send Email: " + e, e);
-		}
-		return "{ \"message\": \"Email successfully sent.\" }";
-	}
-
-	@Query
-	@Transactional
-	@Description("Standard login with email and password")
-	public TeamDataResponse loginWithEmailPassword(
-			@Name("email") @NonNull String email,
-			@Name("password") @NonNull String plainPassword
-	) throws LiquidoException {
-		email = DoogiesUtil.cleanEmail(email);
-		UserEntity user = UserEntity.findByEmail(email)
-				.orElseThrow(() -> new LiquidoException(Errors.CANNOT_LOGIN_EMAIL_NOT_FOUND, "Cannot login. There is no register user with that email."));
-
-		// Hash password and compare with user's
-		//String hashedPassword = BCrypt.withDefaults().hashToString(12, password.toCharArray());
-		BCrypt.Result result = BCrypt.verifyer().verify(plainPassword.toCharArray(), user.getPasswordHash());
-		if (result.verified) {
-			TeamEntity team = TeamEntity.findById(user.getLastTeamId());  // team maybe null!
-			log.debug("LOGIN via email link: " + user.toStringShort());
-			return jwtTokenUtils.doLoginInternal(user, team);
-		} else {
-			throw new LiquidoException(Errors.UNAUTHORIZED, "Cannot login. Password is invalid");
-		}
+	public String requestEmailLoginLink(@Name("email") String email) throws LiquidoException {
+		return userService.requestEmailLoginLink(email);
 	}
 
 	/**
