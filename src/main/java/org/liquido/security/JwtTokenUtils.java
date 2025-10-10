@@ -60,7 +60,7 @@ public class JwtTokenUtils {
 				.claim(TEAM_ID_CLAIM, String.valueOf(teamId))  // better put strings into claims
 				.expiresIn(config.jwt().expirationSecs())
 				//.jws().algorithm(SignatureAlgorithm.HS256)
-				.sign();
+				.sign();  // uses liquidoJwtKey.json configured in application.properties
 	}
 
 
