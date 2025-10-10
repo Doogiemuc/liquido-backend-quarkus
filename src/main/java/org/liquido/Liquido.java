@@ -77,7 +77,7 @@ public class Liquido {
 			System.out.println("   DB Connection   : " + dataSource.getConnection().getMetaData().getURL());
 		} catch (SQLException e) {
 			log.error("=====================================");
-			log.error("Cannot connect to DB!" + e.getMessage());
+			log.error("Cannot connect to DB!{}", e.getMessage());
 			log.error("=====================================");
 			throw new RuntimeException(e);
 		}
@@ -94,7 +94,7 @@ public class Liquido {
 		} catch (Exception e) {
 			log.error("==================================================");
 			log.error(" Users, Teams or Polls table does not exist.");
-			log.error(" Is your database initialized with test data?");
+			log.error(" Is your database initialized with the correct schema?");
 			log.error("==================================================");
 			throw e;
 		}
