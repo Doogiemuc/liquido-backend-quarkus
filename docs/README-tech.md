@@ -17,13 +17,6 @@
  * Checkout all the //TODO annotations in the code 
  * Checkout Quarkus SimpleScheduler for cleanup operations in the background.
 
-# TESTING
-
-The first time you run `TestDataCreator` you must drop-and-create the database! All
-future tests will rely on this data.
-
-MAYBE: implement a maven pre-test-execution
-
 # DATABASE
 
 ### ORM Database mapping
@@ -31,6 +24,25 @@ MAYBE: implement a maven pre-test-execution
 We use Quarkus-Panache
 https://quarkus.io/guides/hibernate-orm-panache
 
+### Initialize the database
+
+On Startup liquido checks for the most important tables. You **have to** create a DB schema first. 
+
+`applicaiton.properties`
+
+    quarkus.hibernate-orm.database.generation=drop-and-create  # BE CAREFULL WITH THIS!!!
+
+This will drop (delete) all tables in your DB and recreate the LIQUIDO schema.
+
+# TESTING
+
+When you have a DB schema, then you can fill data into it. `TestDataCreator.java` is a script that
+fills the DB with test data.
+
+The first time you run `TestDataCreator` you must drop-and-create the database as described above! All
+future tests can then rely on this set of fixed test data.
+
+//MAYBE: implement a maven pre-test-execution
 
 # Security
 

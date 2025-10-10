@@ -30,6 +30,7 @@ public class JwtTokenUtils {
 
   // https://quarkus.io/guides/security-authentication-mechanisms-concept#smallrye-jwt-authentication
 	// https://quarkus.io/guides/security-architecture-concept
+	// https://quarkus.io/guides/security-jwt
 
 	public static final String LIQUIDO_ISSUER = "https://www.LIQUIDO.vote";
 	public static final String LIQUIDO_USER_ROLE = "LIQUIDO_USER";    // Everyone is a user (also members)

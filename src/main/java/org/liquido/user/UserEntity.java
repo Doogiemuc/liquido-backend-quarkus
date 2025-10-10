@@ -1,19 +1,19 @@
 package org.liquido.user;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.eclipse.microprofile.graphql.DefaultValue;
 import org.eclipse.microprofile.graphql.Ignore;
+import org.liquido.model.BaseEntity;
 import org.liquido.util.DoogiesUtil;
 
 import java.time.LocalDateTime;
-import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -21,13 +21,14 @@ import java.util.Optional;
  * When a user creates a new team, then he becomes the admin of that team.
  * A user may also join other teams. Then he is a member in those teams.
  */
-@Data
+@Data  // automatically creates an equals and hashcode for all transient fields. But does NOT automatically create a no-args constructor!!!
+@EqualsAndHashCode(of={"email"}, callSuper = true)  // will also call equals of super class BaseEntity. TODO: So ID must also be equal? TODO: Is that check in my BaseEntity?
 @NoArgsConstructor(force = true)
 @RequiredArgsConstructor
 @Entity(name = "liquido_user")
 //DEPRECATED: @GraphQLType(name="user", description = "A LiquidoUser that can be an admin or member in a team.")  // well be named "userInput" by graphql-spqr
-//TODO: Do I need separate types for GraphQL. The type in the exposed API might be different from this ORM Panache entity!
-public class UserEntity extends PanacheEntity {
+//TODO: Do I need separate API entity types for GraphQL? The type in the exposed API might be different from this ORM Panache entity!
+public class UserEntity extends BaseEntity {
 	/*
 	About the equality of UserModels
 
@@ -40,7 +41,7 @@ public class UserEntity extends PanacheEntity {
 	Always distinguish between a "user" and a "human being"! A human might register multiple times with independent email addresses!
 	There is no way an app could ever prevent this (other than requiring DNA tests).
 
-	LIQUIDO UserModels equal when their ID matches. This should normally always imply that all the other attributes also match.
+	LIQUIDO UserModels equal when their ID and email matches. This should normally always imply that all the other attributes also match.
 	If not, we've been hacked!
 
 	Implementation note:
@@ -160,27 +161,5 @@ public class UserEntity extends PanacheEntity {
 		buf.append(", email='" + email + '\'');
 		buf.append(']');
 		return buf.toString();
-	}
-
-	/**
-   * Two USerEntities are equal if their ID is equal
-	 * mobile phone numbers, emails and even names may change!
-	 */
-	@Override
-	public boolean equals(Object o) {
-		if (this == o) return true;
-		if (o == null || getClass() != o.getClass()) return false;
-		UserEntity that = (UserEntity) o;
-		return Objects.equals(id, that.id);
-	}
-
-	/**
-	 * You won't believe how important an correct equals and hash code
-	 * implementation is in Java!
-	 * @return a hashed ID
-	 */
-	@Override
-	public int hashCode() {
-		return Objects.hash(id);
 	}
 }
