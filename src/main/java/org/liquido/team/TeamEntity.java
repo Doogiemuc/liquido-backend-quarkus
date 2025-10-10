@@ -156,7 +156,7 @@ public class TeamEntity extends BaseEntity {
     buf.append("TeamModel[");
 		buf.append("id=" + id);
 		buf.append(", teamName='" + this.teamName + '\'');
-		//buf.append(", firstAdmin='" + this.getFirstAdmin().orElse(null) + "'");
+		buf.append(", firstAdmin='" + this.getFirstAdmin() + "'");
 		buf.append(", numMembers=" + this.members.size());
 		buf.append(']');
 		return buf.toString();
