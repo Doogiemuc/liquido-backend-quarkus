@@ -1,15 +1,19 @@
 # LIQUIDO - Technical Reference
 
-# CHANGES
+# CHANGELOG (only most important new features)
 
  * 2023-06-23 GREEN Test with complete Happy Case
  * 2023-07-04 Upgraded to Quarkus 3.1.3.Final
  * 2023-07-04 Working on native build
  * 2023-07-24 CreatedBy is now automatically added in Entities
+ * 2023-11-01 Added TLS for backend HTTPS
+ * 2023-11-22 Even more work on UI layout. It's starting to look smooth.
 
-TODO:
+# Next TODOs
 
- * https://stackoverflow.com/questions/56871033/how-to-fix-org-apache-commons-logging-impl-logfactoryimpl-not-found-in-native
+ * Nativ Build
+ * Checkout all the //TODO annotations in the code 
+ * Checkout Quarkus SimpleScheduler for cleanup operations in the background.
 
 # TESTING
 
@@ -28,15 +32,26 @@ https://quarkus.io/guides/hibernate-orm-panache
 
 # Security
 
+### TSL (SSL)
+
 Create a self-signed SSL certificate:
 
      openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout key.pem -out cert.pem
 
-then add in `application.properties`
+then add in `application.properties` and don't forget to adapt all URLs in config files to https://....
 
+    # TLS certificates for encrypted HTTPS connection
     quarkus.http.ssl.certificate.file=/path/cert.pem
     quarkus.http.ssl.certificate.key-file=/path/key.pem
+    
+    # enabled, redirect or disabled(=only allow HTTPS requests)
+    quarkus.http.insecure-requests=disabled
 
+
+# Nativ Build
+
+FIXME:
+https://stackoverflow.com/questions/56871033/how-to-fix-org-apache-commons-logging-impl-logfactoryimpl-not-found-in-native
 
 ----
 
@@ -65,7 +80,7 @@ https://ard333.medium.com/authentication-and-authorization-using-jwt-on-quarkus-
 Get custom user from Security Context via custom AuthenticationContextImpl
 https://stackoverflow.com/questions/66695265/how-to-retrieve-securitycontext-in-a-quarkus-application
 
-### WebAuthn - Passwordless login
+# WebAuthn - Passwordless login
 
 Checkout this lib. This looks promising. Nice article.
 https://developers.yubico.com/java-webauthn-server/
@@ -79,12 +94,4 @@ https://webauthn.guide
 Nice funny written article
 https://medium.com/digitalfrontiers/webauthn-with-spring-security-c9175aae3e06
 
-There is a Quarkus Lib. But that forces us to use reactive DB access. Which conflicts with our DB access.
-
-
-
-# TODO
-
-Checkout all the //TODO annotations in the code
-
-Checkout Quarkus SimpleScheduler for cleanup operations in the background.
+There is a Quarkus Lib. But that forces us to use reactive DB access. Which conflicts with our DB access. => SOLVED. Refactored to blocking.
