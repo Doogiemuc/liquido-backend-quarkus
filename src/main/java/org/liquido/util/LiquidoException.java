@@ -2,6 +2,7 @@ package org.liquido.util;
 
 
 import jakarta.ws.rs.core.Response;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Map;
 import java.util.function.Supplier;
@@ -12,6 +13,7 @@ import java.util.function.Supplier;
  * Each LiquidoException MUST contain an error code. This error code also decides which HTTP status code will be returned
  * to the client.
  */
+@Slf4j
 public class LiquidoException extends Exception {
 
 	/** LIQUIDO error code */
@@ -41,7 +43,7 @@ public class LiquidoException extends Exception {
 		CANNOT_JOIN_TEAM_ALREADY_ADMIN(14, Response.Status.CONFLICT),
 		CANNOT_CREATE_TWILIO_USER(15, Response.Status.INTERNAL_SERVER_ERROR),
 		USER_EMAIL_EXISTS(16, Response.Status.CONFLICT),                         // user with that email already exists
-		USER_MOBILEPHONE_EXISTS(17, Response.Status.CONFLICT),                   // user with that mobilephone already exists
+		USER_MOBILEPHONE_EXISTS(17, Response.Status.CONFLICT),                   // user with that mobile phone already exists
 
 		//Login Errors
 		CANNOT_LOGIN_MOBILE_NOT_FOUND(20, Response.Status.UNAUTHORIZED),          // when requesting an SMS login token and mobile number is not known
@@ -82,8 +84,8 @@ public class LiquidoException extends Exception {
 		CANNOT_FIND_ENTITY(404, Response.Status.NOT_FOUND),                  // 404: cannot find entity
 		INTERNAL_ERROR(500, Response.Status.INTERNAL_SERVER_ERROR);
 
-		int liquidoErrorCode;
-		Response.Status httpResponseStatus;
+		final int liquidoErrorCode;
+		final Response.Status httpResponseStatus;
 
 		Errors(int code, Response.Status httpResponseStatus) {
 			this.liquidoErrorCode = code;
@@ -101,7 +103,7 @@ public class LiquidoException extends Exception {
 	}
 
 	/**
-	 * A Liquido exception must always have an error code and a human readable error message
+	 * A Liquido exception must always have an error code and a human-readable error message
 	 */
 	public LiquidoException(Errors errCode, String msg) {
 		super(msg);
@@ -122,7 +124,7 @@ public class LiquidoException extends Exception {
 	/**
 	 * This utility method be passed to java.util.Optional methods, e.g.
 	 * <pre>Optional.orElseThrow(LiquidoException.notFound("not found"))</pre>
-	 * @param msg The human readable error message
+	 * @param msg The human-readable error message
 	 * @return a Supplier for that LiquidoExeption that can be passed to java.util.Optional methods.
 	 */
 	public static Supplier<LiquidoException> notFound(String msg) {
@@ -133,8 +135,23 @@ public class LiquidoException extends Exception {
 		return () -> new LiquidoException(Errors.UNAUTHORIZED, msg);
 	}
 
+	/**
+	 * Supply an exception. This can be used in Optional methods, e.g.
+	 * <pre>Optional.orElseThrow(LiquidoException.supply(LiquidoException.SOME_NAME, "Some message"))</pre>
+	 * @param error Liquido Error Code
+	 * @param msg Humand-readable error message
+	 * @return a Supplier for the LiquidoException
+	 */
 	public static Supplier<LiquidoException> supply(Errors error, String msg) {
-		//MAYBE: offer a parameter to log the message here.
+		return () -> new LiquidoException(error, msg);
+	}
+
+	public static Supplier<LiquidoException> supplyAndLog(Errors error, String msg) {
+		if (error.httpResponseStatus.getStatusCode() >= 500) {
+			log.error(error.name() + ": " + msg);
+		} else {
+			log.info(error.name() + ": " + msg);
+		}
 		return () -> new LiquidoException(error, msg);
 	}
 
