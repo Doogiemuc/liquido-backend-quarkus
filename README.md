@@ -4,6 +4,22 @@ This is the java backend for http://www.liquido.vote developed with [Quarkus](ht
 
 LIQUIDO is a free, secure and open eVoting application. 
 
+# Preconditions for running
+
+Check all settings in `config/application.properties`.
+
+## PostgreSQL database
+
+The LIQUIDO backend needs an SQL database. For testing you can use the in-memory H2 database that Quarkus automatically starts for you in dev mode.
+
+    -Dquarkus.profile=dev
+
+## Create a self-signed TLS certificate for HTTPS
+
+    openssl req -x509 -newkey rsa:4096 -days 365 -keyout src/main/resources/liquido-TLS-key.pem -out src/main/resources/liquido-TLS-cert.pem
+    (in Windows git-bash prefix with "winpty" !)
+
+Configure password for PEM in application.properties
 
 
 ## Running the application in dev mode

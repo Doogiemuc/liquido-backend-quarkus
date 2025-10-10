@@ -24,6 +24,7 @@ import java.util.Set;
 @Data
 @NoArgsConstructor(force = true)                              // Lombok's Data does NOT include a default no args constructor!
 @RequiredArgsConstructor                        // And then does not create a required args constructor :-(  https://stackoverflow.com/questions/37671467/lombok-requiredargsconstructor-is-not-working
+//TODO: create a test for this!
 @EqualsAndHashCode(of={}, callSuper = true)    	// Compare teams by their Id only. teamName may change.
 @Entity(name = "polls")
 public class PollEntity extends BaseEntity {
