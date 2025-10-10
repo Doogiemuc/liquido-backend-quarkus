@@ -27,12 +27,12 @@ WORKDIR /build
 
 # Copy the Maven project files and build dependencies first (for better caching)
 COPY pom.xml .
-COPY config ./config
 
 # Download dependencies and cache the docker layer
 RUN mvn dependency:go-offline
 
-# Copy the sources
+# Copy config and sources
+COPY config ./config
 COPY src ./src
 
 # Build the application, skipping tests for faster builds, -B = batch mode, no progress bars
@@ -56,10 +56,12 @@ WORKDIR /app
 #RUN set
 #
 # Copy the built application files from the build stage
-COPY --from=build /build/target/quarkus-app/lib/ /app/lib/
-COPY --from=build /build/target/quarkus-app/*.jar /app/
-COPY --from=build /build/target/quarkus-app/app/ /app/app/
-COPY --from=build /build/target/quarkus-app/quarkus/ /app/quarkus/
+#COPY --from=build /build/target/quarkus-app/lib/ /app/lib/
+#COPY --from=build /build/target/quarkus-app/*.jar /app/
+#COPY --from=build /build/target/quarkus-app/app/ /app/app/
+#COPY --from=build /build/target/quarkus-app/quarkus/ /app/quarkus/
+COPY --from=build /build/target/quarkus-app /app/
+COPY --from=build /build/src/main/resources /resources
 
 # Expose the application port
 EXPOSE 8080
