@@ -113,12 +113,11 @@ public class WebAuthnCredential extends PanacheEntity {
 	//TODO: Should we use anonymous usernames or unique emails (as usernames)?
 	//      https://passwordless.id/thoughts/emails-vs-usernames
 	public static List<WebAuthnCredential> findByUserName(String userName) {
-		log.info("findByUserName(userName="+userName+")");
 		List<WebAuthnCredential> creds = WebAuthnCredential.list("userName", userName);
-		log.info("========== found creds");
 		for (WebAuthnCredential cred : creds) {
-			log.info(cred.userName+ ", " + cred.credID);
+			log.info("   " + cred.userName+ ", " + cred.credID);
 		}
+		log.info("findByUserName(userName="+userName+") => found " + creds.size() + " WebAuthnCredential(s)");
 		return creds;
 	}
 
