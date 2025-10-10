@@ -26,6 +26,17 @@ We use Quarkus-Panache
 https://quarkus.io/guides/hibernate-orm-panache
 
 
+# Security
+
+Create a self-signed SSL certificate:
+
+     openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout key.pem -out cert.pem
+
+then add in `application.properties`
+
+    quarkus.http.ssl.certificate.file=/path/cert.pem
+    quarkus.http.ssl.certificate.key-file=/path/key.pem
+
 
 ----
 
@@ -76,4 +87,4 @@ There is a Quarkus Lib. But that forces us to use reactive DB access. Which conf
 
 Checkout all the //TODO annotations in the code
 
-Checkout Quarkus SimpleScheduler for cleanup operations in the background. 
+Checkout Quarkus SimpleScheduler for cleanup operations in the background.

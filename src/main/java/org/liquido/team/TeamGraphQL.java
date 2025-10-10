@@ -12,7 +12,6 @@ import org.liquido.security.JwtTokenUtils;
 import org.liquido.user.UserEntity;
 import org.liquido.util.DoogiesUtil;
 import org.liquido.util.LiquidoException;
-import org.liquido.util.Lson;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -29,18 +28,6 @@ public class TeamGraphQL {
 	/** Json Web Token that has been sent with request. */
 	@Inject
 	JsonWebToken jwt;
-
-	/**
-	 * Ping the API for availability
-	 * @return some JSON info about API version
-	 */
-	@Query(value="ping")
-	public String pingApi() {
-		return Lson.builder()
-				.put("message", "Welcome to the LIQUIDO API")
-				.put("version", "3.0")
-				.toString();
-	}
 
 	/**
 	 * Get information about user's own team, including the team's polls.
