@@ -12,11 +12,12 @@ ARG QUARKUS_DATASOURCE_JDBC_URL
 
 
 # Debug: Print the received build arguments
-RUN echo "========== BUILD TIME VARS ============"
-RUN echo "DB_KIND:     $QUARKUS_DATASOURCE_DB_KIND"
-RUN echo "DB_USERNAME: $QUARKUS_DATASOURCE_USERNAME"
-RUN echo "DB_PASSWORD: $QUARKUS_DATASOURCE_PASSWORD"
-RUN echo "DB_JDBC_URL: $QUARKUS_DATASOURCE_JDBC_URL"
+RUN echo "\n\n\n========== BUILD TIME VARS ============\n" && \
+    echo "DB_KIND:     ${QUARKUS_DATASOURCE_DB_KIND}\n" && \
+    echo "DB_USERNAME: ${QUARKUS_DATASOURCE_USERNAME}\n" && \
+    echo "DB_PASSWORD: ${QUARKUS_DATASOURCE_PASSWORD}\n" && \
+    echo "DB_JDBC_URL: ${QUARKUS_DATASOURCE_JDBC_URL}\n\n\n"
+
 
 # make values availalbe in environment at buildtime
 ENV QUARKUS_DATASOURCE_DB_KIND=$QUARKUS_DATASOURCE_DB_KIND
@@ -24,14 +25,11 @@ ENV QUARKUS_DATASOURCE_USERNAME=$QUARKUS_DATASOURCE_USERNAME
 ENV QUARKUS_DATASOURCE_PASSWORD=$QUARKUS_DATASOURCE_PASSWORD
 ENV QUARKUS_DATASOURCE_JDBC_URL=$QUARKUS_DATASOURCE_JDBC_URL
 
-# Debug: Print the environment variables
-RUN set | grep QUARKUS
-
 # Copy the Maven project files and build dependencies first (for better caching)
 COPY pom.xml .
 
 # Download dependencies and cache the docker layer
-RUN mvn dependency:go-offline
+# RUN mvn dependency:go-offline
 
 # Copy config and sources
 COPY config ./config
@@ -43,7 +41,7 @@ RUN mvn -B package -DskipTests
 #
 # Use a lightweight runtime image for the runtime container
 #
-FROM eclipse-temurin:17-jre AS runtime
+FROM eclipse-temurin:23.0.2_7-jre-alpine AS runtime
 
 # Set the working directory inside the container
 WORKDIR /app
@@ -75,6 +73,7 @@ USER 1001
 # Define environment variables for Java and Quarkus
 ENV JAVA_OPTS="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"
 ENV JAVA_APP_JAR="/app/quarkus-run.jar"
+#TODO: ENV QUARKUS_PROFILE=dev
 
 # Start the application
 CMD ["java", "-jar", "/app/quarkus-run.jar"]
