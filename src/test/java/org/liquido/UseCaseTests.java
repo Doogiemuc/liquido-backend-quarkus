@@ -45,16 +45,19 @@ public class UseCaseTests {
 		poll2 = util.seedRandomProposals(poll2, adminRes.team, 2);
 		poll2 = util.startVotingPhase(poll2.getId(), adminRes.jwt);
 
-		String voterToken = util.getVoterToken("tokenSecret", adminRes.jwt);
-
 		// Cast vote in poll1
+		String voterToken1 = util.getVoterToken(poll1.id, adminRes.jwt);
 		List<Long> voteOrderIds1 = poll1.getProposals().stream().map(BaseEntity::getId).toList();
-		CastVoteResponse castVoteResponse = util.castVote(poll1.id, voteOrderIds1, voterToken);
+		CastVoteResponse castVoteResponse = util.castVote(poll1.id, voteOrderIds1, voterToken1);
 
-		assertNotNull(castVoteResponse.getBallot(), "Vote in poll1 should have returned a ballot");
+		assertNotNull(castVoteResponse.getBallot().checksum, "Vote in poll1 should have returned a ballot with a checksum");
 
-		// Now also cast a vote in poll2 WITH THE SAME voterToken
+		// Now also cast a vote in poll2
+		String voterToken2 = util.getVoterToken(poll2.id, adminRes.jwt);
 		List<Long> voteOrderIds2 = poll2.getProposals().stream().map(BaseEntity::getId).toList();
-		util.castVote(poll2.id, voteOrderIds2, voterToken);
+		util.castVote(poll2.id, voteOrderIds2, voterToken2);
+
+		assertNotNull(castVoteResponse.getBallot().checksum, "Vote in poll2 should have returned a ballot with a checksum");
+
 	}
 }

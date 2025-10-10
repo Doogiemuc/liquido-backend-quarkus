@@ -1,6 +1,7 @@
 package org.liquido;
 
 import io.restassured.http.ContentType;
+import io.restassured.response.ValidatableResponse;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import lombok.NonNull;
@@ -207,11 +208,16 @@ public class LiquidoTestUtils {
 	}
 
 
-	public String getVoterToken(String tokenSecret, String jwt) {
-		String query = "query { voterToken(tokenSecret: \\\"" + tokenSecret +  "\\\", becomePublicProxy: false) }";
-		String voterToken = sendGraphQL(query, null, jwt)
-				.extract().jsonPath().getObject("data.voterToken", String.class);
-		log.debug("Got voter Token: "+voterToken);
+	public String getVoterToken(Long pollId, String jwt) {
+		String query = "query voterToken($pollId: BigInteger!, $becomePublicProxy: Boolean!) { " +
+				" voterToken(pollId: $pollId, becomePublicProxy: $becomePublicProxy) }";
+		Lson vars  = Lson.builder()
+				.put("pollId", pollId)
+				.put("becomePublicProxy", false);
+		ValidatableResponse graphQlRes = sendGraphQL(query, vars, jwt);
+		log.debug("graphQlRes" + graphQlRes);
+		String voterToken = graphQlRes.extract().jsonPath().getObject("data.voterToken", String.class);
+		log.debug("Got voter Token: {}", voterToken);
 		return voterToken;
 	}
 
@@ -225,7 +231,7 @@ public class LiquidoTestUtils {
 				.put("voteOrderIds", voteOrderIds)
 				.put("voterToken", voterToken);
 
-		CastVoteResponse castVoteResponse = sendGraphQL(castVoteQuery, castVoteVars)
+		CastVoteResponse castVoteResponse = sendGraphQL(castVoteQuery, castVoteVars)  // anonymous! no JWT!
 				.log().all()
 				.body("data.castVote.ballot.checksum", TestDataCreator.IsString.lengthAtLeast(5))  // allOf(IsInstanceOf.any(String.class), is(not(emptyString())))
 				.extract().jsonPath().getObject("data.castVote", CastVoteResponse.class);
