@@ -73,7 +73,7 @@ public class PollEntity extends BaseEntity {
 		ELABORATION(0),     // When the initial proposal reaches its quorum, the poll is created. Alternative proposals can be added in this phase.
 		VOTING(1),          // When the voting phase starts, all proposals can be voted upon. No more alternative proposals can be added. Proposals cannot be edited in this phase.
 		FINISHED(2);        // The winning proposal becomes a proposal.
-		int statusId;
+		final int statusId;
 		PollStatus(int id) { this.statusId = id; }
 	}
 
@@ -86,7 +86,7 @@ public class PollEntity extends BaseEntity {
 	/** Date when the voting phase will end. Will be set in PollService */
 	LocalDateTime votingEndAt = null;
 
-	/** The wining proposal of this poll, that became a proposal. Filled after poll is FINISHED. */
+	/** The wining proposal of this poll, that became a law. Filled after poll is FINISHED. */
 	@OneToOne(cascade = CascadeType.PERSIST)
 	ProposalEntity winner = null;
 
