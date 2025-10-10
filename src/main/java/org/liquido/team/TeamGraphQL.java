@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.graphql.*;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.liquido.security.JwtTokenUtils;
+import org.liquido.security.PasswordService;
 import org.liquido.user.UserEntity;
 import org.liquido.util.DoogiesUtil;
 import org.liquido.util.LiquidoException;
@@ -29,6 +30,9 @@ public class TeamGraphQL {
 	@Inject
 	JsonWebToken jwt;
 
+	@Inject
+	PasswordService passwordService;
+
 	/**
 	 * Get information about user's own team, including the team's polls.
 	 * @return info about user's own team.
@@ -47,12 +51,13 @@ public class TeamGraphQL {
 
 
 	@Mutation
-	@Description("Register a new user and and create a new team")
+	@Description("Create a new team. If you call this anonymously a new user will be registered. If you call this with a JWT, you must provide the matching data of your already registered user.")
 	@Transactional
 	@PermitAll
 	public TeamDataResponse createNewTeam(
-			@Name("teamName") String teamName,
-			@Name("admin") UserEntity admin
+			@Name("teamName") @NonNull String teamName,
+			@Name("admin")  @NonNull UserEntity admin,
+			@Name("password")  @NonNull String plainPassword
 	) throws LiquidoException {
 		admin.setMobilephone(DoogiesUtil.cleanMobilephone(admin.mobilephone));
 		admin.setEmail(DoogiesUtil.cleanEmail(admin.email));
@@ -61,36 +66,45 @@ public class TeamGraphQL {
 		if (TeamEntity.findByTeamName(teamName).isPresent())
 			throw new LiquidoException(Errors.TEAM_WITH_SAME_NAME_EXISTS, "Cannot create new team: A team with that name ('" + teamName + "') already exists");
 
+		// IF user already exists, and is already logged in, then use that user. He wants to create yet another team.
 		Optional<UserEntity> currentUserOpt = jwtTokenUtils.getCurrentUser();
-		boolean emailExists = UserEntity.findByEmail(admin.email).isPresent();
-		boolean mobilePhoneExists = UserEntity.findByMobilephone(admin.mobilephone).isPresent();
 
 		if (currentUserOpt.isEmpty()) {
-         /* GIVEN an anonymous request (this is what normally happens when a new team is created)
-             WHEN anonymous user wants to create a new team
-              AND another user with that email or mobile-phone already exists,
+         /* REGISTER A NEW USER
+            GIVEN an anonymous request (this is what normally happens when a new team is created)
+             WHEN an anonymous user wants to create a new team
+              BUT another user with that email or mobile phone number already exists,
              THEN throw an error   */
+			boolean emailExists = UserEntity.findByEmail(admin.email).isPresent();
+			boolean mobilePhoneExists = UserEntity.findByMobilephone(admin.mobilephone).isPresent();
 			if (emailExists) throw new LiquidoException(Errors.USER_EMAIL_EXISTS, "Sorry, another user with that email already exists.");
 			if (mobilePhoneExists) throw new LiquidoException(Errors.USER_MOBILEPHONE_EXISTS, "Sorry, another user with that mobile phone number already exists.");
+
+			String hashedPassword = passwordService.hashPassword(plainPassword);
+			admin.setPasswordHash(hashedPassword);
+			admin.persist();   // New user. This will set the ID on the "admin" entity.
 		} else {
-          /* GIVEN an authenticated request
-              WHEN an already registered user wants to create a another new team
-               AND he does NOT provide his already registered email and mobile-phone
-               AND he does also NOT provide a completely new email and mobilephone
+          /* CREATE A NEW TEAM WITH AN ALREADY EXISTING AND AUTHENTICATED USER
+             GIVEN an authenticated request
+              WHEN an already registered user wants to create yet another new team
+               BUT they do NOT provide their already registered email, mobile-phone and password
               THEN throw an error */
-			boolean providedOwnData = DoogiesUtil.isEqual(currentUserOpt.get().email, admin.email) && DoogiesUtil.isEqual(currentUserOpt.get().mobilephone, admin.mobilephone);
-			if (!providedOwnData && (emailExists || mobilePhoneExists)) {
+			UserEntity currentUser = currentUserOpt.get();
+			boolean providedOwnDataMatches =
+					DoogiesUtil.isEqual(currentUser.email, admin.email) &&
+					DoogiesUtil.isEqual(currentUser.mobilephone, admin.mobilephone) &&
+					passwordService.verifyPassword(plainPassword, currentUser.passwordHash);
+
+			if (!providedOwnDataMatches) {
 				throw new LiquidoException(Errors.CANNOT_CREATE_TEAM_ALREADY_REGISTERED,
-						"Your are already registered as " + currentUserOpt.get().email + ". You must provide your existing user data or a new email and new mobile phone for the admin of the new team!");
-			} else {
-				admin = currentUserOpt.get();  // with db ID!
+						"Your are already registered as " + currentUserOpt.get().email + ". You MUST exactly provide your existing user data for the admin of the new team!");
 			}
+			admin = currentUserOpt.get();  // already has a DB ID
 		}
 
 		// Create a new auth Factor
 		//TODO: twilioVerifyClient.createFactor(admin);  //  After a factor has been created, it must still be verified
 
-		admin.persist();   // This will set the ID on UserEntity admin
 		jwtTokenUtils.setCurrentUserAndTeam(admin, null);   //BUGFIX: Also set createdBy in TeamEntity
 		TeamEntity team = new TeamEntity(teamName, admin);
 		team.persist();
@@ -117,7 +131,8 @@ public class TeamGraphQL {
 	//TODO: @PermitAll  Do I need it? Works without.
 	public TeamDataResponse joinTeam(
 			@Name("inviteCode") @NotNull String inviteCode,
-			@Name("member") @NotNull UserEntity member  //grouped as one argument of type UserModel: https://graphql-rules.com/rules/input-grouping
+			@Name("member") @NotNull UserEntity member,  //grouped as one argument of type UserModel:  OUTDATED?? https://graphql-rules.com/rules/input-grouping
+			@Name("password") String plainPassword
 	) throws LiquidoException {
 		member.setMobilephone(DoogiesUtil.cleanMobilephone(member.mobilephone));
 		member.setEmail(DoogiesUtil.cleanEmail(member.email));
@@ -128,7 +143,7 @@ public class TeamGraphQL {
 
 		Optional<UserEntity> currentUserOpt = jwtTokenUtils.getCurrentUser();
 		if (currentUserOpt.isPresent()) {
-			// IF user is already logged in, then he CAN join another team, but he MUST provide his already registered email and mobilephone.
+			// IF user is already logged in, then he CAN join another team, but he MUST provide his already registered email, mobilephone
 			if (!DoogiesUtil.isEqual(currentUserOpt.get().email, member.email) ||
 					!DoogiesUtil.isEqual(currentUserOpt.get().mobilephone, member.mobilephone)) {
 				throw new LiquidoException(Errors.USER_EMAIL_EXISTS, "Your are already registered. You must provide your email and mobilephone to join another team!");
@@ -140,6 +155,9 @@ public class TeamGraphQL {
 			if (userByMail.isPresent()) throw new LiquidoException(Errors.USER_EMAIL_EXISTS, "Cannot JoinTeam: Another user with that email already exists: "+member.email);
 			Optional<UserEntity> userByMobilephone = UserEntity.findByMobilephone(member.mobilephone);
 			if (userByMobilephone.isPresent()) throw new LiquidoException(Errors.USER_MOBILEPHONE_EXISTS, "Cannot JoinTeam: Another user with that mobile phone number already exists: "+member.mobilephone);
+			// set the passwordHash for the new user
+			String hashedPassword = passwordService.hashPassword(plainPassword);
+			member.setPasswordHash(hashedPassword);
 		}
 
 		try {

@@ -73,6 +73,9 @@ public class UserEntity extends BaseEntity {
 	//@Column(unique = true)  //MAYBE: Are you really sure that every user have their own mobile phone? Or do some people share their mobilephone? Think worldwide!
 	public String mobilephone;
 
+	/** User's hashed password */
+	public String passwordHash;
+
 	/** (optional) User's website or bio or social media profile link */
 	public String website = null;
 

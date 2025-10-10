@@ -1,5 +1,6 @@
 package org.liquido.user;
 
+import at.favre.lib.crypto.bcrypt.BCrypt;
 import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.Mailer;
 import io.quarkus.vertx.http.runtime.CurrentVertxRequest;
@@ -12,9 +13,9 @@ import org.eclipse.microprofile.graphql.*;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.liquido.security.JwtTokenUtils;
 import org.liquido.security.OneTimeToken;
-import org.liquido.services.TwilioVerifyClient;
 import org.liquido.team.TeamDataResponse;
 import org.liquido.team.TeamEntity;
+import org.liquido.twillio.TwilioVerifyClient;
 import org.liquido.util.DoogiesUtil;
 import org.liquido.util.LiquidoConfig;
 import org.liquido.util.LiquidoException;
@@ -137,7 +138,7 @@ public class UserGraphQL {
 	@Transactional
 	@RolesAllowed("LIQUIDO_USER")
 	public String verifyAuthyFactor(
-			@Name("authToken") @Description("Time based one time password (TOTP) from the Authy mobile app") String authToken
+			@Name("authToken") @NonNull @Description("Time based one time password (TOTP) from the Authy mobile app") String authToken
 	) throws LiquidoException {
 		String email = jwt.getSubject();    //DOES NOT WORK: securityContext.getUserPrincipal().getName();
 		UserEntity user = UserEntity.findByEmail(email)
@@ -161,8 +162,8 @@ public class UserGraphQL {
 	@PermitAll
 	@Description("Login with a one time token from the Authy mobile app.")
 	public TeamDataResponse loginWithAuthyToken(
-			@Name("email") String email,
-			@Name("authToken") String authToken
+			@Name("email") @NonNull String email,
+			@Name("authToken") @NonNull String authToken
 	) throws LiquidoException {
 		UserEntity user = UserEntity.findByEmail(email)
 				.orElseThrow(LiquidoException.supply(Errors.CANNOT_LOGIN_EMAIL_NOT_FOUND, "Cannot login with Authy token. No user with that email!"));
@@ -178,9 +179,12 @@ public class UserGraphQL {
 		String emailLowerCase = DoogiesUtil.cleanEmail(email);
 		UserEntity user = UserEntity.findByEmail(emailLowerCase)
 				.orElseThrow(() -> {
-					log.warn("Email " + emailLowerCase + " tried to login via email, but there is no registered user with that email.");
-					return new LiquidoException(Errors.CANNOT_LOGIN_EMAIL_NOT_FOUND, "I don't know any user with email <" + emailLowerCase + ">");
+					log.warn("[Security] <{}> tried to login via email, but there is no registered user with that email.", emailLowerCase);
+					return new LiquidoException(Errors.CANNOT_LOGIN_EMAIL_NOT_FOUND, "Cannot login. There is no register user with that email.");
 				});
+
+		// If user already has a not used code, then delete it and create a new one
+		OneTimeToken.deleteUsersOldTokens(user);
 
 		// Create new email login link with a one time token in it.
 		UUID tokenUUID = UUID.randomUUID();
@@ -192,7 +196,7 @@ public class UserGraphQL {
 		// This link is parsed in a cypress test case. Must update test if you change this.
 		String loginLink = "<a id='loginLink' style='font-size: 20pt;' href='" + config.frontendUrl() + "/login?email=" + user.getEmail() + "&emailToken=" + oneTimeToken.getNonce() + "'>Login " + user.getName() + "</a>";
 		String body = String.join(
-				System.getProperty("line.separator"),
+				System.lineSeparator(),
 				"<html><h1>Liquido Login Token</h1>",
 				"<h3>Hello " + user.getName() + "</h3>",
 				"<p>With this link you can login to Liquido.</p>",
@@ -214,25 +218,25 @@ public class UserGraphQL {
 
 	@Query
 	@Transactional
-	public TeamDataResponse loginWithEmailToken(
-			@Name("email") String email,
-			@Name("authToken") String authToken
+	@Description("Standard login with email and password")
+	public TeamDataResponse loginWithEmailPassword(
+			@Name("email") @NonNull String email,
+			@Name("password") @NonNull String password
 	) throws LiquidoException {
 		email = DoogiesUtil.cleanEmail(email);
-		OneTimeToken ott = OneTimeToken.findByNonce(authToken)
-				.orElseThrow(LiquidoException.supply(Errors.CANNOT_LOGIN_TOKEN_INVALID, "This email token is invalid!"));
-		if (LocalDateTime.now().isAfter(ott.getValidUntil())) {
-			ott.delete();
-			throw new LiquidoException(Errors.CANNOT_LOGIN_TOKEN_INVALID, "Token is expired!");
+		UserEntity user = UserEntity.findByEmail(email)
+				.orElseThrow(() -> new LiquidoException(Errors.CANNOT_LOGIN_EMAIL_NOT_FOUND, "Cannot login. There is no register user with that email."));
+
+		// Hash password and compare with user's
+		String hashedPassword = BCrypt.withDefaults().hashToString(12, password.toCharArray());
+		BCrypt.Result result = BCrypt.verifyer().verify(password.toCharArray(), user.getPasswordHash());
+		if (result.verified) {
+			TeamEntity team = TeamEntity.findById(user.getLastTeamId());  // team maybe null!
+			log.debug("LOGIN via email link: " + user.toStringShort());
+			return jwtTokenUtils.doLoginInternal(user, team);
+		} else {
+			throw new LiquidoException(Errors.UNAUTHORIZED, "Cannot login. Password is invalid");
 		}
-		if (!DoogiesUtil.isEqual(email, ott.getUser().getEmail()))
-			throw new LiquidoException(Errors.CANNOT_LOGIN_TOKEN_INVALID, "This token is not valid for that email!");
-
-		TeamEntity team = TeamEntity.findById(ott.getUser().getLastTeamId());  // team maybe null!
-		log.debug("LOGIN via email link: " + ott.getUser().toStringShort());
-		ott.delete();
-
-		return jwtTokenUtils.doLoginInternal(ott.getUser(), team);
 	}
 
 	/**

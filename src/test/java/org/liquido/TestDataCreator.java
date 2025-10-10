@@ -166,11 +166,13 @@ public class TestDataCreator {
 				.put("picture", "Avatar1.png");
 
 		// WHEN creating a new team via GraphQL
-		String query = "mutation createNewTeam($teamName: String, $admin: UserEntityInput) { " +
-				" createNewTeam(teamName: $teamName, admin: $admin) " + CREATE_OR_JOIN_TEAM_RESULT + "}";
+		String query = "mutation createNewTeam($teamName: String!, $admin: UserEntityInput!, $password: String!) { " +
+				" createNewTeam(teamName: $teamName, admin: $admin, password: $password) " + CREATE_OR_JOIN_TEAM_RESULT + "}";
 		Lson variables = Lson.builder()
 				.put("teamName", teamName)
-				.put("admin", admin);
+				.put("admin", admin)
+				.put("password", adminEmail+"pwd");
+
 		String body = String.format("{ \"query\": \"%s\", \"variables\": %s }", query, variables);
 
 		TeamDataResponse res = given() //.log().body()
@@ -203,12 +205,14 @@ public class TestDataCreator {
 				.put("mobilephone", "0151 555 " + now)
 				.put("picture", "Avatar1.png");
 
-		// join team via GraphQL
-		String query = "mutation joinTeam($inviteCode: String, $member: UserEntityInput) { " +
-				"joinTeam(inviteCode: $inviteCode, member: $member) " + CREATE_OR_JOIN_TEAM_RESULT + "}";
+		// a new user joins an existing team
+		String query = "mutation joinTeam($inviteCode: String, $member: UserEntityInput, $password: String) { " +
+				"joinTeam(inviteCode: $inviteCode, member: $member, password: $password) " + CREATE_OR_JOIN_TEAM_RESULT + "}";
 		Lson variables = Lson.builder()
 				.put("inviteCode", inviteCode)
-				.put("member", member);
+				.put("member", member)
+				.put("password", memberEmail+"pwd");
+
 		String body = String.format("{ \"query\": \"%s\", \"variables\": %s }", query, variables);
 
 		TeamDataResponse res = given()  // .log().body()
@@ -532,6 +536,8 @@ public class TestDataCreator {
 			ProposalEntity.find("poll", poll).stream().forEach(PanacheEntityBase::delete);
 			poll.delete();
 		});
+
+		entityManager.flush();
 
 		TeamMemberEntity.deleteAll();
 		TeamEntity.deleteAll();
