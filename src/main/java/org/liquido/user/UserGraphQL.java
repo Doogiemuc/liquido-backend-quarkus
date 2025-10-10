@@ -115,15 +115,14 @@ public class UserGraphQL {
 	}
 
 	@Query
-	@RolesAllowed("LIQUIDO_USER")
-	@Description("Login with an existing and valid JWT. Of course the user that is encoded inthe JWT must exist. Then this will return a NEW updated JWT!")
+	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
+	@Description("Login with an existing and valid JWT. The user that is encoded in the JWT must exist. Then this will return a NEW updated JWT!")
 	public TeamDataResponse loginWithJwt() throws LiquidoException {
 		UserEntity currentUser = jwtTokenUtils.getCurrentUser()
 				.orElseThrow(LiquidoException.supply(Errors.UNAUTHORIZED, "Valid JWT but user email not found in DB."));
 		log.info("loginWithJwt(): currentUser = " + currentUser);
 		return jwtTokenUtils.doLoginInternal(currentUser, null);
 	}
-
 
 	/**
 	 * Before the Authy app can be used for login, the authy factor, ie. the Authy Mobile App, must be verified once.

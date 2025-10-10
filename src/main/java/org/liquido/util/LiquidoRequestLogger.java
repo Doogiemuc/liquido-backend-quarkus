@@ -18,15 +18,14 @@ public class LiquidoRequestLogger {
 				ctx.request().method() + " " +
 				ctx.request().absoluteURI();
 		log.debug(msg);
-		ctx.request().headers().forEach((key, value) -> log.debug("  " + key + ": " + value));
+		if (logHeaders) ctx.request().headers().forEach((key, value) -> log.debug("  " + key + ": " + value));
 
 		msg = "<= " +
 				ctx.response().getStatusCode() + " " +
 				ctx.response().getStatusMessage();
 		log.debug(msg);
 
-		if (logHeaders)
-			ctx.response().headers().forEach((key, value) -> log.debug("  " + key + ": " + value));
+		if (logHeaders) ctx.response().headers().forEach((key, value) -> log.debug("  " + key + ": " + value));
 
 		ctx.next();  // important!
 	}

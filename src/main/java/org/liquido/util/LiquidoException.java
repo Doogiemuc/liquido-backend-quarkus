@@ -52,7 +52,7 @@ public class LiquidoException extends Exception {
 		CANNOT_LOGIN_INTERNAL_ERROR(25, Response.Status.INTERNAL_SERVER_ERROR),  // when sending of email is not possible
 		CANNOT_REQUEST_SMS_TOKEN(26, Response.Status.UNAUTHORIZED),              // eg. when entered mobile number is not valid
 
-		//JWT Errors
+		//JWT Errors  // these are now handled by Quarkus
 		JWT_TOKEN_INVALID(30, Response.Status.UNAUTHORIZED),
 		JWT_TOKEN_EXPIRED(31, Response.Status.UNAUTHORIZED),
 
