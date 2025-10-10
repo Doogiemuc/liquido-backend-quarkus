@@ -96,7 +96,6 @@ public class LiquidoException extends Exception {
 		CANNOT_LOGIN_INTERNAL_ERROR(25, Response.Status.INTERNAL_SERVER_ERROR),  	// when sending of email is not possible
 		CANNOT_REQUEST_SMS_TOKEN(26, Response.Status.UNAUTHORIZED),              	// eg. when entered mobile number is not valid
 		WONT_RESET_PASSWORD(28, Response.Status.UNAUTHORIZED),										// Someone requested a password reset for a non registered email. But don't expose that. Return just a generic error
-		CANNOT_RESET_PASSWORD_TOKEN_INVALID(29, Response.Status.UNAUTHORIZED),
 
 		//JWT Errors  // these are now handled by Quarkus
 		JWT_TOKEN_INVALID(30, Response.Status.UNAUTHORIZED),

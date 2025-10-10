@@ -54,7 +54,7 @@ public class OneTimeToken extends PanacheEntity {
 	 * @return the OneTimeToken if it is still valid.
 	 */
 	public static Optional<OneTimeToken> findByNonce(String nonce) {
-		Optional<OneTimeToken> ottOpt = OneTimeToken.find("nonce = ?1").firstResultOptional();
+		Optional<OneTimeToken> ottOpt = OneTimeToken.find("nonce", nonce).firstResultOptional();
 		if (ottOpt.isEmpty()) return ottOpt;
 		if (ottOpt.get().isExpired()) {
 			ottOpt.get().delete();			// immediately delete expired token
