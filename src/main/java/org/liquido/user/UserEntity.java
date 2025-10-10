@@ -68,12 +68,14 @@ public class UserEntity extends BaseEntity {
 	 * User's mobile phone number. Needed for login via SMS code.
 	 * Mobilephone numbers in the DB are cleaned first: See cleanMobilePhone()
 	 */
-	@NotNull
-	@lombok.NonNull
+	//@NotNull
+	//@lombok.NonNull
 	//@Column(unique = true)  //MAYBE: Are you really sure that every user have their own mobile phone? Or do some people share their mobilephone? Think worldwide!
 	public String mobilephone;
 
 	/** User's hashed password */
+	@NotNull
+	@lombok.NonNull
 	public String passwordHash;
 
 	/** (optional) User's website or bio or social media profile link */

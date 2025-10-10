@@ -19,60 +19,48 @@ public class LiquidoRequestLogger {
 
 	@RouteFilter(100)
 	void myLogFilter(RoutingContext ctx) {
+    long now = System.currentTimeMillis() % 100000;
+    long count = this.requestCounter.incrementAndGet();
+    if (count > 99999) {
+        this.requestCounter.set(0);
+        count = 0;
+    }
+    String countPadded = Strings.padStart(String.valueOf(count), 6, ' ');
 
-		long now = System.currentTimeMillis() % 100000;  // simple unique  request ID
-		long count = this.requestCounter.incrementAndGet();
-		if (count > 99999) {
-			this.requestCounter.set(0);
-			count = 0;
-		}
-		String countPadded = Strings.padStart(String.valueOf(count), 6, ' ');
+    ctx.request().exceptionHandler(err -> log.error("=> [" + now + "] RequestException: " + err.getMessage()));
+    ctx.response().exceptionHandler(err -> log.error("<= [" + now + "] ResponseException: " + err.getMessage()));
 
-		ctx.request().exceptionHandler(err -> log.error("=> ["+now+"] RequestException: " + err.getMessage()));
-		ctx.response().exceptionHandler(err -> log.error("<= ["+now+"] ResponseException: " + err.getMessage()));
+    // ========== Log Request
+    log.debug("=> [{}] {} {}", countPadded, ctx.request().method(), ctx.request().absoluteURI());
+    if (logHeaders) ctx.request().headers().forEach((key, value) -> log.debug("  {}: {}", key, value));
 
-		// Log request
-		String requestMsg = new StringBuilder()
-				.append("=> [")
-				.append(countPadded)
-				//.append(".")
-				//.append(now)
-				.append("] ")
-				.append(ctx.request().method())
-				.append(" ")
-				.append(ctx.request().absoluteURI()).toString();
-		log.debug(requestMsg);
-		if (logHeaders) ctx.request().headers().forEach((key, value) -> log.debug("  " + key + ": " + value));
+		// ========= Log Response
+		log.debug("<= [{}] {}", countPadded, ctx.response().getStatusCode());
 
-		// Log request body and THEN the response
-		ctx.request().bodyHandler(body -> {
-			String bodyContent = body.toString(); 			// Convert the buffer to a string
-			if (!bodyContent.isEmpty()) {
-				if (bodyContent.length() > 500) bodyContent = bodyContent.substring(0, 500);
-				log.debug("=> [{}]     {}", countPadded, bodyContent);
-			}
+		/*  All this does not work :-(
 
-			// Log response
-			String responseMsg = new StringBuilder()
-					.append("<= [")
-					.append(countPadded)
-					//.append(".")
-					//.append(now)
-					.append("] ")
-					.append(ctx.response().getStatusCode())
-					.append(" ")
-					.append(ctx.response().getStatusMessage()).toString();
-			log.debug(responseMsg);
-			if (logHeaders) ctx.response().headers().forEach((key, value) -> log.debug("  " + key + ": " + value));
+		SimpleInstrumentationContext.whenCompleted((object, throwable) -> {
+			log.info("whenCompleted SSSSSSSS");
+			log.info(object.toString());
+			log.info(throwable.toString());
 		});
 
+		// Wrap response
+    HttpServerResponse originalResponse = ctx.response();
+    LiquidoLoggingResponseWrapper responseWrapper = new LiquidoLoggingResponseWrapper(originalResponse);
+
+		ctx.addBodyEndHandler(v -> {
+			log.debug("Body End handler SSSSSSSS");
+		});
+
+    responseWrapper.bodyEndHandler(v -> {
+        // Log the captured response body and status code when the response finishes
+        log.debug("<=[Wrapper]= [{}] {} {}", countPadded, responseWrapper.getStatusCode(), responseWrapper.getResponseBody());
+    });
 
 
-		//TODO: Log response body (which is tricky! Need to wrap the response to capture the body)
+		 */
 
-
-
-
-		ctx.next();  // important!
+    ctx.next(); // Move to the next handler
 	}
 }

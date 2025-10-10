@@ -16,10 +16,7 @@ import org.liquido.user.UserEntity;
 import org.liquido.util.LiquidoConfig;
 import org.liquido.util.LiquidoException;
 import org.liquido.util.Lson;
-import org.liquido.vote.BallotEntity;
-import org.liquido.vote.Matrix;
-import org.liquido.vote.RankedPairVoting;
-import org.liquido.vote.RightToVoteEntity;
+import org.liquido.vote.*;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -365,9 +362,9 @@ public class PollService {
 	}
 
 	/**
-	 * Find the proxy that casted the vote in this poll.
-	 * This recursive method walks up the tree of DelegationModels and Checksum delegations in parallel
-	 * until it reaches a ballot with level == 0. That is the ballot casted by the effective proxy.
+	 * Find the proxy that cast the vote in this poll.
+	 * This recursive method walks up the tree of DelegationModels and RightToVote delegations in parallel
+	 * until it reaches a ballot with level == 0. That is the ballot cast by the effective proxy.
 	 *
 	 * This may be the voter himself, if he voted himself.
 	 * This may be the voters direct proxy
@@ -383,6 +380,12 @@ public class PollService {
 	 * @throws LiquidoException When poll is in status ELABORATION or
 	 */
 	public Optional<UserEntity> findEffectiveProxy(PollEntity poll, UserEntity voter, String voterToken) throws LiquidoException {
+		// This logic has many absolutely non technical but very important implications:
+		// Shall a voter know, who actually voted for him? Which proxy in the chain?  (Yes!)
+		// Shall a voter know, how that proxy voted, which voteOrder? (Yes, but therefore delegations must be requested.)
+		// Keep in mind that a voter can always vote from himself, overruling any proxy vote, if after the proxy has casted his vote.
+
+
 		if (PollEntity.PollStatus.ELABORATION.equals(poll.getStatus()))
 			throw new LiquidoException(LiquidoException.Errors.INVALID_POLL_STATUS, "Cannot find effective proxy, because poll is not in voting phase or finished");
 
