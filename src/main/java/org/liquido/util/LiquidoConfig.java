@@ -9,6 +9,8 @@ import jakarta.validation.constraints.NotNull;
  */
 @ConfigMapping(prefix = "liquido")
 public interface LiquidoConfig {
+    String apiVersion();
+
     @NotNull
     String frontendUrl();
 

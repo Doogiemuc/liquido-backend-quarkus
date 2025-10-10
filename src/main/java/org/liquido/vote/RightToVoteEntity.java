@@ -36,6 +36,7 @@ public class RightToVoteEntity extends PanacheEntityBase {
 	// RightToVoteEntity extends PanacheEntityBase! not our own BaseEntity. No createdBy! And we have our own ID.
 	//TODO: Should a RightToVote be per user? Or per user and team?
 	//TODO: Should a RightToVote.hash include the user's passwordHash? Change password -> need to recreate all RightToVotes for this user.
+	//TODO: Should a RightToVote expire? (one-time VoterTokens already do.)
 
 	/**
 	 * Hashed info about voter. The ID of this entity.
