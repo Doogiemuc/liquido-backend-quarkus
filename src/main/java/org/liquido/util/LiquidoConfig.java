@@ -17,7 +17,7 @@ public interface LiquidoConfig {
 
     Jwt jwt();
     interface Jwt {
-        String secret();
+        //String secret();   not used
         Long expirationSecs();
     }
 
