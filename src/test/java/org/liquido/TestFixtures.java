@@ -34,7 +34,7 @@ public class TestFixtures {
 	public static String propDescription = "Lorem " + now + " ipsum some long description of proposal created from testcase";
 	public static String propIcon     = "heart";
 
-	// GraphQL   This is port 8081 during testing, but 8080 in prod!!!
+	// GraphQL   This is port 8081 during testing, but 8080/8443 in prod!
 	public static final String GRAPHQL_URI = "http://localhost:8081/graphql";
 
 	public static final String JQL_USER =

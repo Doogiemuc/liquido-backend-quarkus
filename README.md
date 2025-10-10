@@ -4,23 +4,29 @@ This is the java backend for http://www.liquido.vote developed with [Quarkus](ht
 
 LIQUIDO is a free, secure and open eVoting application. 
 
-# Preconditions for running
+# Run LIQUIDO locally for development
 
-Check all settings in `config/application.properties`.
+Before you can run the LIQUIDO backend service you must make sure, that some preconditions are fullfielled. 
+
+## LIQUIDO configuration
+
+Check all settings in `config/application.properties` add your own `config/application-local.properties`.
 
 ## PostgreSQL database
 
-The LIQUIDO backend needs an SQL database. For testing you can use the in-memory H2 database that Quarkus automatically starts for you in dev mode.
+The LIQUIDO backend needs an SQL database. You can either spin up one and configure that as a datasource. Or for testing you can use 
+the in-memory H2 database that Quarkus automatically starts for you in dev mode.
 
     -Dquarkus.profile=dev
 
 ## Create a self-signed TLS certificate for HTTPS
 
+The LIQUIDO backend API is only reachable via HTTPS. You must use a TLS certificate. You can use a self-signed certificate for local development:
+
     openssl req -x509 -newkey rsa:4096 -days 365 -keyout src/main/resources/liquido-TLS-key.pem -out src/main/resources/liquido-TLS-cert.pem
     (in Windows git-bash prefix with "winpty" !)
 
-Configure password for PEM in application.properties
-
+Then configure password for this PEM in application.properties 
 
 ## Running the application in dev mode
 
@@ -55,13 +61,15 @@ You can create a native executable using:
 ```shell script
 ./mvnw package -Pnative
 ```
+You can then execute your native executable with: `./target/liquido-backend-quarkus-*-runner`
+
+
 
 Or, if you don't have GraalVM installed, you can run the native executable build in a container using: 
 ```shell script
 ./mvnw package -Pnative -Dquarkus.native.container-build=true
 ```
 
-You can then execute your native executable with: `./target/liquido-backend-quarkus-0.1.0-BETA-runner`
 
 If you want to learn more about building native executables, please consult https://quarkus.io/guides/maven-tooling.
 
