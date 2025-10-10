@@ -27,8 +27,10 @@ public class LiquidoRequestLogger {
 		// Log request body
 		ctx.request().bodyHandler(body -> {
 			String bodyContent = body.toString(); 			// Convert the buffer to a string
-			if (bodyContent.length() > 500) bodyContent = bodyContent.substring(0, 500);
-			log.debug("=> [" + now + "] BODY:" + bodyContent);
+			if (!bodyContent.isEmpty()) {
+				if (bodyContent.length() > 500) bodyContent = bodyContent.substring(0, 500);
+				log.debug("=> [{}] BODY:{}", now, bodyContent);
+			}
 		});
 
 		// Log response

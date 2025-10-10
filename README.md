@@ -6,7 +6,7 @@ LIQUIDO is a free, secure and open eVoting application.
 
 # Run LIQUIDO locally for development
 
-Before you can run the LIQUIDO backend service you must make sure, that some preconditions are fullfielled. 
+Before you can run the LIQUIDO backend service you must make sure, that some preconditions are fulfilled. 
 
 ## LIQUIDO configuration
 
@@ -62,16 +62,15 @@ You can create a native executable with this command. For this you must have Gra
 ./mvnw package -Pnative
 ```
 You can then execute your native executable with: `./target/liquido-backend-quarkus-0.1.0-BETA-runner`
-Keep in mind that this is "native" to the platform you are running on, e.g. Windows or Mac. But most container virtualization platfroms expect a Linux executable.
+Keep in mind that this is "native" to the platform you are running on, e.g. Windows or Mac. But most container virtualization platforms expect a Linux executable.
 
 # Creating a native Linux executable for running inside a Docker container
-You can then execute your native executable with: `./target/liquido-backend-quarkus-*-runner`
-
-
 
  1. Build a native linux/amd64 executable inside a "builder" container. (This way you don't even have to install GraalVM locally.)
  2. Build a Docker IMAGE in amd64 format with the native application executable inside.
  3. Run a Docker CONTAINER with that image. Environment variables can be set. And the liquido app inside the container can access the DB outside, ie. on the host.
+
+You can then execute your native executable with: `./target/liquido-backend-quarkus-*-runner`
 
 ```shell script
 ./mvnw package -Pnative -Dquarkus.native.container-build=true
@@ -80,7 +79,6 @@ docker build -f src/main/docker/Dockerfile.native-micro --platform linux/amd64 -
 
 docker run --name=liquido-container-1 --env=QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://host.docker.internal:5432/LIQUIDO-DEV --workdir=/work -p 8443:8443 --restart=no --runtime=runc --user=1001 -d liquido/liquido-backend4:latest
 ```
-
 
 If you want to learn more about building native executables, please consult https://quarkus.io/guides/maven-tooling.
 
