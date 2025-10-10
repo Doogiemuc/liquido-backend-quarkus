@@ -16,9 +16,9 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Data
+@EqualsAndHashCode(of={"title", "status"}, callSuper = true)  // Two proposals are equal when their ID, their title and status match
 @NoArgsConstructor(force = true)      // Lombok's Data does NOT include a default no args constructor!
 @RequiredArgsConstructor
-@EqualsAndHashCode(callSuper = false)
 @Entity(name = "proposals")
 @JsonIgnoreProperties(ignoreUnknown = true)  // ignore eg. isLikedByCurrentUser when deserializing
 public class ProposalEntity extends BaseEntity {
@@ -204,4 +204,5 @@ public class ProposalEntity extends BaseEntity {
 		buf.append(']');
 		return buf.toString();
 	}
+
 }

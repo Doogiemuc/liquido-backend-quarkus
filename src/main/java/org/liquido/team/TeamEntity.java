@@ -9,6 +9,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import org.liquido.model.BaseEntity;
 import org.liquido.poll.PollEntity;
 import org.liquido.user.UserEntity;
@@ -23,8 +24,9 @@ import java.util.Set;
  * See UserGraphQL for the representation of a Team in the GraphQL API.
  */
 @Data
+@RequiredArgsConstructor
 @NoArgsConstructor(force = true)                              // Lombok's Data does NOT include a default no args constructor!
-@EqualsAndHashCode(of={}, callSuper = true)    	// Compare teams by their Id only. teamName may change.
+@EqualsAndHashCode(of={"teamName"}, callSuper = true)    			// Compare teams by their teamName and the DB ID.
 @Entity(name = "teams")
 public class TeamEntity extends BaseEntity {
 
@@ -57,16 +59,6 @@ public class TeamEntity extends BaseEntity {
 	@OneToMany(mappedBy = "team", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
 	@JsonManagedReference
 	Set<PollEntity> polls = new HashSet<>();   //BUGFIX: Changed from List to Set https://stackoverflow.com/questions/4334970/hibernate-throws-multiplebagfetchexception-cannot-simultaneously-fetch-multipl
-
-	/*
-	//TODO: move these to a base class: Problem with createdBy :-(
-	@CreationTimestamp
-	public LocalDateTime createdAt;
-
-	@UpdateTimestamp
-	public LocalDateTime updatedAt;
-  */
-
 
 	/** Create a new Team entity */
 	public TeamEntity(String teamName, UserEntity admin) {

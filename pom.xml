@@ -89,12 +89,14 @@
       <artifactId>quarkus-mailer</artifactId>
       <scope>compile</scope>
     </dependency>
+
     <!-- Passwordless authentication with time based one time passwords (TOTP) from the Twillio App-->
     <dependency>
       <groupId>com.twilio.sdk</groupId>
       <artifactId>twilio</artifactId>
-      <version>9.3.0</version>
+      <version>10.1.5</version>
     </dependency>
+
     <!-- WebAuthn passwordless authentication via fingerprint or faceId
     <dependency>
       <groupId>com.yubico</groupId>
@@ -112,24 +114,42 @@
     </dependency>
     -->
 
+    <!-- QR Code generator -->
     <dependency>
       <groupId>com.google.zxing</groupId>
       <artifactId>core</artifactId>
       <version>3.5.1</version>
     </dependency>
+
+    <!-- Quarkus Security base package -->
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-security</artifactId>
     </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-test-security-jwt</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Schedule tasks -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
       <artifactId>quarkus-scheduler</artifactId>
     </dependency>
+
     <!-- Rest client used in tests -->
     <dependency>
       <groupId>io.rest-assured</groupId>
       <artifactId>rest-assured</artifactId>
       <version>5.3.2</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Make it possible to authenticate as a user in tests -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-test-security</artifactId>
       <scope>test</scope>
     </dependency>
 

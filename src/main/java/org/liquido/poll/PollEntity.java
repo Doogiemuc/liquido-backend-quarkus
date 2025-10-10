@@ -22,10 +22,10 @@ import java.util.Set;
  * See UserGraphQL for the representation of a Team in the GraphQL API.
  */
 @Data
-@NoArgsConstructor(force = true)                              // Lombok's Data does NOT include a default no args constructor!
+@NoArgsConstructor(force = true)                // Lombok's Data does NOT include a default no args constructor!
 @RequiredArgsConstructor                        // And then does not create a required args constructor :-(  https://stackoverflow.com/questions/37671467/lombok-requiredargsconstructor-is-not-working
 //TODO: create a test for this!
-@EqualsAndHashCode(of={}, callSuper = true)    	// Compare teams by their Id only. teamName may change.
+@EqualsAndHashCode(of={"title"}, callSuper = true)    	// Compare polls by their Id and title only. This is important! Cannot compare proposals. This leads to a StackOverflow in hashCode()!
 @Entity(name = "polls")
 public class PollEntity extends BaseEntity {
 
