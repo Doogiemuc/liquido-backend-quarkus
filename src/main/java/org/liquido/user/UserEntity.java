@@ -81,6 +81,18 @@ public class UserEntity extends PanacheEntity {
 	/** Avatar picture URL */
 	public String picture = null;
 
+	/** Last team the user was logged in. This is used when user is member of multiple teams. */
+	@DefaultValue(value = "-1")  // for graphQL
+	public long lastTeamId = -1;  // MUST init, so that GraphQL will not put this field into UserModelInput
+
+	/** timestamp of last login */
+	LocalDateTime lastLogin = null;   // this is set in doLoginInternal()
+
+
+
+
+	// ========= Security related fields (NOT exposed in GraphQL) =============
+
 	/**
 	 * Time based one time password (TOTP) URI
 	 * This URI contains a secret!
@@ -97,11 +109,7 @@ public class UserEntity extends PanacheEntity {
 	@JsonIgnore
 	public String totpFactorSid;
 
-	/** Last team the user was logged in. This is used when user is member of multiple teams. */
-	@DefaultValue(value = "-1")  // for graphQL
-	public long lastTeamId = -1;  // MUST init, so that GraphQL will not put this field into UserModelInput
-
-	/**
+		/**
 	 * Passwordless authentication with FaceID, fingerprint or hardware token.
 	 */
 	@OneToOne
@@ -109,8 +117,6 @@ public class UserEntity extends PanacheEntity {
 	@JsonIgnore
 	public WebAuthnCredential webAuthnCredential;
 
-	/** timestamp of last login */
-	LocalDateTime lastLogin = null;
 
 	// ====================== Getters and setters (only where logic is necessary)  ===================
 

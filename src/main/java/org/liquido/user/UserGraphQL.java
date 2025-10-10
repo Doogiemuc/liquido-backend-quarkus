@@ -2,6 +2,7 @@ package org.liquido.user;
 
 import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.Mailer;
+import io.vertx.core.http.HttpServerRequest;
 import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -19,6 +20,7 @@ import org.liquido.team.TeamEntity;
 import org.liquido.util.DoogiesUtil;
 import org.liquido.util.LiquidoConfig;
 import org.liquido.util.LiquidoException;
+import org.liquido.util.Lson;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -63,11 +65,24 @@ public class UserGraphQL {
 	@Inject
 	LiquidoConfig config;
 
-	@Query
-	@Description("Ping for API")
-	public String ping() {
-		return "Liquido GraphQL API";
+	@Context
+	HttpServerRequest request;
+
+	/**
+	 * Ping the API for availability
+	 * @return some JSON info about API version
+	 */
+	@Query(value="ping")
+	public String pingApi() {
+		if (log.isDebugEnabled()) {
+			log.debug("Ping API from "+request.remoteAddress());
+		}
+		return Lson.builder()
+				.put("message", "Welcome to the LIQUIDO API")
+				.put("version", "3.0")
+				.toString();
 	}
+
 
 	/** Quarkus security context can directly be injected */
 	@Context

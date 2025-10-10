@@ -110,7 +110,7 @@ public class WebAuthnCredential extends PanacheEntity {
 
 	//TODO: usernames or email?  https://passwordless.id/thoughts/emails-vs-usernames
 	public static List<WebAuthnCredential> findByUserName(String userName) {
-		return WebAuthnCredential.list("email", "username");
+		return WebAuthnCredential.list("userName", "username");
 	}
 
 	public static List<WebAuthnCredential> findByCredID(String credID) {

@@ -60,6 +60,11 @@ public class TestDataCreator {
 
   String sampleDbFile = "import-testData.sql";
 
+	/**
+	 * DANGER ZOME!!! BE CAREFULL!
+	 *
+	 * TestDataCreateor can delete and re-create everything!
+	 */
 	boolean purgeDb = true;
 	boolean createTestData = true;
 
@@ -78,14 +83,22 @@ public class TestDataCreator {
 	 */
 	@Test
 	public void createTestData() {
+		String url = "no DB URL!";
+		try {
+			url = dataSource.getConnection().getMetaData().getURL();
+
+		} catch (SQLException e) {
+			log.error("TestDataCreator Cannot connect to DB" + e.getMessage());
+		}
+
 		RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
 
 		if (purgeDb) {
-			log.warn("Going to delete everything in DB!");
+			log.warn("Going to delete everything in DB!" + url);
 			purgeDb();
 		}
 		if (createTestData) {
-			log.info("Creating testdata ...");
+			log.info("Creating testdata in " + url);
 
 			// Create a new team
 			TeamDataResponse adminRes = createTeam(teamName, adminEmail, 5);
@@ -98,10 +111,13 @@ public class TestDataCreator {
 
 			// Create some polls in ELABORATION
 			PollEntity poll;
-			poll = createPoll(pollTitle+"_1", adminRes.jwt);
+			poll = createPoll(pollTitle+"_1 "+now, adminRes.jwt);
 			poll = seedRandomProposals(poll, adminRes.team, 3);
 
-			poll = createPoll(pollTitle+"_2", adminRes.jwt);
+			poll = createPoll(pollTitle+"_2 "+now, adminRes.jwt);
+			poll = seedRandomProposals(poll, adminRes.team, 4);
+
+			poll = createPoll(pollTitle+"_4 "+now+" with a very long title just for testing", adminRes.jwt);
 			poll = seedRandomProposals(poll, adminRes.team, 4);
 
 			// Like a proposal
@@ -269,12 +285,10 @@ public class TestDataCreator {
 		if (numMembers < numProposals) {
 			throw new RuntimeException("Cannot seed "+numProposals + " proposals, because there are only " + numMembers + " members in "+team);
 		}
-
 		List<UserEntity> users = team.getMembers().stream().map(TeamMemberEntity::getUser).toList();
 		for (int i = 0; i < numProposals; i++) {
-			String title = "Test Proposal " + i + "_" + now;
-			String description = "Proposal " + i + "_" + now + " from TestDataCreator. ";
-			description += loremIpsum(rand.nextInt(300));
+			String title = "Test Proposal " + i + "_" + now + loremIpsum(20);
+			String description = "Proposal " + i + "_" + now + " from TestDataCreator. " + loremIpsum(rand.nextInt(500));
 			String icon = getRandomIconName();
 			TeamDataResponse res = devLogin(users.get(i).getEmail());
 			poll = addProposal(poll.getId(), title, description, icon, res.jwt);
@@ -497,8 +511,9 @@ public class TestDataCreator {
 
 	@Transactional
 	void purgeDb() {
+		//TODO: purge only one team
 		log.info("================================");
-		log.info("       PURGE Testset id="+now);
+		log.info("       PURGE Test Data");
 		log.info("================================");
 
 		// order is important!

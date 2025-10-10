@@ -1,12 +1,14 @@
 package org.liquido.security.webauthn;
 
 import io.quarkus.security.webauthn.WebAuthnUserProvider;
+import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
 import io.vertx.ext.auth.webauthn.AttestationCertificates;
 import io.vertx.ext.auth.webauthn.Authenticator;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import org.liquido.user.UserEntity;
 import org.liquido.util.LiquidoException;
 
@@ -16,7 +18,9 @@ import java.util.List;
 /**
  * Expose our webauthn entities to Quarkus WebAuthn Library
  */
+@Slf4j
 @ApplicationScoped
+@Blocking  // Defer calls to worker pool and not the IO thread
 public class WebAuthnSetup implements WebAuthnUserProvider {
 
 	@Transactional
@@ -36,6 +40,9 @@ public class WebAuthnSetup implements WebAuthnUserProvider {
 	@Transactional
 	@Override
 	public Uni<Void> updateOrStoreWebAuthnCredentials(Authenticator authenticator) {
+		log.debug("and this is a message");
+
+		log.debug("updateOrStoreWebAuthnCredentials" + authenticator);
 		// We assume that a user must already exist beofre WebAuthnCredentials can be added and stored
 		//TODO: create own LiquidoException Error code for this exception
 		UserEntity user = UserEntity.findByEmail(authenticator.getUserName())
