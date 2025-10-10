@@ -68,6 +68,9 @@ public class UseCaseTests {
 		BallotEntity ballot1 = util.verifyBallot(poll1.id, castVoteResponse1.getBallot().checksum);
 		assertNotNull(ballot1);
 
+		BallotEntity ballotOfCurrentUser = util.getBallotOfCurrentUser(poll1.id, adminRes.jwt);
+
+
 		// WHEN cast vote in poll2
 		String voterToken2 = util.getVoterToken(poll2.id, adminRes.jwt);
 		List<Long> voteOrderIds2 = poll2.getProposals().stream().map(BaseEntity::getId).toList();
