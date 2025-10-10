@@ -6,15 +6,9 @@ title LIQUIDO Register & Login
 
 start
 
-:Open app "/";
+:**""Open URL: /""**;
 
-note right
-  fetch JWT from localStorage
-end note
-
-switch (Is user authenticated?)
-
-case (yes\nauthenticated)
+if (\nIs user authenticated\nwith JWT from localStorage?\n) then (yes)
 
   :validate JWT;
 
@@ -22,19 +16,21 @@ case (yes\nauthenticated)
   verified auth Factor
   then offer to verify it.;
 
-case (no, but user\nclicks "login" Link)
+elseif (/login)
 
-  :login page;
+  :**""URL: /login""**
+  enter username and password;
 
   :If user has a not yet
   verified auth Factor
   then offer to verify it.;
 
-case (no, anonymous call)
+else (/register)
 
-  :ask for username;
+  :**""URL: /register""**
+  ask for username;
 
-  if (Create a new team or\njoin an existing one?) then (create new team)
+  if (\nCreate a new team or\njoin an existing one?\n) then (create new team)
 
     :Create a new team
      * teamname
@@ -58,7 +54,7 @@ case (no, anonymous call)
   :User validates Factor with first authToken from Authy App
   ""TwilioVerifyService.verifyFactor(user, authToken)"";
 
-endswitch
+endif
 
 stop
 

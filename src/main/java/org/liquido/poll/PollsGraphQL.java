@@ -6,7 +6,6 @@ import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.graphql.*;
 import org.liquido.security.JwtTokenUtils;
-import org.liquido.services.CastVoteService;
 import org.liquido.team.TeamEntity;
 import org.liquido.user.UserEntity;
 import org.liquido.util.LiquidoConfig;
