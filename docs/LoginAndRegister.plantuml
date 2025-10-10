@@ -10,7 +10,9 @@ start
 
 if (\nIs user authenticated\nwith JWT from localStorage?\n) then (yes)
 
-  :validate JWT;
+  :**Automatic login**
+
+  validate JWT;
 
   :If user has a not yet
   verified auth Factor
@@ -19,7 +21,8 @@ if (\nIs user authenticated\nwith JWT from localStorage?\n) then (yes)
 elseif (/login)
 
   :**""URL: /login""**
-  enter username and password;
+
+  Choose login method;
 
   :If user has a not yet
   verified auth Factor
@@ -28,7 +31,8 @@ elseif (/login)
 else (/register)
 
   :**""URL: /register""**
-  ask for username;
+
+  Chatbot asks for username;
 
   if (\nCreate a new team or\njoin an existing one?\n) then (create new team)
 
@@ -46,12 +50,16 @@ else (/register)
 
   endif
 
-  :user now has a JWT\nif process is interrupted here\nthen can continue via the left path.}
+  :Liquido backend creates a new AuthFactor
 
-  :Create new auth Factor
   ""TwilioVerifyService.register(user)"";
 
+  :user's device now already has a JWT\nStored in browser's localStorage.\nIf the process is interrupted here\nthen he can continue via one of the left logins.}
+
+  :User now installs Authy app;
+
   :User validates Factor with first authToken from Authy App
+
   ""TwilioVerifyService.verifyFactor(user, authToken)"";
 
 endif

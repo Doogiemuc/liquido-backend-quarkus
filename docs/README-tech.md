@@ -8,12 +8,12 @@
  * 2023-07-24 CreatedBy is now automatically added in Entities
  * 2023-11-01 Added TLS for backend HTTPS
  * 2023-11-22 Even more work on UI layout. It's starting to look smooth.
- * 2023-12-24 Debuggin WebAuthn since 3 weeks :-(
- * 
+ * 2023-12-24 Debugging WebAuthn since 3 weeks :-( No luck.
+ * 2025-03-18 Can now build docker container - with help of AI
 
 # Next TODOs
 
- * Nativ Build
+ * Native Build
  * Checkout all the //TODO annotations in the code 
  * Checkout Quarkus SimpleScheduler for cleanup operations in the background.
 
