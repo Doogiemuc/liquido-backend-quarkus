@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import jakarta.validation.constraints.NotNull;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
@@ -84,6 +85,7 @@ public class Lson extends HashMap<String, Object> implements Map<String, Object>
 	 * @param path json key or dot separated json path
 	 * @param value any java object. Will be serialized with Jackson
 	 */
+	@NotNull
 	public Lson put(String path, Object value) {
 		int idx = path.indexOf(".");
 		if (idx > 0) {

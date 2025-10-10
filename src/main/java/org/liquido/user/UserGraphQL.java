@@ -120,7 +120,7 @@ public class UserGraphQL {
 	@Description("Login with an existing and valid JWT. The user that is encoded in the JWT must exist. Then this will return a NEW updated JWT!")
 	public TeamDataResponse loginWithJwt() throws LiquidoException {
 		UserEntity currentUser = jwtTokenUtils.getCurrentUser()
-				.orElseThrow(LiquidoException.supplyAndLog(Errors.UNAUTHORIZED, "Valid JWT but user email not found in DB."));
+				.orElseThrow(LiquidoException.supplyAndLog(Errors.UNAUTHORIZED, "Valid JWT but user XXX email not found in DB."));
 		log.info("loginWithJwt(): currentUser = " + currentUser);
 		return jwtTokenUtils.doLoginInternal(currentUser, null);
 	}
@@ -221,15 +221,15 @@ public class UserGraphQL {
 	@Description("Standard login with email and password")
 	public TeamDataResponse loginWithEmailPassword(
 			@Name("email") @NonNull String email,
-			@Name("password") @NonNull String password
+			@Name("password") @NonNull String plainPassword
 	) throws LiquidoException {
 		email = DoogiesUtil.cleanEmail(email);
 		UserEntity user = UserEntity.findByEmail(email)
 				.orElseThrow(() -> new LiquidoException(Errors.CANNOT_LOGIN_EMAIL_NOT_FOUND, "Cannot login. There is no register user with that email."));
 
 		// Hash password and compare with user's
-		String hashedPassword = BCrypt.withDefaults().hashToString(12, password.toCharArray());
-		BCrypt.Result result = BCrypt.verifyer().verify(password.toCharArray(), user.getPasswordHash());
+		//String hashedPassword = BCrypt.withDefaults().hashToString(12, password.toCharArray());
+		BCrypt.Result result = BCrypt.verifyer().verify(plainPassword.toCharArray(), user.getPasswordHash());
 		if (result.verified) {
 			TeamEntity team = TeamEntity.findById(user.getLastTeamId());  // team maybe null!
 			log.debug("LOGIN via email link: " + user.toStringShort());
