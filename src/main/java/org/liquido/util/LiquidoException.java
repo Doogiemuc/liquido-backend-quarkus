@@ -103,16 +103,17 @@ public class LiquidoException extends Exception {
 		CANNOT_JOIN_POLL(52, Response.Status.BAD_REQUEST),
 		CANNOT_ADD_PROPOSAL(53, Response.Status.BAD_REQUEST),
 		CANNOT_START_VOTING_PHASE(54, Response.Status.BAD_REQUEST),
-		CANNOT_SAVE_PROXY(55, Response.Status.BAD_REQUEST),                // assign or remove
+		CANNOT_ASSIGN_PROXY(55, Response.Status.BAD_REQUEST),                // assign or remove
 		CANNOT_ASSIGN_CIRCULAR_PROXY(56, Response.Status.BAD_REQUEST),
-		CANNOT_CAST_VOTE(57, Response.Status.BAD_REQUEST),
-		CANNOT_GET_TOKEN(58, Response.Status.BAD_REQUEST),
-		CANNOT_FINISH_POLL(59, Response.Status.BAD_REQUEST),
-		NO_DELEGATION(60, Response.Status.BAD_REQUEST),
-		NO_BALLOT(61, Response.Status.NO_CONTENT),                          // 204: voter has no ballot yet. This is OK and not an error.
-		INVALID_POLL_STATUS(62, Response.Status.BAD_REQUEST),
-		PUBLIC_CHECKSUM_NOT_FOUND(63, Response.Status.NOT_FOUND),
-		CANNOT_ADD_SUPPORTER(64, Response.Status.BAD_REQUEST),              // e.g. when user tries to support his own proposal
+		CANNOT_REMOVE_PROXY(57, Response.Status.BAD_REQUEST),
+		CANNOT_CAST_VOTE(58, Response.Status.BAD_REQUEST),
+		CANNOT_GET_TOKEN(59, Response.Status.BAD_REQUEST),
+		CANNOT_FINISH_POLL(60, Response.Status.BAD_REQUEST),
+		NO_DELEGATION(61, Response.Status.BAD_REQUEST),
+		NO_BALLOT(62, Response.Status.NO_CONTENT),                          // 204: voter has no ballot yet. This is OK and not an error.
+		INVALID_POLL_STATUS(63, Response.Status.BAD_REQUEST),
+		PUBLIC_CHECKSUM_NOT_FOUND(64, Response.Status.NOT_FOUND),
+		CANNOT_ADD_SUPPORTER(65, Response.Status.BAD_REQUEST),              // e.g. when user tries to support his own proposal
 
 		CANNOT_CALCULATE_UNIQUE_RANKED_PAIR_WINNER(70, Response.Status.INTERNAL_SERVER_ERROR),    // this is only used in the exceptional situation, that no unique winner can be calculated in RankedPairVoting
 		CANNOT_VERIFY_CHECKSUM(80, Response.Status.NOT_FOUND),              // ballot's checksum could not be verified

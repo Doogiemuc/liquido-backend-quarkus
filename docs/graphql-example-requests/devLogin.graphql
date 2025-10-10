@@ -1,0 +1,13 @@
+query devLogin($devLoginToken: String, $email: String) {
+  devLogin(devLoginToken: $devLoginToken, email: $email) {
+    jwt
+  }
+}
+
+variables: {
+ "devLoginToken": "devLoginTokenDev",
+ "email": "testadmin4711@liquido.vote"
+}
+
+# Then put the returned jwt into the HTTP header for further authenticated requests
+# Authorization: Bearer eyJr...

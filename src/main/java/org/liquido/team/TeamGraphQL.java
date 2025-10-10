@@ -34,19 +34,6 @@ public class TeamGraphQL {
 	@Inject
 	JsonWebToken jwt;
 
-	/**
-	 * Get information about user's own team, including the team's polls.
-	 * @return info about user's own team.
-	 * @throws LiquidoException when not logged
-	 */
-	@Query
-	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
-	@Transactional
-	public TeamEntity team() throws LiquidoException {
-		Long teamId = Long.valueOf(jwt.getClaim(JwtTokenUtils.TEAM_ID_CLAIM));
-		Optional<TeamEntity> teamOpt = TeamEntity.findByIdOptional(teamId);
-		return teamOpt.orElseThrow(LiquidoException.supply(Errors.UNAUTHORIZED, "Cannot get team. User must be logged into a team!"));
-	}
 
 	//The login, createTeam or joinTeam requests all return exactly the same response format! I like!
 
@@ -65,7 +52,7 @@ public class TeamGraphQL {
 	@PermitAll
 	public TeamDataResponse createNewTeam(
 			@Name("teamName") @NonNull String teamName,
-			@Name("admin")  @NonNull UserEntity admin,
+			/* @Valid */ @Name("admin")  @NonNull UserEntity admin,     //TODO: is valid necessary or is UserEntity automatically validated by GraphQL lib? Probably yes
 			@Name("password")  @NonNull String plainPassword
 	) throws LiquidoException {
 		// IF calling user is already logged in, then he must use addAnotherTeam()
@@ -178,6 +165,7 @@ public class TeamGraphQL {
 			throw new LiquidoException(Errors.USER_MOBILEPHONE_EXISTS, "Sorry, a user with that mobile phone number already exists.");
 
 		// Create new user
+		log.info("Creating new liquido user {}", user);
 		user.setPasswordHash(PasswordServiceBcrypt.hashPassword(plainPassword));   // MUST set passwordHash before persisting UserEntity!
 		user.persist();   // New user This will set the ID on the "user" entity.
 
@@ -205,7 +193,21 @@ public class TeamGraphQL {
 	}
 
 	/**
-	 * Get information about team by inviteCode
+	 * Get information about user's own team, including the team's polls.
+	 * @return info about user's own team.
+	 * @throws LiquidoException when not logged
+	 */
+	@Query
+	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
+	@Transactional
+	public TeamEntity team() throws LiquidoException {
+		Long teamId = Long.valueOf(jwt.getClaim(JwtTokenUtils.TEAM_ID_CLAIM));
+		Optional<TeamEntity> teamOpt = TeamEntity.findByIdOptional(teamId);
+		return teamOpt.orElseThrow(LiquidoException.supply(Errors.UNAUTHORIZED, "Cannot get team. User must be logged into a team!"));
+	}
+
+	/**
+	 * Get information about a team by inviteCode
 	 * @param inviteCode a valid InviteCode
 	 * @return TeamEntity or nothing if InviteCode is invalid
 	 */

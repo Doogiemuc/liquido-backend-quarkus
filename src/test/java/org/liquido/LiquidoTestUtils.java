@@ -261,6 +261,14 @@ public class LiquidoTestUtils {
 				.extract().jsonPath().getObject("data.finishVotingPhase", ProposalEntity.class);
 	}
 
+	// ============ Delegations
+
+	public void delegateTo(UserEntity proxy, String jwt) {
+		String startVotingPhaseQuery = "mutation delegateTo($proxyId: BigInteger!) {" +
+				" delegateTo(proxyId: $proxyId) }";
+		Lson vars = new Lson("proxyId", proxy.id);
+		sendGraphQL(startVotingPhaseQuery, vars, jwt);
+	}
 
 	// ============ Smaller Utility Methods
 
@@ -299,18 +307,22 @@ public class LiquidoTestUtils {
 				.extract().jsonPath().getObject("data.team", TeamEntity.class);
 	}
 
+	public TeamEntity getRandomTeam() {
+		return TeamEntity.<TeamEntity>findAll().firstResultOptional()
+				.orElseThrow(() -> new RuntimeException("Cannot find any random team!"));
+	}
 
 	/**
 	 * Get a random user from the DB.
 	 * @return a random UserEntity
 	 */
-	public static UserEntity getRandomUser() {
+	public UserEntity getRandomUser() {
 		return UserEntity.<UserEntity>findAll().firstResultOptional().orElseThrow(
 				() -> new RuntimeException("Cannot getRandomUser. No user in DB!")
 		);
 	}
 
-	public static UserEntity getRandomAdmin() {
+	public UserEntity getRandomAdmin() {
 		return TeamMemberEntity.find("role=?1", TeamMemberEntity.Role.ADMIN)
 				.firstResultOptional()
 				.map(member -> ((TeamMemberEntity)member).getUser())

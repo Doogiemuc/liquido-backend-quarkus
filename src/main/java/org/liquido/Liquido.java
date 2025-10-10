@@ -8,10 +8,14 @@ import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.liquido.delegation.DelegationEntity;
 import org.liquido.poll.PollEntity;
+import org.liquido.poll.ProposalEntity;
 import org.liquido.team.TeamEntity;
 import org.liquido.user.UserEntity;
 import org.liquido.util.LiquidoConfig;
+import org.liquido.vote.BallotEntity;
+import org.liquido.vote.RightToVoteEntity;
 
 import java.sql.SQLException;
 
@@ -58,12 +62,12 @@ public class Liquido {
 	 */
 	void onStart(@Observes StartupEvent ev) {
 		LaunchMode launchMode = io.quarkus.runtime.LaunchMode.current();
-		System.out.println("============== STARTING LIQUIDO in [" + launchMode + "]==================");
+		System.out.println("============ STARTING LIQUIDO in [" + launchMode + "]==================");
 		System.out.println("   QUARKUS_PROFILE : " + quarkusProfile);
 		System.out.println("   DB generation   : " + hibernateDbGeneration);
 		System.out.println("   Frontend URL    : " + config.frontendUrl());
 		System.out.println("   Backend (SSL)   : https://" + host + ":" + sslPort);
-		System.out.println("=============== DB INFO ===============");
+		System.out.println("============= DB INFO ===============");
 		System.out.println("   DB Username     : " + datasourceUsername);
 		System.out.println("   DB JDBC URL     : " + jdbcUrl);
 		System.out.println("   DB Generation   : " + databaseGeneration);
@@ -79,10 +83,14 @@ public class Liquido {
 		}
 
 		try {
-			System.out.println("=========== Table counts ===========");
+			System.out.println("============= Table counts ==========");
 			System.out.println("   #Users          : " + UserEntity.count());
 			System.out.println("   #Teams          : " + TeamEntity.count());
 			System.out.println("   #Polls          : " + PollEntity.count());
+			System.out.println("   #Proposals      : " + ProposalEntity.count());
+			System.out.println("   #RightToVote    : " + RightToVoteEntity.count());
+			System.out.println("   #Ballots        : " + BallotEntity.count());
+			System.out.println("   #Delegations    : " + DelegationEntity.count());
 		} catch (Exception e) {
 			log.error("==================================================");
 			log.error(" Users, Teams or Polls table does not exist.");

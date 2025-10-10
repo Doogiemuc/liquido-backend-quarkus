@@ -16,9 +16,8 @@ import org.liquido.poll.PollEntity;
 import java.time.LocalDateTime;
 
 /**
- * One time token that is used for login without a password.
- * An OTT allows a user to login <b>once</b> with this token. After that
- * the token will be deleted. Each OTT has a limited time to live (TTL).
+ * One time voter token that grant's a voter the right to cast one vote in this poll.
+ * After it has been consumed, this token will be deleted.
  */
 @Data
 @NoArgsConstructor
@@ -43,10 +42,7 @@ public class VoterTokenEntity extends PanacheEntityBase {
 	@ManyToOne
 	public RightToVoteEntity rightToVote;
 
-	/** Of course, an OTT can only be used once! */
-	public boolean used = false;
-
-	/** Expiry date of token. After this date the token is not valid anymore. */
+	/** Expiry date of token. After this date, the token is not valid anymore. */
 	@NonNull
 	@NotNull
 	public LocalDateTime expiresAt;
