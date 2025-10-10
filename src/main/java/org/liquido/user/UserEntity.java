@@ -4,18 +4,16 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.OneToOne;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.eclipse.microprofile.graphql.DefaultValue;
 import org.eclipse.microprofile.graphql.Ignore;
-import org.liquido.security.webauthn.WebAuthnCredential;
 import org.liquido.util.DoogiesUtil;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -24,12 +22,11 @@ import java.util.Optional;
  * A user may also join other teams. Then he is a member in those teams.
  */
 @Data
-@EqualsAndHashCode(callSuper = true)  			// compare Users by their ID (names may change)
 @NoArgsConstructor(force = true)
 @RequiredArgsConstructor
 @Entity(name = "liquido_user")
 //DEPRECATED: @GraphQLType(name="user", description = "A LiquidoUser that can be an admin or member in a team.")  // well be named "userInput" by graphql-spqr
-//We now have separate types for GraphQL. The type in the exposed API might be different from this ORM Panache entity!
+//TODO: Do I need separate types for GraphQL. The type in the exposed API might be different from this ORM Panache entity!
 public class UserEntity extends PanacheEntity {
 	/*
 	About the equality of UserModels
@@ -109,13 +106,13 @@ public class UserEntity extends PanacheEntity {
 	@JsonIgnore
 	public String totpFactorSid;
 
-		/**
+	/*
 	 * Passwordless authentication with FaceID, fingerprint or hardware token.
-	 */
 	@OneToOne
 	@Ignore  //SECURITY IMPORTANT: ignore in GraphQL and JSON
 	@JsonIgnore
 	public WebAuthnCredential webAuthnCredential;
+	*/
 
 
 	// ====================== Getters and setters (only where logic is necessary)  ===================
@@ -165,4 +162,25 @@ public class UserEntity extends PanacheEntity {
 		return buf.toString();
 	}
 
+	/**
+   * Two USerEntities are equal if their ID is equal
+	 * mobile phone numbers, emails and even names may change!
+	 */
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		UserEntity that = (UserEntity) o;
+		return Objects.equals(id, that.id);
+	}
+
+	/**
+	 * You won't believe how important an correct equals and hash code
+	 * implementation is in Java!
+	 * @return a hashed ID
+	 */
+	@Override
+	public int hashCode() {
+		return Objects.hash(id);
+	}
 }
