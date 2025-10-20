@@ -1,0 +1,61 @@
+# flyctl launch added from .gitignore
+#Maven
+**/target
+**/pom.xml.tag
+**/pom.xml.releaseBackup
+**/pom.xml.versionsBackup
+**/release.properties
+**/.flattened-pom.xml
+
+# Eclipse
+**/.project
+**/.classpath
+**/.settings
+**/bin
+
+# IntelliJ
+**/.idea
+**/*.ipr
+**/*.iml
+**/*.iws
+
+# NetBeans
+**/nb-configuration.xml
+
+# Visual Studio Code
+**/.vscode
+**/.factorypath
+
+# OSX
+**/.DS_Store
+
+# Vim
+**/*.swp
+**/*.swo
+
+# patch
+**/*.orig
+**/*.rej
+
+# Local environment
+**/application.local
+**/.env
+
+# Exclude secrets !!!
+**/*.pem
+**/*.p12
+
+# Exclude configurations with secrets
+#**/application-prod.yml
+#config/application-test.properties
+#config/application-local.properties
+#config/application-prod.properties
+#config/application-dev.properties
+#config/application-*.properties
+import-testData.sql
+createLiquidoDbSchema.sql
+
+# flyctl launch added from .idea/.gitignore
+.idea/shelf
+.idea/workspace.xml
+fly.toml

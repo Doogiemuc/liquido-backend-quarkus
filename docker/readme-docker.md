@@ -14,9 +14,9 @@ Execute a command inside a container
 
 # Deployment to my local server via docker
 
-Build the image 
+Build the docker image. My Dockerfiles are in a subdirectory. And mind the dot at the and! 
 
-    docker build -t liquido-backend:latest .
+    docker build -t liquido-backend:latest -f docker/Dockerfile .
 
 Build image for AMD64 (linux) architecture
 

@@ -66,12 +66,12 @@ public class Liquido {
 		System.out.println("   QUARKUS_PROFILE : " + quarkusProfile);
 		System.out.println("   DB generation   : " + hibernateDbGeneration);
 		System.out.println("   Frontend URL    : " + config.frontendUrl());
-		System.out.println("   Backend (SSL)   : https://" + host + ":" + sslPort);
+		System.out.println("   Backend         : http://" + host + ":" + port);
+		System.out.println("   Backend (TLS)   : https://" + host + ":" + sslPort);
 		System.out.println("============= DB INFO ===============");
 		System.out.println("   DB Username     : " + datasourceUsername);
 		System.out.println("   DB JDBC URL     : " + jdbcUrl);
 		System.out.println("   DB Generation   : " + databaseGeneration);
-
 
 		try {
 			System.out.println("   DB Connection   : " + dataSource.getConnection().getMetaData().getURL());

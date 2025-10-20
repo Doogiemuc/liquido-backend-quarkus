@@ -30,7 +30,8 @@ COPY pom.xml .
 RUN mvn verify -DskipTests
 
 # Copy sources and my quarkus configurations
-COPY config ./config
+COPY config ./config/
+RUN echo "--- FILES IN /config AFTER copy ---" && ls -l ./config/*
 COPY src ./src
 
 # Build the application, skipping tests for faster builds, -B = batch mode, no progress bars
@@ -39,8 +40,9 @@ RUN mvn -B package -DskipTests
 
 #
 # Stage 2: Use a lightweight runtime image for the runtime container
+# Eclipse temurin is build on tip of alpine + Jave Runtime (JRE)
 #
-FROM eclipse-temurin:23.0.2_7-jre-alpine AS runtime
+FROM eclipse-temurin:23-jre-alpine AS runtime
 
 # Set the working directory inside the container
 WORKDIR /app
@@ -56,7 +58,7 @@ WORKDIR /app
 
 # Copy the built application files from the build stage
 COPY --from=build /build/config /app/config
-COPY --from=build /build/src/main/resources /resources
+COPY --from=build /build/src/main/resources /app/resources
 COPY --from=build /build/target/quarkus-app /app/
 
 # Expose the application port
@@ -70,6 +72,10 @@ USER 1001
 ENV JAVA_APP_JAR="/app/quarkus-run.jar"
 #Can also set quarkus profile here: ENV QUARKUS_PROFILE=dev
 
+# --- DEBUG COMMAND HERE ---
+RUN echo "--- FILES IN /app/config AFdfgdfgTER COPY ---" && ls -l /app/config
+# --- END DEBUG COMMAND ---
+
 # Start the application
-CMD ["java", "-jar", "/app/quarkus-run.jar"]
+CMD ["java", "-jar", "/app/quarkus-run.jar", "-Dquarkus.profile=fly-int"]
 # CMD ["tail", "-f", "/dev/null"]   # Just start the container and do not start the app yet. Nice for debugging with   docker exec -it liquido-backend sh
