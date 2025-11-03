@@ -76,6 +76,9 @@ then add in `application.properties` and don't forget to adapt all URLs in front
     # enabled, redirect or disabled(=only allow HTTPS requests)
     quarkus.http.insecure-requests=disabled
 
+There is a nice little server that automatically creates HTTPs/TLS certs:  https://caddyserver.com/
+
+
 ### Oauth
 
 Why I hate Oauth: https://news.ycombinator.com/item?id=35713518

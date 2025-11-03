@@ -31,7 +31,7 @@ RUN mvn verify -DskipTests
 
 # Copy sources and my quarkus configurations
 COPY config ./config/
-RUN echo "--- FILES IN /config AFTER copy ---" && ls -l ./config/*
+# RUN echo "--- FILES IN /config AFTER copy ---" && ls -l ./config/*
 COPY src ./src
 
 # Build the application, skipping tests for faster builds, -B = batch mode, no progress bars
@@ -61,6 +61,8 @@ COPY --from=build /build/config /app/config
 COPY --from=build /build/src/main/resources /app/resources
 COPY --from=build /build/target/quarkus-app /app/
 
+# RUN echo "--- FILES IN /app/config AFTER COPY ---" && ls -l /app/config
+
 # Expose the application port
 EXPOSE 8080
 
@@ -72,10 +74,11 @@ USER 1001
 ENV JAVA_APP_JAR="/app/quarkus-run.jar"
 #Can also set quarkus profile here: ENV QUARKUS_PROFILE=dev
 
-# --- DEBUG COMMAND HERE ---
-RUN echo "--- FILES IN /app/config AFdfgdfgTER COPY ---" && ls -l /app/config
-# --- END DEBUG COMMAND ---
+
 
 # Start the application
-CMD ["java", "-jar", "/app/quarkus-run.jar", "-Dquarkus.profile=fly-int"]
-# CMD ["tail", "-f", "/dev/null"]   # Just start the container and do not start the app yet. Nice for debugging with   docker exec -it liquido-backend sh
+CMD ["java", "-jar", "/app/quarkus-run.jar"]
+# could also pass the quarkus profile like this. But we do it via  fly.toml   CMD ["java", "-jar", "/app/quarkus-run.jar", "-Dquarkus.profile=fly-int"]
+
+# Nice for debugging
+# CMD ["tail", "-f", "/dev/null"]   # Just start the container and do not start the app yet. Nice for then debugging with   docker exec -it liquido-backend sh

@@ -288,7 +288,7 @@ public class LiquidoTestUtils {
 		ProposalEntity prop = null;
 		while(it.hasNext()) {
 			prop = it.next();
-			if (prop.id == propId) break;
+			if (prop.id.equals(propId)) break;
 		}
 		if (prop == null) throw new RuntimeException("Cannot find prop.id="+prop.id+" in "+poll);
 
@@ -307,7 +307,9 @@ public class LiquidoTestUtils {
 				"}";
 		Lson vars = Lson.builder()
 				.put("email", email)
-				.put("devLoginToken", config.devLoginToken());
+				.put("devLoginToken", config.devLoginTokenOpt().orElseThrow(
+						() -> new RuntimeException("Error int test.devLogin(): No devLogin defined in application.properties!")
+				));
 		return sendGraphQL(query, vars)
 				.body("data.devLogin.user.email", equalToIgnoringCase(email))
 				.extract().jsonPath().getObject("data.devLogin", TeamDataResponse.class);
