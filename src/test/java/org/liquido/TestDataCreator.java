@@ -62,7 +62,7 @@ public class TestDataCreator {
 	LiquidoTestUtils util;
 
 
-  String sampleDbFile = "import-testData.sql";
+  String sampleDbFile = "liquido-testData.sql";
 
 	/**
 	 * DANGER ZOME!!! BE careful!
@@ -157,6 +157,12 @@ public class TestDataCreator {
 
 			// Print winner
 			log.info("Winner: " + winner.toString());
+
+			try {
+				extractSql();
+			} catch (SQLException e) {
+				log.error("Cannot extract test data ", e);
+			}
 		}
 	}
 

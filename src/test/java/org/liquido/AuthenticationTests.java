@@ -149,7 +149,7 @@ public class AuthenticationTests {
 		String query = "query devLogin($devLoginToken: String, $email: String) {" +
 				" devLogin(devLoginToken: $devLoginToken, email: $email)" + CREATE_OR_JOIN_TEAM_RESULT + "}";
 		Lson vars = Lson.builder()
-				.put("devLoginToken", config.devLoginToken())
+				.put("devLoginToken", config.devLoginTokenOpt().get())
 				.put("email", user.getEmail());
 
 		// WHEN doing a devLogin

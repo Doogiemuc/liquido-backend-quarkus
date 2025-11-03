@@ -38,7 +38,7 @@ public class UserService {
 
 		// Create a one time token that allows to reset user's password exactly once.
 		UUID tokenUUID = UUID.randomUUID();
-		LocalDateTime validUntil = LocalDateTime.now().plusHours(config.loginLinkExpirationHours());
+		LocalDateTime validUntil = LocalDateTime.now().plusMinutes(config.loginLinkExpirationMinutes());
 		OneTimeToken oneTimeToken = new OneTimeToken(tokenUUID.toString(), user, validUntil);
 		oneTimeToken.persist();
 
@@ -73,7 +73,7 @@ public class UserService {
 		UserEntity user = UserEntity.findByEmail(email).orElseThrow(
 				LiquidoException.supply(LiquidoException.Errors.WONT_RESET_PASSWORD, "Won't reset password for <" + email + ">. Cannot find user.")
 		);
-		if (DoogiesUtil.isEqual(config.testPasswordResetToken(), resetPasswordToken) && LaunchMode.current() != LaunchMode.NORMAL) {
+		if (DoogiesUtil.isEqual(config.testPasswordResetTokenOpt(), resetPasswordToken) && LaunchMode.current() != LaunchMode.NORMAL) {
 			log.info("[TEST/DEV] reset password of {} in LaunchMode={}", user.toStringShort(), LaunchMode.current());
 			user.setPasswordHash(PasswordServiceBcrypt.hashPassword(newPassword));
 			user.persist();
@@ -108,7 +108,7 @@ public class UserService {
 
 		// Create new email login link with a one time token in it.
 		UUID tokenUUID = UUID.randomUUID();
-		LocalDateTime validUntil = LocalDateTime.now().plusHours(config.loginLinkExpirationHours());
+		LocalDateTime validUntil = LocalDateTime.now().plusMinutes(config.loginLinkExpirationMinutes());
 		OneTimeToken oneTimeToken = new OneTimeToken(tokenUUID.toString(), user, validUntil);
 		oneTimeToken.persist();
 		log.info("User " + user.getEmail() + " may login via email link.");

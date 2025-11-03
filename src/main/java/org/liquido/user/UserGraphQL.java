@@ -1,6 +1,7 @@
 package org.liquido.user;
 
 import io.quarkus.runtime.LaunchMode;
+import io.quarkus.runtime.configuration.ConfigUtils;
 import io.quarkus.vertx.http.runtime.CurrentVertxRequest;
 import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
@@ -228,7 +229,11 @@ public class UserGraphQL {
 			@Name("email") String email
 			//TODO:  @Name("team") Optional<Long> teamId   // optional
 	) throws LiquidoException {
-		if (!devLoginToken.equals(config.devLoginToken()) || LaunchMode.current() == LaunchMode.NORMAL)
+		if (LaunchMode.current() == LaunchMode.NORMAL || ConfigUtils.isProfileActive("prod"))
+			throw new LiquidoException(Errors.CANNOT_LOGIN_TOKEN_INVALID, "DevLogin is not allowed in PROD!");
+		if (config.devLoginTokenOpt().isEmpty())
+			throw new LiquidoException(Errors.CANNOT_LOGIN_TOKEN_INVALID, "No devLoginToken defined in our config");
+		if (!devLoginToken.equals(config.devLoginTokenOpt().get()))
 			throw new LiquidoException(Errors.CANNOT_LOGIN_TOKEN_INVALID, "Invalid devLoginToken or in normal/prod LaunchMode.");
 		UserEntity user = UserEntity.findByEmail(email)
 				.orElseThrow(LiquidoException.supply(Errors.CANNOT_LOGIN_EMAIL_NOT_FOUND, "Cannot do devLogin. Email not found: "+email));
