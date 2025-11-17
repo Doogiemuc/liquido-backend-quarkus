@@ -90,12 +90,13 @@ public class LiquidoException extends Exception {
 		//Login Errors
 		CANNOT_LOGIN_MOBILE_NOT_FOUND(20, Response.Status.UNAUTHORIZED),       		// when requesting an SMS login token and mobile number is not known
 		CANNOT_LOGIN_EMAIL_NOT_FOUND(21, Response.Status.UNAUTHORIZED),          	// when requesting a login email and email is not known
-		CANNOT_LOGIN_TOKEN_INVALID(22, Response.Status.UNAUTHORIZED),            	// when a email or sms login token is invalid or expired
-		CANNOT_LOGIN_TEAM_NOT_FOUND(23, Response.Status.UNAUTHORIZED),           	// when changing team
-		CANNOT_LOGIN_USER_NOT_MEMBER_OF_TEAM(24, Response.Status.UNAUTHORIZED),  	// when changing team and user is not member or admin of target team
-		CANNOT_LOGIN_INTERNAL_ERROR(25, Response.Status.INTERNAL_SERVER_ERROR),  	// when sending of email is not possible
-		CANNOT_REQUEST_SMS_TOKEN(26, Response.Status.UNAUTHORIZED),              	// eg. when entered mobile number is not valid
-		WONT_RESET_PASSWORD(28, Response.Status.UNAUTHORIZED),										// Someone requested a password reset for a non registered email. But don't expose that. Return just a generic error
+		CANNOT_LOGIN_TOKEN_INVALID(22, Response.Status.UNAUTHORIZED),            	// when an email or sms login token is invalid or expired
+		CANNOT_LOGIN_GOOGLE_IDTOKEN_INVALID(23, Response.Status.UNAUTHORIZED),
+		CANNOT_LOGIN_TEAM_NOT_FOUND(24, Response.Status.UNAUTHORIZED),           	// when changing team
+		CANNOT_LOGIN_USER_NOT_MEMBER_OF_TEAM(25, Response.Status.UNAUTHORIZED),  	// when changing team and user is not member or admin of target team
+		CANNOT_LOGIN_INTERNAL_ERROR(26, Response.Status.INTERNAL_SERVER_ERROR),  	// when sending of email is not possible
+		CANNOT_REQUEST_SMS_TOKEN(27, Response.Status.UNAUTHORIZED),              	// when entered mobile number is not valid
+		WONT_RESET_PASSWORD(28, Response.Status.UNAUTHORIZED),										// Someone requested a password reset for a non-registered email. But don't expose that. Return just a generic error
 
 		//JWT Errors  // these are now handled by Quarkus
 		JWT_TOKEN_INVALID(30, Response.Status.UNAUTHORIZED),

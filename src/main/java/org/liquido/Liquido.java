@@ -30,9 +30,6 @@ public class Liquido {
 	@Inject
 	LiquidoConfig config;
 
-	@ConfigProperty(name = "quarkus.hibernate-orm.database.generation")
-	String hibernateDbGeneration;
-
 	@ConfigProperty(name = "quarkus.datasource.username")
 	String datasourceUsername;
 
@@ -44,7 +41,6 @@ public class Liquido {
 
 	@ConfigProperty(name = "quarkus.profile")
 	String quarkusProfile;
-
 
 	@ConfigProperty(name="quarkus.http.host")
 	String host;
@@ -61,20 +57,21 @@ public class Liquido {
 	 * And we also sanity check the connection to and content of our DB.
 	 */
 	void onStart(@Observes StartupEvent ev) {
-		LaunchMode launchMode = io.quarkus.runtime.LaunchMode.current();
-		System.out.println("============ STARTING LIQUIDO in [" + launchMode + "]==================");
-		System.out.println("   QUARKUS_PROFILE : " + quarkusProfile);
-		System.out.println("   DB generation   : " + hibernateDbGeneration);
-		System.out.println("   Frontend URL    : " + config.frontendUrl());
-		System.out.println("   Backend         : http://" + host + ":" + port);
-		System.out.println("   Backend (TLS)   : https://" + host + ":" + sslPort);
-		System.out.println("============= DB INFO ===============");
-		System.out.println("   DB Username     : " + datasourceUsername);
-		System.out.println("   DB JDBC URL     : " + jdbcUrl);
-		System.out.println("   DB Generation   : " + databaseGeneration);
+		System.out.println("============ STARTING LIQUIDO ==================");
+		System.out.println("   Quarkus LaunchMode  : " + LaunchMode.current().name());
+		System.out.println("   QUARKUS_PROFILE     : " + quarkusProfile);
+		System.out.println("   Frontend URL        : " + config.frontendUrl());
+		System.out.println("   Backend             : http://" + host + ":" + port);
+		System.out.println("   Backend (TLS)       : https://" + host + ":" + sslPort);
+		System.out.println("   LIQUIDO API version : " + config.apiVersion());
 
+
+		System.out.println("============= DB INFO ===============");
+		System.out.println("   DB Generation       : " + databaseGeneration);
+		System.out.println("   DB JDBC URL         : " + jdbcUrl);
+		System.out.println("   DB Username         : " + datasourceUsername);
 		try {
-			System.out.println("   DB Connection   : " + dataSource.getConnection().getMetaData().getURL());
+			System.out.println("   DB Connection       : " + dataSource.getConnection().getMetaData().getURL());
 		} catch (SQLException e) {
 			log.error("=====================================");
 			log.error("Cannot connect to DB!{}", e.getMessage());
@@ -84,13 +81,13 @@ public class Liquido {
 
 		try {
 			System.out.println("============= Table counts ==========");
-			System.out.println("   #Users          : " + UserEntity.count());
-			System.out.println("   #Teams          : " + TeamEntity.count());
-			System.out.println("   #Polls          : " + PollEntity.count());
-			System.out.println("   #Proposals      : " + ProposalEntity.count());
-			System.out.println("   #RightToVote    : " + RightToVoteEntity.count());
-			System.out.println("   #Ballots        : " + BallotEntity.count());
-			System.out.println("   #Delegations    : " + DelegationEntity.count());
+			System.out.println("   #Users            : " + UserEntity.count());
+			System.out.println("   #Teams            : " + TeamEntity.count());
+			System.out.println("   #Polls            : " + PollEntity.count());
+			System.out.println("   #Proposals        : " + ProposalEntity.count());
+			System.out.println("   #RightToVote      : " + RightToVoteEntity.count());
+			System.out.println("   #Ballots          : " + BallotEntity.count());
+			System.out.println("   #Delegations      : " + DelegationEntity.count());
 		} catch (Exception e) {
 			log.error("==================================================");
 			log.error(" Users, Teams or Polls table does not exist.");
@@ -98,11 +95,11 @@ public class Liquido {
 			log.error("==================================================");
 			throw e;
 		}
+
 		System.out.println("=====================================");
 
-		// Uncomment this to fill db with sample data
+		//Hint: Could fill db with sample data here. Or use Quarkus ./import.sql feature ...
 		//PreparedStatement ps = dataSource.getConnection().prepareStatement("SCRIPT TO '" + sampleDbFile + "'");
-
 
 	}
 

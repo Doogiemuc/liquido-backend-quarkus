@@ -1,32 +1,108 @@
 package org.liquido.security;
 
-import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.POST;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.QueryParam;
-import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.http.HttpTransport;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
+import jakarta.annotation.security.PermitAll;
+import jakarta.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
+import org.eclipse.microprofile.graphql.Description;
+import org.eclipse.microprofile.graphql.GraphQLApi;
+import org.eclipse.microprofile.graphql.Name;
+import org.eclipse.microprofile.graphql.Query;
+import org.liquido.team.TeamDataResponse;
+import org.liquido.user.UserEntity;
+import org.liquido.util.LiquidoConfig;
+import org.liquido.util.LiquidoException;
+
+import java.io.IOException;
+import java.security.GeneralSecurityException;
+import java.util.Collections;
 
 /**
  * Verify a google login via REST
  */
 @Slf4j
+@GraphQLApi
 public class GoogleLogin {
-	private static final String GOOGLE_CLIENT_ID = "673421517010-lkmgt75rsmgua6aojhpp6crjg1opuhvo.apps.googleusercontent.com";
+
+	@Inject
+	LiquidoConfig config;
+
+	@Inject
+	JwtTokenUtils jwtTokenUtils;
+
+	@Query
+	@Description("Google OneTap login. The passed IdToken will be validated as JWT. If successfull standard LIQUIDO login info will be returned. This contains a LIQUIDO custom JWT. (Which is not the google IdToken!)")
+	@PermitAll
+	public TeamDataResponse googleOneTapLogin(
+			@Name("googleIdToken") @Description("The idToken that was returned by Google oneTapLogin throug our SPA") String googleIdToken
+	) throws LiquidoException {
+		HttpTransport transport = new NetHttpTransport();
+		GsonFactory jsonFactory = GsonFactory.getDefaultInstance();
+		GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(transport, jsonFactory)
+				.setAudience(Collections.singletonList(config.googleClientId()))
+				.build();
+
+		GoogleIdToken idToken = null;
+		try {
+			idToken = verifier.verify(googleIdToken);
+		} catch (GeneralSecurityException sece) {
+			throw new LiquidoException(LiquidoException.Errors.CANNOT_LOGIN_GOOGLE_IDTOKEN_INVALID, "Cannot do Google OneTap login. Google idToken could not be validated", sece);
+		} catch (IOException io) {
+			throw new LiquidoException(LiquidoException.Errors.INTERNAL_ERROR, "Cannot do Google OneTap login. Cannot communicate with Google", io);
+		}
+		if (idToken == null)
+			throw new LiquidoException(LiquidoException.Errors.CANNOT_LOGIN_GOOGLE_IDTOKEN_INVALID, "Cannot do Google OneTap login. Google idtoken is not valid");
+
+		// googleIdToken is valid
+		GoogleIdToken.Payload payload = idToken.getPayload();
+
+		// Print user identifier. This ID is unique to each Google Account, making it suitable for
+		// use as a primary key during account lookup. Email is not a good choice because it can be
+		// changed by the user.
+		String userId = payload.getSubject();
+
+		// Get profile information from payload
+		String email = payload.getEmail();
+		boolean emailVerified = payload.getEmailVerified();
+		String name = (String) payload.get("name");
+		String pictureUrl = (String) payload.get("picture");
+		String locale = (String) payload.get("locale");
+		String familyName = (String) payload.get("family_name");
+		String givenName = (String) payload.get("given_name");
+
+		// Check if user has a verified email and already exists in our LIQUIDO DB
+		if (!emailVerified)
+				throw new LiquidoException(LiquidoException.Errors.CANNOT_LOGIN_EMAIL_NOT_FOUND, "Cannot Google OneTap Login. User's email is not verified by Google.");
+		UserEntity user = UserEntity.findByEmail(email)
+				.orElseThrow(LiquidoException.supplyAndLog(LiquidoException.Errors.CANNOT_LOGIN_EMAIL_NOT_FOUND, "Cannot Google OneTap login. Valid idToken, but email not found. User is not yet registred"));
+
+		if (user.picture == null) user.setPicture(pictureUrl);
+		log.info("Successful Google OneTap login: googleUserId={} googleEmail={}", userId, email);
+		return jwtTokenUtils.doLoginInternal(user, null);
+	}
+
+
+
+	/**
+	 * Google Oauth Authorization Code Flow
+	 * This is the version of the flow where our backend is the authorization server. It completely handles the Oauth flow.
+	 * Even the Oauth code is never exposed to the frontend
+	 * For this flow the redirect_uri
+	 * @param code The oauth code that will be exchanged to an access_code and refresh_code
+	 * @return a LIQUIDO JWT
+
+	 THIS IS CURRENTLY NOT USED. We use googleOneTapLogin
+
 
 	@POST
-	@Path("/auth/google")
+	@Path("/auth/googleCallback")
 	@Consumes(MediaType.APPLICATION_FORM_URLENCODED)
 	public Response handleGoogleCallback(@QueryParam("code") String code) {
-		log.info("received Google callback, code={}", code);
-		return Response.ok("received code").build();
-		/*
-
-		Exchange "code" for "access_token"
-		Validate
-		And the TODO: create my JWT response
-
+		log.debug("received Google callback, code={}", code);
 		try {
 			// Step 1: Exchange the authorization code for an access token and ID token
 			Client client = ClientBuilder.newClient();
@@ -59,13 +135,12 @@ public class GoogleLogin {
 			e.printStackTrace();
 			return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Error during OAuth flow").build();
 		}
-		*/
+
 	}
 
-	private boolean isValidIDToken(String idToken) {
-		// Logic to validate the ID token with Google (e.g., using Google's OAuth2 client libraries)    => See below
-		return true; // Return true for now as a placeholder
-	}
+	*/
+
+
 
 	/*
 	@POST

@@ -107,7 +107,7 @@ public class JwtTokenUtils {
 		user.persist();
 		log.debug("LOGIN " + user.toStringShort() + " into team '" + team.getTeamName() + "'");
 		String jwt = generateToken(user.email, team.id, team.isAdmin(user));
-		// MUST programatically login user, because we already need it to create TeamDataResponse.poll.proposal.isCreatedByCurrentUser
+		// MUST programmatically log in the user, because we already need it to create TeamDataResponse.poll.proposal.isCreatedByCurrentUser
 		setCurrentUserAndTeam(user, team);
 		//TODO: authenticateInSecurityContext(user.getId(), team.getId(), jwt);
 		return new TeamDataResponse(team, user, jwt);
