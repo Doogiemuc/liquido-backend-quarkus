@@ -4,6 +4,7 @@ import io.smallrye.config.ConfigMapping;
 import io.smallrye.config.WithDefault;
 import io.smallrye.config.WithName;
 import jakarta.validation.constraints.NotNull;
+import lombok.NonNull;
 
 import java.util.Optional;
 
@@ -31,6 +32,9 @@ public interface LiquidoConfig {
     @WithDefault("20")
     int voterTokenExpirationMinutes();
 
+		@NonNull
+		String googleClientId();
+
     @NotNull
     String hashSecret();  // the secret only know to the server that is used to create rightToVote tokens
 
@@ -46,8 +50,8 @@ public interface LiquidoConfig {
 		}
 		*/
 
-		// used to do a real cypress E2E test of the password reset process (This CANNOT be used in PROD!)
-		@WithName("testPasswordResetToken")
+		// (optional) token that is used in cypress E2E test to automatically test the full the password reset process (This CANNOT be used in PROD!)
+		@WithName("test-password-reset-token")
     Optional<String> testPasswordResetTokenOpt();
 
 		@WithDefault("10")
