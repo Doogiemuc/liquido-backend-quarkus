@@ -69,7 +69,7 @@ public class LiquidoException extends Exception {
 
 	/**
 	 * These codes are pretty fine-grained. The idea here is that the client can show
-	 * usefull and localized messages to a human depending on these codes.
+	 * useful and localized messages to a human depending on these codes.
 	 */
 	public enum Errors {
 		CANNOT_REGISTER_NEED_EMAIL(1, Response.Status.BAD_REQUEST),
@@ -78,6 +78,7 @@ public class LiquidoException extends Exception {
 		// Create New Team
 		TEAM_WITH_SAME_NAME_EXISTS(10, Response.Status.CONFLICT),
 		CANNOT_CREATE_TEAM_ALREADY_REGISTERED(11, Response.Status.CONFLICT),      // Edge case: When a user is already registered and want's to create a team, ...
+
 		// Join a team
 		CANNOT_JOIN_TEAM_INVITE_CODE_INVALID(12, Response.Status.BAD_REQUEST),
 		CANNOT_JOIN_TEAM_ALREADY_MEMBER(13, Response.Status.CONFLICT),            // there already is a member (or admin) with the same email or mobilephone
@@ -91,16 +92,19 @@ public class LiquidoException extends Exception {
 		CANNOT_LOGIN_MOBILE_NOT_FOUND(20, Response.Status.UNAUTHORIZED),       		// when requesting an SMS login token and mobile number is not known
 		CANNOT_LOGIN_EMAIL_NOT_FOUND(21, Response.Status.UNAUTHORIZED),          	// when requesting a login email and email is not known
 		CANNOT_LOGIN_TOKEN_INVALID(22, Response.Status.UNAUTHORIZED),            	// when an email or sms login token is invalid or expired
-		CANNOT_LOGIN_GOOGLE_IDTOKEN_INVALID(23, Response.Status.UNAUTHORIZED),
-		CANNOT_LOGIN_TEAM_NOT_FOUND(24, Response.Status.UNAUTHORIZED),           	// when changing team
-		CANNOT_LOGIN_USER_NOT_MEMBER_OF_TEAM(25, Response.Status.UNAUTHORIZED),  	// when changing team and user is not member or admin of target team
-		CANNOT_LOGIN_INTERNAL_ERROR(26, Response.Status.INTERNAL_SERVER_ERROR),  	// when sending of email is not possible
-		CANNOT_REQUEST_SMS_TOKEN(27, Response.Status.UNAUTHORIZED),              	// when entered mobile number is not valid
-		WONT_RESET_PASSWORD(28, Response.Status.UNAUTHORIZED),										// Someone requested a password reset for a non-registered email. But don't expose that. Return just a generic error
+		CANNOT_LOGIN_TEAM_NOT_FOUND(23, Response.Status.UNAUTHORIZED),           	// when changing team
+		CANNOT_LOGIN_USER_NOT_MEMBER_OF_TEAM(24, Response.Status.UNAUTHORIZED),  	// when user is not member or admin of team, used during login or change team
+		CANNOT_LOGIN_INTERNAL_ERROR(25, Response.Status.INTERNAL_SERVER_ERROR),  	// when sending of email is not possible
+		CANNOT_REQUEST_SMS_TOKEN(26, Response.Status.UNAUTHORIZED),              	// when entered mobile number is not valid
+		WONT_RESET_PASSWORD(27, Response.Status.UNAUTHORIZED),										// Someone requested a password reset for a non-registered email. But don't expose that. Return just a generic error
+
+		// Google One Tap Login
+		GOOGLE_LOGIN_GOOGLE_IDTOKEN_INVALID(30, Response.Status.UNAUTHORIZED),
+		GOOGLE_LOGIN_GOOGLE_MUST_REGISTER(31, Response.Status.ACCEPTED),					// HTTP 202 accepted - user needs to register (create or join a tema)   I love unknown HTTP status codes :-)
 
 		//JWT Errors  // these are now handled by Quarkus
-		JWT_TOKEN_INVALID(30, Response.Status.UNAUTHORIZED),
-		JWT_TOKEN_EXPIRED(31, Response.Status.UNAUTHORIZED),
+		JWT_TOKEN_INVALID(40, Response.Status.UNAUTHORIZED),
+		JWT_TOKEN_EXPIRED(41, Response.Status.UNAUTHORIZED),
 
 		// use case errors
 		INVALID_VOTER_TOKEN(50, Response.Status.UNAUTHORIZED),
@@ -129,7 +133,9 @@ public class LiquidoException extends Exception {
 		CANNOT_FIND_ENTITY(404, Response.Status.NOT_FOUND),                  // 404: cannot find entity
 		INTERNAL_ERROR(500, Response.Status.INTERNAL_SERVER_ERROR);
 
+		@Getter
 		final int liquidoErrorCode;
+
 		final Response.Status httpResponseStatus;
 
 		Errors(int code, Response.Status httpResponseStatus) {
@@ -137,14 +143,9 @@ public class LiquidoException extends Exception {
 			this.httpResponseStatus = httpResponseStatus;
 		}
 
-		int getLiquidoErrorCode() {
-			return this.liquidoErrorCode;
-		}
-
 		Response.Status getHttpResponseStatus() {
 			return this.httpResponseStatus;
 		}
-
 	}
 
 	/**
@@ -188,7 +189,7 @@ public class LiquidoException extends Exception {
 	 * Supply an exception. This can be used in Optional methods, e.g.
 	 * <pre>Optional.orElseThrow(LiquidoException.supply(LiquidoException.SOME_NAME, "Some message"))</pre>
 	 * @param error Liquido Error Code
-	 * @param msg Humand-readable error message
+	 * @param msg Human-readable error message
 	 * @return a Supplier for the LiquidoException
 	 */
 	public static Supplier<LiquidoException> supply(Errors error, String msg) {

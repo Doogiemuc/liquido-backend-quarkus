@@ -51,10 +51,13 @@ public class Liquido {
 	@ConfigProperty(name="quarkus.http.ssl-port")
 	int sslPort;
 
+	@ConfigProperty(name="quarkus.http.cors.origins")
+	String corsAllowOrigins;
+
 	/**
 	 * This is called when app has started.
 	 * Here we output as much debugging data as possible.
-	 * And we also sanity check the connection to and content of our DB.
+	 * And we also sanity check the connection to our DB.
 	 */
 	void onStart(@Observes StartupEvent ev) {
 		System.out.println("============ STARTING LIQUIDO ==================");
@@ -64,7 +67,7 @@ public class Liquido {
 		System.out.println("   Backend             : http://" + host + ":" + port);
 		System.out.println("   Backend (TLS)       : https://" + host + ":" + sslPort);
 		System.out.println("   LIQUIDO API version : " + config.apiVersion());
-
+		System.out.println("   CORS allow origins  : " + corsAllowOrigins);
 
 		System.out.println("============= DB INFO ===============");
 		System.out.println("   DB Generation       : " + databaseGeneration);

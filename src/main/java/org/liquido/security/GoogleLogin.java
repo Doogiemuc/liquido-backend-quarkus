@@ -35,10 +35,10 @@ public class GoogleLogin {
 	JwtTokenUtils jwtTokenUtils;
 
 	@Query
-	@Description("Google OneTap login. The passed IdToken will be validated as JWT. If successfull standard LIQUIDO login info will be returned. This contains a LIQUIDO custom JWT. (Which is not the google IdToken!)")
+	@Description("Google OneTap login: This callback method is called by the google server after a google user successfully authenticates in the google one tap login screen. The passed google-IdToken will then be validated here. If successful and user is already registered in LIQUIDO, then a standard LIQUIDO TeamDataResponse will be returned. This contains a custom LIQUIDO JWT. Which is different from the google-IdToken. We have our own sessions!")
 	@PermitAll
 	public TeamDataResponse googleOneTapLogin(
-			@Name("googleIdToken") @Description("The idToken that was returned by Google oneTapLogin throug our SPA") String googleIdToken
+			@Name("googleIdToken") @Description("The idToken that was returned by Google oneTapLogin through our SPA") String googleIdToken
 	) throws LiquidoException {
 		HttpTransport transport = new NetHttpTransport();
 		GsonFactory jsonFactory = GsonFactory.getDefaultInstance();
@@ -50,17 +50,17 @@ public class GoogleLogin {
 		try {
 			idToken = verifier.verify(googleIdToken);
 		} catch (GeneralSecurityException sece) {
-			throw new LiquidoException(LiquidoException.Errors.CANNOT_LOGIN_GOOGLE_IDTOKEN_INVALID, "Cannot do Google OneTap login. Google idToken could not be validated", sece);
+			throw new LiquidoException(LiquidoException.Errors.GOOGLE_LOGIN_GOOGLE_IDTOKEN_INVALID, "Cannot do Google OneTap login. Google idToken could not be validated", sece);
 		} catch (IOException io) {
 			throw new LiquidoException(LiquidoException.Errors.INTERNAL_ERROR, "Cannot do Google OneTap login. Cannot communicate with Google", io);
 		}
 		if (idToken == null)
-			throw new LiquidoException(LiquidoException.Errors.CANNOT_LOGIN_GOOGLE_IDTOKEN_INVALID, "Cannot do Google OneTap login. Google idtoken is not valid");
+			throw new LiquidoException(LiquidoException.Errors.GOOGLE_LOGIN_GOOGLE_IDTOKEN_INVALID, "Cannot do Google OneTap login. Google idtoken is not valid");
 
 		// googleIdToken is valid
 		GoogleIdToken.Payload payload = idToken.getPayload();
 
-		// Print user identifier. This ID is unique to each Google Account, making it suitable for
+		// This userId is unique to each Google Account, making it suitable for
 		// use as a primary key during account lookup. Email is not a good choice because it can be
 		// changed by the user.
 		String userId = payload.getSubject();
@@ -68,19 +68,23 @@ public class GoogleLogin {
 		// Get profile information from payload
 		String email = payload.getEmail();
 		boolean emailVerified = payload.getEmailVerified();
+		if (!emailVerified)
+			throw new LiquidoException(LiquidoException.Errors.CANNOT_LOGIN_EMAIL_NOT_FOUND, "Cannot Google OneTap Login. User's email is not verified by Google.");
+
 		String name = (String) payload.get("name");
 		String pictureUrl = (String) payload.get("picture");
 		String locale = (String) payload.get("locale");
 		String familyName = (String) payload.get("family_name");
 		String givenName = (String) payload.get("given_name");
 
-		// Check if user has a verified email and already exists in our LIQUIDO DB
-		if (!emailVerified)
-				throw new LiquidoException(LiquidoException.Errors.CANNOT_LOGIN_EMAIL_NOT_FOUND, "Cannot Google OneTap Login. User's email is not verified by Google.");
+		// If user is not registered yet, then he can start a new team or join a team.
 		UserEntity user = UserEntity.findByEmail(email)
-				.orElseThrow(LiquidoException.supplyAndLog(LiquidoException.Errors.CANNOT_LOGIN_EMAIL_NOT_FOUND, "Cannot Google OneTap login. Valid idToken, but email not found. User is not yet registred"));
+				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.GOOGLE_LOGIN_GOOGLE_MUST_REGISTER, "Google OneTap Login ok. But user must register first."));
 
-		if (user.picture == null) user.setPicture(pictureUrl);
+		if (user.picture == null) {
+			user.setPicture(pictureUrl);
+			user.persist();
+		}
 		log.info("Successful Google OneTap login: googleUserId={} googleEmail={}", userId, email);
 		return jwtTokenUtils.doLoginInternal(user, null);
 	}
