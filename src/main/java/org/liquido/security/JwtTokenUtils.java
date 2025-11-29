@@ -92,7 +92,7 @@ public class JwtTokenUtils {
 			List<TeamEntity> teams = TeamMemberEntity.findTeamsByMember(user);
 			if (teams.isEmpty()) {
 				log.warn("User ist not member of any team. This should not happen: " + user);
-				throw new LiquidoException(LiquidoException.Errors.UNAUTHORIZED, "Cannot login. User is not member of any team " + user);
+				throw new LiquidoException(LiquidoException.Errors.CANNOT_LOGIN_USER_NOT_MEMBER_OF_TEAM, "Cannot login. User is not member of any team " + user);
 			} else if (teams.size() == 1) {
 				team = teams.get(0);
 			} else {
@@ -100,7 +100,7 @@ public class JwtTokenUtils {
 			}
 		}
 		if (team.getMemberByEmail(user.email, null).isEmpty()) {
-			throw new LiquidoException(LiquidoException.Errors.UNAUTHORIZED, "Cannot login. User is not member of this team! " + user);
+			throw new LiquidoException(LiquidoException.Errors.CANNOT_LOGIN_USER_NOT_MEMBER_OF_TEAM, "Cannot login. User is not member of this team! " + user);
 		}
 		user.setLastLogin(LocalDateTime.now());
 		user.setLastTeamId(team.getId());
