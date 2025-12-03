@@ -232,7 +232,7 @@ public class LiquidoTestUtils {
 
 		CastVoteResponse castVoteResponse = sendGraphQL(castVoteQuery, castVoteVars)  // anonymous! no JWT!
 				.log().all()
-				.body("data.castVote.ballot.checksum", TestDataCreator.IsString.lengthAtLeast(5))  // allOf(IsInstanceOf.any(String.class), is(not(emptyString())))
+				.body("data.castVote.ballot.checksum", matchesRegex("[a-zA-Z0-9]{5,}"))  // or with hamcrest, but would need custom matcher to check min length of string: allOf(IsInstanceOf.any(String.class), is(not(emptyString())))
 				.extract().jsonPath().getObject("data.castVote", CastVoteResponse.class);
 
 		List<Long> returnedVoteOrderIds = castVoteResponse.getBallot().getVoteOrder().stream().map(BaseEntity::getId).toList();

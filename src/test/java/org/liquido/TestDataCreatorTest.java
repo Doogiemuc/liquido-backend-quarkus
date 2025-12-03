@@ -9,8 +9,6 @@ import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.hamcrest.Description;
-import org.hamcrest.TypeSafeMatcher;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.liquido.delegation.DelegationEntity;
@@ -50,7 +48,7 @@ import static org.liquido.TestFixtures.*;
 @Slf4j
 @Disabled   // <<<<<<==== DO NOT run during regular maven build. Only manually on request
 @QuarkusTest
-public class TestDataCreator {
+public class TestDataCreatorTest {
 
 	@Inject
 	AgroalDataSource dataSource;
@@ -167,6 +165,7 @@ public class TestDataCreator {
 	}
 
 
+	/*
 	static class IsString extends TypeSafeMatcher<String> {
 		int minLength = 0;
 		public IsString(int minLength) {
@@ -188,6 +187,8 @@ public class TestDataCreator {
 			return new IsString(minLength);
 		}
 	}
+
+	 */
 
 
 	@ConfigProperty(name = "quarkus.datasource.db-kind")

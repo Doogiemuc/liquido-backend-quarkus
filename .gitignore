@@ -53,3 +53,5 @@ application-prod.yml
 /config/application-*.properties
 /import-testData.sql
 /createLiquidoDbSchema.sql
+/LiquidoExceptionCodes.js
+/liquido-testData.sql
