@@ -91,16 +91,19 @@ public class BallotEntity extends PanacheEntity {
 	public RightToVoteEntity rightToVote;
 
 	/**
-	 * The MD5 checksum of a ballot uniquely identifies this ballot.
+	 * The checksum of a ballot uniquely identifies this ballot.
 	 * The checksum is calculated from the voteOrder, poll.hashCode and rightToVote.hash.
 	 * It deliberately does not depend on level or rightToVote.delegatedTo !
 	 */
 	public String checksum;
 
+	/**
+	 * This automatically calculates the checksum when the ballot is saved.
+	 */
 	@PostUpdate
 	@PrePersist
-	public void calcMD5Checksum() {
-		this.checksum = DigestUtils.md5Hex(
+	public void calcSha256Checksum() {
+		this.checksum = DigestUtils.sha3_256Hex(
 				// Cannot include this.ID in checksum. It's not present when saving a new Ballot!
 				this.getVoteOrder().hashCode() +
 						this.getPoll().hashCode() +
