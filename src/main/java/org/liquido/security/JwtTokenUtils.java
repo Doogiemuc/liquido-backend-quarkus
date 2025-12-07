@@ -32,7 +32,9 @@ public class JwtTokenUtils {
 	// https://quarkus.io/guides/security-architecture-concept
 	// https://quarkus.io/guides/security-jwt
 
-	public static final String LIQUIDO_ISSUER = "https://www.LIQUIDO.vote";
+	// This MUST match "mp.jwt.verify.issuer" in application.properties!
+	public static final String LIQUIDO_ISSUER = "https://liquido.vote";
+
 	public static final String LIQUIDO_USER_ROLE = "LIQUIDO_USER";    // Everyone is a user (also members)
 	public static final String LIQUIDO_ADMIN_ROLE = "LIQUIDO_ADMIN";  // but only some are admins!
 
@@ -56,7 +58,7 @@ public class JwtTokenUtils {
 		return Jwt
 				.subject(email)
 				//.upn("upn@liquido.vote")  // if upn is set, this will be used instead of subject   see JWTCallerPrincipal.getName()
-				.issuer(LIQUIDO_ISSUER)
+				.issuer(LIQUIDO_ISSUER)     // this is important. It will be verified by quarkus-security
 				.groups(groups)
 				.claim(TEAM_ID_CLAIM, String.valueOf(teamId))  // better put strings into claims
 				.expiresIn(config.jwt().expirationSecs())

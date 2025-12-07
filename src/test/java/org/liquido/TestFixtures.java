@@ -99,7 +99,7 @@ public class TestFixtures {
 					.body(body)
 					.when()
 					.post(TestFixtures.GRAPHQL_URI)
-					.then() //.log().all()
+					.then().log().all()
 					.statusCode(200)  // But be careful: GraphQL always returns 200, so we need to
 					.body("errors", DescribedAs.describedAs("no GraphQL errors returned from authenticated query: "+query, anyOf(nullValue(), hasSize(0))));    // check for no GraphQL errors: []
 		}
