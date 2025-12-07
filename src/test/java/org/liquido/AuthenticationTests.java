@@ -1,5 +1,7 @@
 package org.liquido;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.MockMailbox;
 import io.quarkus.test.TestTransaction;
@@ -19,6 +21,10 @@ import org.liquido.util.LiquidoConfig;
 import org.liquido.util.LiquidoException;
 import org.liquido.util.Lson;
 
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+import java.io.InputStream;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -116,13 +122,34 @@ public class AuthenticationTests {
 		assertEquals(teamData.user.email, user.email);
 	}
 
+
+	/**
+	 * Read the secret key that we need to sign JWTs
+	 */
+	private SecretKey loadHs256Key() throws Exception {
+		ObjectMapper mapper = new ObjectMapper();
+		InputStream resource = Thread.currentThread().getContextClassLoader()
+				.getResourceAsStream("liquidoJwtKey.json");
+
+		JsonNode root = mapper.readTree(resource);
+		String k = root.get("k").asText();  // base64url encoded key
+
+		// Base64URL decode → raw secret bytes
+		byte[] secret = Base64.getUrlDecoder().decode(k);
+
+		// Construct an HS256 key
+
+		return new SecretKeySpec(secret, "HmacSHA256");
+	}
+
 	/** Send a request authenticated with a JWT */
 	@Test
-	public void testAuthenticatedGraphQlRequest() throws LiquidoException {
+	public void testAuthenticatedGraphQlRequest() throws Exception {
 		// https://quarkus.io/guides/security-customization#registering-security-providers
 		// https://quarkus.io/guides/security-jwt#dealing-with-the-verification-keys
 
 		UserEntity user = util.getRandomUser();
+		SecretKey secretKey = loadHs256Key();
 		String jwt = Jwt
 				.subject(user.email)
 				//.upn("upn@liquido.vote")  // if upn is set, this will be used instead of subject   see JWTCallerPrincipal.getName()
@@ -130,7 +157,7 @@ public class AuthenticationTests {
 				.groups(Collections.singleton(JwtTokenUtils.LIQUIDO_USER_ROLE))  // role
 				//.expiresIn(9000)
 				//.jws().algorithm(SignatureAlgorithm.HS256)
-				.sign();
+				.sign(secretKey);
 
 		System.out.println("======= JWT: "+jwt);
 		String query = "{ requireUser }";

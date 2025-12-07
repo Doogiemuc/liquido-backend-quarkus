@@ -1,9 +1,6 @@
 {
-  "keys": [
-    {
-      "kty":"oct",
-      "kid":"secretKey",
-      "k":"AyM1SysPpbyDfgZld3umj1qzKObwVMkoqQ-EstJQLr_T-1qS0gasdasdf0iPS4hcgUuTwjAzZr1Z9CAow"
-    }
-  ]
+  "kty": "oct",
+  "use": "sig",
+  "kid": "liquido_key",
+  "k": "FVI-MHZ57fxzEtih7K_IiWnPjVmufJKx3b9wUUvdJvc"
 }
