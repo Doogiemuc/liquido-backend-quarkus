@@ -16,21 +16,13 @@ See also the LIQUIDO theses for a more in depth look into the theoretical backgr
  * 2025-05-24 Found drastic issue with RightToVote, when voting in more thant one poll!
  * 2025-07-10 Fixed issue with RightToVote by introducing a new VoterToken entity.
  * 2025-07-10 Worked on username password login in backend.
+ * 2025-12-21 Working on passwordless login via webauthn
 
 # Next TODOs
 
- * Native Build
- * Checkout all the //TODO annotations in the code 
- * Checkout Quarkus SimpleScheduler for cleanup operations in the background.
- * Fix bug so that user can vote more than once.  Ballot <-> Poll
- * Make sure that a "human" can only register once. (as good as this is technically feasable. -> mobile numbers?)
- * Prevent loops in delegation chain!
-
-
+ See todos.md
 
 # DATABASE
-
-### ORM Database mapping
 
 We use Quarkus-Panache
 https://quarkus.io/guides/hibernate-orm-panache
@@ -39,9 +31,9 @@ https://quarkus.io/guides/hibernate-orm-panache
 
 On Startup liquido checks for the most important tables. You **have to** create a DB schema first. 
 
-`applicaiton.properties`
+`application.properties`
 
-    quarkus.hibernate-orm.database.generation=drop-and-create  # BE CAREFULL WITH THIS!!!
+    quarkus.hibernate-orm.database.generation=drop-and-create  # BE CAREFULL WITH THIS!!! DO THIS ONLY ONCE!!!
 
 This will drop (delete) all tables in your DB and recreate the LIQUIDO schema.
 
@@ -60,12 +52,32 @@ future tests can then rely on this set of fixed test data.
 ### TSL (SSL)
 
 Create a self-signed SSL certificate:
-
+    
+    brew install mkcert
+    mkcert -install            # run once
+    mkcert liquido.local localhost 127.0.0.1 192.168.178.134  
+      or by hand
     openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout liquido-TLS-key.pem -out liquido-TLS-cert.pem
 
 Or you can also create a keystore that contains both keys:
 
     keytool -genkeypair -keyalg RSA -keysize 2048 -storetype PKCS12 -keystore liquido-keystore.p12 -validity 3650
+
+in frontend `vite.config.js`
+
+    const key = fs.readFileSync(path.resolve(__dirname, 'tls-certs/liquido.local+3-key.pem'), 'utf8');
+    const cert = fs.readFileSync(path.resolve(__dirname, 'tls-certs/liquido.local+3.pem'), 'utf8');
+    export default defineConfig({
+      server: {
+		https: {													// serve frontend over HTTPS. => but not on fly.io
+          key: key,
+          cert: cert
+		},			    
+		host: true, // "0.0.0.0",  				// "0.0.0.0" = listen on all adresses, incl. LAN and public adresses
+		port: 3001,
+		strictPort: true,    							// only use this port. Exit if not available
+		allowedHosts: ["localhost", "127.0.0.1"],
+     ...
 
 then add in `application.properties` and don't forget to adapt all URLs in frontend config files to https://....
 
@@ -76,7 +88,7 @@ then add in `application.properties` and don't forget to adapt all URLs in front
     # enabled, redirect or disabled(=only allow HTTPS requests)
     quarkus.http.insecure-requests=disabled
 
-There is a nice little server that automatically creates HTTPs/TLS certs:  https://caddyserver.com/
+Remark: There is also a nice little server that automatically creates HTTPs/TLS certs:  https://caddyserver.com/
 
 
 ### Oauth
@@ -85,17 +97,37 @@ Why I hate Oauth: https://news.ycombinator.com/item?id=35713518
 
 ### WebAuthn - Passwordless login
 
-In the end I used the quarkus plugin. After refactoring it for blocking DB access.
+WebAuthn is a standard with a browser side (navigator.credentials) and a server side (validation, challenge generation, credential storage). The workflow looks like this:
+
+Registration (attestation)
+1.	Client requests a registration challenge from the server.
+2.	Server generates a challenge and sends it along with user info to the client.
+3.	Client calls navigator.credentials.create() with the challenge. User/human being provides biometric data.
+4.	Client sends the result back to the server.
+5.	Server validates the attestation, stores the public key & credential ID.
+
+Login (assertion)
+1.	Client requests a login challenge from the server.
+2.	Server generates a challenge and sends it to the client.
+3.	Client calls navigator.credentials.get() with the challenge.
+4.	Client sends the assertion back to the server.
+5.	Server verifies the signature and logs the user in.
+
+I am using the quarkus-security-webauthn library. It uses webauthn4j under the hood.
 https://quarkus.io/guides/security-webauthn
 
-This lib also looks nice. Has a good article.
+This lib also looks nice, has better, more understandable documentation
 https://developers.yubico.com/java-webauthn-server/
 
 Nice easy simple sequence diagram for webauthn registration and authentication:
 https://passwordless.id/protocols/webauthn/2_registration
 
+Nice webpage with demo login
 https://webauthn.io
+Beautiful detailed technical explanations
 https://webauthn.guide
+Passkeys are a replacement for passwords. A password is something that can be remembered and typed, and a passkey is a secret stored on one’s devices, unlocked with biometrics.
+https://passkeys.dev/
 
 Nice funny written article
 https://medium.com/digitalfrontiers/webauthn-with-spring-security-c9175aae3e06
@@ -103,14 +135,12 @@ https://medium.com/digitalfrontiers/webauthn-with-spring-security-c9175aae3e06
 
 
 
-# Native Build
+# Docker Native Build
 
 FIXME:
 https://stackoverflow.com/questions/56871033/how-to-fix-org-apache-commons-logging-impl-logfactoryimpl-not-found-in-native
 
 ----
-
-
 
 # FURTHER LINKS & REFERENCES
 

@@ -1,7 +1,6 @@
 package org.liquido.util;
 
 import com.google.common.base.Strings;
-import io.quarkus.vertx.web.RouteFilter;
 import io.vertx.ext.web.RoutingContext;
 import lombok.extern.slf4j.Slf4j;
 
@@ -17,7 +16,7 @@ public class LiquidoRequestLogger {
 
 	AtomicLong requestCounter = new AtomicLong(0);
 
-	@RouteFilter(100)
+	//@RouteFilter(100)
 	void myLogFilter(RoutingContext ctx) {
     long now = System.currentTimeMillis() % 100000;
     long count = this.requestCounter.incrementAndGet();

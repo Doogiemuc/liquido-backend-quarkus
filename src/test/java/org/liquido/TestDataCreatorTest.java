@@ -9,7 +9,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.liquido.delegation.DelegationEntity;
 import org.liquido.model.BaseEntity;
@@ -46,7 +46,7 @@ import static org.liquido.TestFixtures.*;
  * </p>
  */
 @Slf4j
-@Disabled   // <<<<<<==== DO NOT run during regular maven build. Only manually on request
+@Tag("manual")   // <<<<<<==== DO NOT run during regular maven build. Only manually on request
 @QuarkusTest
 public class TestDataCreatorTest {
 
@@ -285,7 +285,6 @@ public class TestDataCreatorTest {
 		BallotEntity.deleteAll();
 		VoterTokenEntity.deleteAll();
 		RightToVoteEntity.deleteAll();
-		OneTimeToken.deleteAll();
 
 		entityManager.flush();
 
@@ -302,7 +301,7 @@ public class TestDataCreatorTest {
 		TeamMemberEntity.deleteAll();
 		TeamEntity.deleteAll();
 		UserEntity.deleteAll();
-
+		OneTimeToken.deleteAll();
 	}
 
 }

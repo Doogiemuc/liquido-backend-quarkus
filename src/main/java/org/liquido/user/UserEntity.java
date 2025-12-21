@@ -1,8 +1,7 @@
 package org.liquido.user;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
+import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -12,9 +11,12 @@ import org.eclipse.microprofile.graphql.DefaultValue;
 import org.eclipse.microprofile.graphql.Ignore;
 import org.liquido.model.BaseEntity;
 import org.liquido.security.PasswordServiceBcrypt;
+import org.liquido.security.webauthn.WebAuthnCredential;
 import org.liquido.util.DoogiesUtil;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -127,18 +129,18 @@ public class UserEntity extends BaseEntity {
 
 	/*
 	 * Passwordless authentication with FaceID, fingerprint or hardware token.
-	@OneToOne
+	 */
+	@OneToMany(mappedBy = "liquidoUser", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
 	@Ignore  //SECURITY IMPORTANT: ignore in GraphQL and JSON
 	@JsonIgnore
-	public WebAuthnCredential webAuthnCredential;
-	*/
+	public List<WebAuthnCredential> webAuthnCredentials = new ArrayList<>();
 
 
 	// ====================== Getters and setters (only where logic is necessary)  ===================
 
 	/** Email will always be stored in lowercase. This will be handled by quarkus-panache. */
 	public void setEmail(String email) {
-		if (email == null || email.trim().length() == 0) throw new RuntimeException("A user's email must not be null!");
+		if (email == null || email.trim().isEmpty()) throw new RuntimeException("A user's email must not be null!");
 		this.email = email.toLowerCase();
 	}
 
@@ -161,22 +163,22 @@ public class UserEntity extends BaseEntity {
 
 	@Override
   public String toString() {
-  	StringBuffer buf = new StringBuffer();
+  	StringBuilder buf = new StringBuilder();
     buf.append("UserModel[");
-		buf.append("id=" + id);
-		buf.append(", email='" + email + '\'');
-		buf.append(", name='" + name + '\'');
-		buf.append(", mobilephone=" + mobilephone);
-		buf.append(", picture=" + picture);
+		buf.append("id=").append(id);
+		buf.append(", email='").append(email).append('\'');
+		buf.append(", name='").append(name).append('\'');
+		buf.append(", mobilephone=").append(mobilephone);
+		buf.append(", picture=").append(picture);
 		buf.append(']');
 		return buf.toString();
   }
 
   public String toStringShort() {
-		StringBuffer buf = new StringBuffer();
+		StringBuilder buf = new StringBuilder();
 		buf.append("UserModel[");
-		buf.append("id=" + id);
-		buf.append(", email='" + email + '\'');
+		buf.append("id=").append(id);
+		buf.append(", email='").append(email).append('\'');
 		buf.append(']');
 		return buf.toString();
 	}

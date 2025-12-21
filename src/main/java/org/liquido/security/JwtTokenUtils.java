@@ -117,7 +117,7 @@ public class JwtTokenUtils {
 
 
 	/**
-	 * Get the currently logged-in user.
+	 * Get the currently logged-in liquido user.
 	 * The UserEntity will lazily be loaded the first time you call this
 	 * and then cached for succeeding calls.
 	 * @return Optional.of(UserEntity) or Optional.empty() if not logged in
