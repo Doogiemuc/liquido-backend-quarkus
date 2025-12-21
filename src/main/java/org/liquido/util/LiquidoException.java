@@ -56,6 +56,10 @@ import java.util.function.Supplier;
 @Slf4j
 public class LiquidoException extends Exception {
 
+	// There are several places with Java classes for HTTP error codes, e.g. jakarta.ws.rs.*
+	// But LiquidoException is something different. It's not just an HTTP error. It's a business exception
+	// with a lot more liquido related infos.
+
 	/** LIQUIDO error code */
 	@Getter
 	Errors error;
@@ -72,6 +76,7 @@ public class LiquidoException extends Exception {
 	 * useful and localized messages to a human depending on these codes.
 	 */
 	public enum Errors {
+		// Register as a new user
 		CANNOT_REGISTER_NEED_EMAIL(1, Response.Status.BAD_REQUEST),
 		CANNOT_REGISTER_NEED_MOBILEPHONE(2, Response.Status.BAD_REQUEST),
 
@@ -143,7 +148,7 @@ public class LiquidoException extends Exception {
 			this.httpResponseStatus = httpResponseStatus;
 		}
 
-		Response.Status getHttpResponseStatus() {
+		public Response.Status getHttpResponseStatus() {
 			return this.httpResponseStatus;
 		}
 	}
