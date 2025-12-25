@@ -9,7 +9,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.graphql.NonNull;
 import org.liquido.delegation.DelegationEntity;
-import org.liquido.model.BaseEntity;
+import org.liquido.model.LiquidoBaseEntity;
 import org.liquido.security.JwtTokenUtils;
 import org.liquido.team.TeamEntity;
 import org.liquido.user.UserEntity;
@@ -262,11 +262,11 @@ public class PollService {
 			throw new LiquidoException(LiquidoException.Errors.CANNOT_FINISH_POLL, "Poll must be in status finished to calcDuelMatrix!");
 
 		// Ordered list of proposal IDs in poll.  (Keep in mind that the proposal in a poll are not ordered.)
-		List<Long> allIds = poll.getProposals().stream().map(BaseEntity::getId).collect(Collectors.toList());
+		List<Long> allIds = poll.getProposals().stream().map(LiquidoBaseEntity::getId).collect(Collectors.toList());
 
 		// map the vote order of each ballot to a List of ids
 		List<List<Long>> idsInBallots = ballots.stream().map(
-				ballot -> ballot.getVoteOrder().stream().map(BaseEntity::getId).collect(Collectors.toList())
+				ballot -> ballot.getVoteOrder().stream().map(LiquidoBaseEntity::getId).collect(Collectors.toList())
 		).collect(Collectors.toList());
 
 		// wizardry mathematical magic :-)

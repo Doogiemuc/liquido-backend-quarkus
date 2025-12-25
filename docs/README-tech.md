@@ -55,18 +55,24 @@ Create a self-signed SSL certificate:
     
     brew install mkcert
     mkcert -install            # run once
+    #TODO:  How to set better common name with mkcert? 
+    #TODO:  On Mac: Add this cert to your local keystore and mark it as "always trust"
     mkcert liquido.local localhost 127.0.0.1 192.168.178.134  
       or by hand
-    openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout liquido-TLS-key.pem -out liquido-TLS-cert.pem
+    openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout liquido-vote-key.pem -out liquido-vote-cert.pem
 
 Or you can also create a keystore that contains both keys:
 
     keytool -genkeypair -keyalg RSA -keysize 2048 -storetype PKCS12 -keystore liquido-keystore.p12 -validity 3650
 
+Check your certs with
+
+    openssl x509 -in ./liquido-vote-cert.pem -text -noout
+
 in frontend `vite.config.js`
 
-    const key = fs.readFileSync(path.resolve(__dirname, 'tls-certs/liquido.local+3-key.pem'), 'utf8');
-    const cert = fs.readFileSync(path.resolve(__dirname, 'tls-certs/liquido.local+3.pem'), 'utf8');
+    const key = fs.readFileSync(path.resolve(__dirname, 'tls-certs/liquido-local-key.pem'), 'utf8');
+    const cert = fs.readFileSync(path.resolve(__dirname, 'tls-certs/liquido-local-cert.pem'), 'utf8');
     export default defineConfig({
       server: {
 		https: {													// serve frontend over HTTPS. => but not on fly.io
@@ -81,14 +87,14 @@ in frontend `vite.config.js`
 
 then add in `application.properties` and don't forget to adapt all URLs in frontend config files to https://....
 
-    # TLS certificates for encrypted HTTPS connection
-    quarkus.http.ssl.certificate.file=/path/cert.pem
-    quarkus.http.ssl.certificate.key-file=/path/key.pem
+    # TLS certificates for encrypted HTTPS connection. Must use path for "mvn quarkus:dev" !
+    quarkus.http.ssl.certificate.files=src/main/resources/liquido-local-cert.pem
+    quarkus.http.ssl.certificate.key-files=src/main/resources/liquido-local-key.pem
     
     # enabled, redirect or disabled(=only allow HTTPS requests)
     quarkus.http.insecure-requests=disabled
 
-Remark: There is also a nice little server that automatically creates HTTPs/TLS certs:  https://caddyserver.com/
+Remark: There would also be a nice little server that automatically creates HTTPs/TLS certs:  https://caddyserver.com/
 
 
 ### Oauth

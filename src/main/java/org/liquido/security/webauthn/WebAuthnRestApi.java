@@ -9,6 +9,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
+import jakarta.transaction.Transactional;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import lombok.extern.slf4j.Slf4j;
@@ -62,13 +63,13 @@ public class WebAuthnRestApi {
 		 * @return 2FA registration options as JSON (challenge, rp, user, pubKeyCredParams)
 		 */
     @GET
-    @Path("/register/options")
+    @Path("/register-options-challenge")
     @RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
     @Blocking // This method performs a blocking calls
     public String registerOptions(RoutingContext ctx) throws LiquidoException {
         UserEntity currentUser = jwtTokenUtils.getCurrentUser()
                 .orElseThrow(LiquidoException.supply(Errors.UNAUTHORIZED, "You must be logged in to get WebAuthn registration options."));
-			log.info("============ WebAuthN GET /register/options for "+currentUser.toStringShort());
+			log.info("============ WebAuthN GET /register-options-challenge for "+currentUser.toStringShort());
 			PublicKeyCredentialCreationOptions creationOptions = webAuthnSecurity.getRegisterChallenge(currentUser.email, currentUser.name, ctx).await().indefinitely();
 			//log.info(creationOptions.toString());
 			return webAuthnSecurity.toJsonString(creationOptions);		//BUGFIX: Must use JSON serialization from  com.webauthn4j.converter.jackson.WebAuthnJSONModule
@@ -88,6 +89,7 @@ public class WebAuthnRestApi {
     @Path("/register")
     @RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
     @Blocking // This method performs a blocking DB call via getCurrentUser() and persist()
+		@Transactional
     public Uni<UserEntity> register(JsonObject webAuthnRegisterData, RoutingContext ctx) throws LiquidoException {
 			UserEntity currentUser = jwtTokenUtils.getCurrentUser()
 					.orElseThrow(LiquidoException.supply(Errors.UNAUTHORIZED, "You must be logged in to add a WebAuthn credential."));
@@ -116,11 +118,12 @@ public class WebAuthnRestApi {
      * @return 2FA authentication options.
      */
     @GET
-    @Path("/authenticate/options")
+    @Path("/login-options-challenge")
     public Uni<PublicKeyCredentialRequestOptions> authenticateOptions(@QueryParam("email") String email, RoutingContext ctx) {
         if (email == null || email.isBlank()) {
             throw new BadRequestException("Email must be provided");
         }
+				log.info("======== WebAuthN POST login-options-challenge new authenticator for {}", email);
         return webAuthnSecurity.getLoginChallenge(email, ctx);
     }
 
@@ -131,11 +134,11 @@ public class WebAuthnRestApi {
      * @param webAuthnLoginData The assertion data from the browser.
      * @param ctx Vert.x RoutingContext
      * @return A TeamDataResponse containing the user, team, and a new JWT.
-     * @throws LiquidoException if authentication fails.
-     */
+		 */
     @POST
-    @Path("/authenticate")
+    @Path("/login")
     public Uni<TeamDataResponse> authenticate(JsonObject webAuthnLoginData, RoutingContext ctx) {
+				log.info("======== WebAuthN POST /login");
         // The final part of the login (finding user, generating JWT) is blocking.
         // We run the transformation on a worker thread to avoid blocking the I/O thread.
         return webAuthnSecurity.login(webAuthnLoginData, ctx)

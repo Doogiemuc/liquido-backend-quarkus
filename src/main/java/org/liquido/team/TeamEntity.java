@@ -10,7 +10,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
-import org.liquido.model.BaseEntity;
+import org.liquido.model.LiquidoBaseEntity;
 import org.liquido.poll.PollEntity;
 import org.liquido.user.UserEntity;
 import org.liquido.util.DoogiesUtil;
@@ -29,7 +29,7 @@ import java.util.Set;
 @NoArgsConstructor(force = true)                              // Lombok's Data does NOT include a default no args constructor!
 @EqualsAndHashCode(of={"teamName"}, callSuper = true)    			// Compare teams by their teamName and the DB ID.
 @Entity(name = "teams")
-public class TeamEntity extends BaseEntity {
+public class TeamEntity extends LiquidoBaseEntity {
 
 	//ID field is already defined in PanacheEntity
 

@@ -6,7 +6,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
-import org.liquido.model.BaseEntity;
+import org.liquido.model.LiquidoBaseEntity;
 import org.liquido.poll.PollEntity;
 import org.liquido.poll.ProposalEntity;
 import org.liquido.team.TeamDataResponse;
@@ -37,7 +37,6 @@ public class LiquidoTestUtils {
 	Random rand = new Random();
 
 	// ========= Create and join team (via GraphQl) ==============
-
 
 	public TeamDataResponse createTeam(String teamName, String adminEmail, int numMembers) {
 		if (teamName == null) teamName = "TestTeam" + now;
@@ -235,7 +234,7 @@ public class LiquidoTestUtils {
 				.body("data.castVote.ballot.checksum", matchesRegex("[a-zA-Z0-9]{5,}"))  // or with hamcrest, but would need custom matcher to check min length of string: allOf(IsInstanceOf.any(String.class), is(not(emptyString())))
 				.extract().jsonPath().getObject("data.castVote", CastVoteResponse.class);
 
-		List<Long> returnedVoteOrderIds = castVoteResponse.getBallot().getVoteOrder().stream().map(BaseEntity::getId).toList();
+		List<Long> returnedVoteOrderIds = castVoteResponse.getBallot().getVoteOrder().stream().map(LiquidoBaseEntity::getId).toList();
 		assert returnedVoteOrderIds.equals(voteOrderIds) : "vote did not return same list of voteOrderIDs";
 
 		return castVoteResponse;

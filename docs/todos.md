@@ -1,5 +1,8 @@
 # These are the next todos I am planning for LIQUIDO
 
+
+ * io.quarkus.vault.VaultTOTPSecretEngine    https://www.the-main-thread.com/p/secure-java-api-totp-quarkus-vault
+
  * Update to Quarkus v3.30.x - or can I stay with the v27.0.0 LTS = long-term-support(!) https://github.com/quarkusio/quarkus/wiki/Migration-Guide-3.30
  * Native Build of docker container (started)
  * Checkout all the //TODO annotations in the code
