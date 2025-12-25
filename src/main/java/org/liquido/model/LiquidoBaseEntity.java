@@ -27,7 +27,7 @@ import java.time.LocalDateTime;
  */
 //@EqualsAndHashCode(onlyExplicitlyIncluded = true, callSuper = true)  // This also works. In the same way as the code below. But I don't want to rely on super.equals()
 @MappedSuperclass  // This JPA class does not have a DB table itself. Only its "mapped" superclasses have.
-public class BaseEntity extends PanacheEntity {
+public class LiquidoBaseEntity extends PanacheEntity {
 
 	@CreationTimestamp
 	@Column(nullable = false, updatable = false)
@@ -59,7 +59,7 @@ public class BaseEntity extends PanacheEntity {
 		if (obj == null || getClass() != obj.getClass()) {
 			return false;
 		}
-		BaseEntity other = (BaseEntity) obj;
+		LiquidoBaseEntity other = (LiquidoBaseEntity) obj;
 		return id != null && id.equals(other.id);
 	}
 

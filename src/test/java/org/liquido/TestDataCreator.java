@@ -9,10 +9,11 @@ import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.liquido.delegation.DelegationEntity;
-import org.liquido.model.BaseEntity;
+import org.liquido.model.LiquidoBaseEntity;
 import org.liquido.poll.PollEntity;
 import org.liquido.poll.ProposalEntity;
 import org.liquido.security.OneTimeToken;
@@ -48,7 +49,7 @@ import static org.liquido.TestFixtures.*;
 @Slf4j
 @Tag("manual")   // <<<<<<==== DO NOT run during regular maven build. Only manually on request
 @QuarkusTest
-public class TestDataCreatorTest {
+public class TestDataCreator {
 
 	@Inject
 	AgroalDataSource dataSource;
@@ -83,6 +84,7 @@ public class TestDataCreatorTest {
 	 * Check the winning poll
 	 */
 	@Test
+	@Disabled  // Only run manually!
 	public void createTestData() {
 		String url = "no DB URL!";
 		try {
@@ -140,7 +142,7 @@ public class TestDataCreatorTest {
 
 			// A member casts a vote
 			String voterToken = util.getVoterToken(poll.id, memberRes.jwt);
-			List<Long> voteOrderIds = poll.getProposals().stream().map(BaseEntity::getId).toList();
+			List<Long> voteOrderIds = poll.getProposals().stream().map(LiquidoBaseEntity::getId).toList();
 			CastVoteResponse castVoteResponse = util.castVote(poll.id, voteOrderIds, voterToken);
 
 			// Admin also casts a vote

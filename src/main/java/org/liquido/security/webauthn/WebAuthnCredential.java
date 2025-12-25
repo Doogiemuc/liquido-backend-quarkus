@@ -1,5 +1,6 @@
 package org.liquido.security.webauthn;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import io.quarkus.security.webauthn.WebAuthnCredentialRecord;
 import jakarta.persistence.*;
@@ -27,6 +28,7 @@ public class WebAuthnCredential extends PanacheEntityBase {
 	 */
 	@ManyToOne
 	@JoinColumn(name = "liquido_user_id", nullable = false)
+	@JsonBackReference
 	public UserEntity liquidoUser;
 
 	public byte[] publicKey;

@@ -7,7 +7,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
-import org.liquido.model.BaseEntity;
+import org.liquido.model.LiquidoBaseEntity;
 import org.liquido.user.UserEntity;
 import org.liquido.vote.RightToVoteEntity;
 
@@ -29,7 +29,7 @@ import java.time.LocalDateTime;
   @UniqueConstraint(columnNames = {"fromuser_id"})  // A user may only assign one proxy! //TODO: per area
 })
 //@IdClass(DelegationID.class)    //MAYBE: composite primary key.  But has issues with spring data rest: How to post composite IDs
-public class DelegationEntity extends BaseEntity {
+public class DelegationEntity extends LiquidoBaseEntity {
   /*
 	//TODO: Area that this delegation is in
 	@NonNull

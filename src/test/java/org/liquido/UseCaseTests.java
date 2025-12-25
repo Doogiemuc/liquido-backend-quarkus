@@ -6,7 +6,7 @@ import jakarta.inject.Inject;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.junit.jupiter.api.Test;
 import org.liquido.delegation.DelegationEntity;
-import org.liquido.model.BaseEntity;
+import org.liquido.model.LiquidoBaseEntity;
 import org.liquido.poll.PollEntity;
 import org.liquido.team.TeamDataResponse;
 import org.liquido.team.TeamEntity;
@@ -60,7 +60,7 @@ public class UseCaseTests {
 
 		// WHEN cast vote in poll1
 		String voterToken1 = util.getVoterToken(poll1.id, adminRes.jwt);
-		List<Long> voteOrderIds1 = poll1.getProposals().stream().map(BaseEntity::getId).toList();
+		List<Long> voteOrderIds1 = poll1.getProposals().stream().map(LiquidoBaseEntity::getId).toList();
 		CastVoteResponse castVoteResponse1 = util.castVote(poll1.id, voteOrderIds1, voterToken1);
 		assertNotNull(castVoteResponse1.getBallot().checksum, "Vote in poll1 should have returned a ballot with a checksum");
 
@@ -73,7 +73,7 @@ public class UseCaseTests {
 
 		// WHEN cast vote in poll2
 		String voterToken2 = util.getVoterToken(poll2.id, adminRes.jwt);
-		List<Long> voteOrderIds2 = poll2.getProposals().stream().map(BaseEntity::getId).toList();
+		List<Long> voteOrderIds2 = poll2.getProposals().stream().map(LiquidoBaseEntity::getId).toList();
 		CastVoteResponse castVoteResponse2 = util.castVote(poll2.id, voteOrderIds2, voterToken2);
 		assertNotNull(castVoteResponse2.getBallot().checksum, "Vote in poll2 should have returned a ballot with a checksum");
 
@@ -114,7 +114,7 @@ public class UseCaseTests {
 		String hashedVoterToken = DigestUtils.sha3_256Hex(voterToken + poll.id + "hashSecretTest");
 		System.out.println("getVoterToken: VoterTokenEntity.buildAndPersist " + voterToken + " =>  hashedVoterToken="+hashedVoterToken);
 
-		List<Long> voteOrderIds = poll.getProposals().stream().map(BaseEntity::getId).toList();
+		List<Long> voteOrderIds = poll.getProposals().stream().map(LiquidoBaseEntity::getId).toList();
 		util.castVote(poll.getId(), voteOrderIds, voterToken);
 
 		// THEN this vote is also counted for member

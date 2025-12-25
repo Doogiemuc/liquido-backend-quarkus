@@ -8,7 +8,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
-import org.liquido.model.BaseEntity;
+import org.liquido.model.LiquidoBaseEntity;
 import org.liquido.user.UserEntity;
 
 import java.time.LocalDateTime;
@@ -21,7 +21,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 @Entity(name = "proposals")
 @JsonIgnoreProperties(ignoreUnknown = true)  // ignore eg. isLikedByCurrentUser when deserializing
-public class ProposalEntity extends BaseEntity {
+public class ProposalEntity extends LiquidoBaseEntity {
 
 	//TODO: Add a Proposal.UUID   Clients shouldn't use our DB internal ID in castVoteRequests
 

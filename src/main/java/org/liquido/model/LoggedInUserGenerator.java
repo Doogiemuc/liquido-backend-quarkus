@@ -15,7 +15,7 @@ import java.util.Optional;
 
 /**
  * Generator for the currently logged in user.
- * Uses for setting createdAt in {@link BaseEntity}
+ * Uses for setting createdAt in {@link LiquidoBaseEntity}
  *
  * by the one-and-only, famous and awesome Vlad:  https://vladmihalcea.com/how-to-emulate-createdby-and-lastmodifiedby-from-spring-data-using-the-generatortype-hibernate-annotation/
  */

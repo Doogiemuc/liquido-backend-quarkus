@@ -7,7 +7,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
-import org.liquido.model.BaseEntity;
+import org.liquido.model.LiquidoBaseEntity;
 import org.liquido.poll.converter.MatrixConverter;
 import org.liquido.team.TeamEntity;
 import org.liquido.vote.BallotEntity;
@@ -27,7 +27,7 @@ import java.util.Set;
 //TODO: create a test for this!
 @EqualsAndHashCode(of={"title"}, callSuper = true)    	// Compare polls by their Id and title only. This is important! Cannot compare proposals. This leads to a StackOverflow in hashCode()!
 @Entity(name = "polls")
-public class PollEntity extends BaseEntity {
+public class PollEntity extends LiquidoBaseEntity {
 
 	/**
 	 * The title of a poll must be unique within the team.

@@ -20,6 +20,9 @@ import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Equality is crucial! Never forget to test it carefully!
+ */
 @Slf4j
 @QuarkusTest
 public class EqualityTests {
@@ -33,11 +36,18 @@ public class EqualityTests {
 	@Inject
 	LiquidoTestUtils util;
 
+	// Equality tests for not yet persisted entities
 	@Test
-	public void twoNotYetPersistedUsersUserEntities_ShouldEqualByEmailOnly() {
+	public void twoNotYetPersistedUserEntities_ShouldNotBeEqual() {
 		UserEntity user1 = new UserEntity("DummyName_A", "dummy_A@email.de", "dummyPasswordHash_A");
-		UserEntity user2 = new UserEntity("DummyName_A", "dummy_A@email.de", "dummyPasswordHash_B");
-		assertNotEquals(user1, user2, "Not new not yet persisted user entities (even with same email and mobilephone) should NOT be equal!");
+		UserEntity user2 = new UserEntity("DummyName_A", "dummy_A@email.de", "dummyPasswordHash_A");
+		assertNotEquals(user1, user2, "Not yet persisted user entities without an ID (even with same email) should NOT be equal!");
+	}
+
+	@Test
+	public void sameUserEntityInstance_ShouldBeEqualToItself() {
+		UserEntity user1 = new UserEntity("DummyName_A", "dummy_A@email.de", "dummyPasswordHash_A");
+		assertEquals(user1, user1, "The same instanace of a user entity should equal itself!");
 	}
 
 	@Test
@@ -46,6 +56,8 @@ public class EqualityTests {
 		UserEntity t2 = new UserEntity();
 		assertNotEquals(t1, t2, "two empty unsaved UserEntities (without ID) should not equal");
 	}
+
+	// Equality tests for persisted entities (with ID)
 
 	@Test
 	@TestTransaction

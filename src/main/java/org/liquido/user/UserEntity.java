@@ -1,15 +1,16 @@
 package org.liquido.user;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
 import org.eclipse.microprofile.graphql.DefaultValue;
 import org.eclipse.microprofile.graphql.Ignore;
-import org.liquido.model.BaseEntity;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 import org.liquido.security.PasswordServiceBcrypt;
 import org.liquido.security.webauthn.WebAuthnCredential;
 import org.liquido.util.DoogiesUtil;
@@ -20,19 +21,41 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * One user / voter / citizen / member of a team
- * When a user creates a new team, then he becomes the admin of that team.
- * A user may also join other teams. Then he is a member in those teams.
+ * <h1>A LIQUIDO voter</h1>
+ *
+ * <p>A user in LIQUIDO is a voter that can cast a vote in a poll. Voters may only cast exactly one vote in a poll.
+ * So LIQUIDO voters are different from normal "user accounts" in other applications. A user account is identified by an email address.
+ * But one "human being" could easily have several emails and thus register for several user accounts.
+ * In a voting application this must be prevented. A voter, one human being, must uniquely be identified in LIQUIDO.
+ * Therefor LIQUIDO enforces the following registration process</p>
+ *
+ * <ol>
+ *   <li>A new voter registers either by creating a new team or by joining an existing team with an invitation code.</li>
+ *   <li>The new user initially registers with his email address and chooses a password. But this registration must then still be verified.</li>
+ *   <li>The registration must be verified with a biometric authenticator, such as Fingerprint or FaceID.</li>
+ * </ol>
+ *
+ * <p>A user may create or join more than one team. Then he can switch between these teams.</p>
  */
-@Data  // automatically creates an equals and hashcode for all transient fields. But does NOT automatically create a no-args constructor!!!
+@Data
 @NoArgsConstructor
-@EqualsAndHashCode(of={"email"}, callSuper = true)  // will also call equals of super class BaseEntity. TODO: So ID must also be equal? TODO: Is that check in my BaseEntity?
+//@EqualsAndHashCode(callSuper = false, onlyExplicitlyIncluded = true)    //BUGFIX: We have our own equals() implementation.
 @Entity(name = "liquido_user")
-//DEPRECATED: @GraphQLType(name="user", description = "A LiquidoUser that can be an admin or member in a team.")  // well be named "userInput" by graphql-spqr
-//TODO: Do I need separate API entity types for GraphQL? The type in the exposed API might be different from this ORM Panache entity!
-public class UserEntity extends BaseEntity {
+//DEPRECATED: @GraphQLType(name="user", description = "A LiquidoUser that can be an admin or member in a team.")  // Don't need to manually name the GraphQL DTO. It will be named "userInput" by graphql-spqr
+//BUGFIX: UserEntity does not extend LiquidoBaseEntity. Yes we want createdAt and updatedAt. But we cant have a createdBy, because this would lead to a circular dependency.
+public class UserEntity extends PanacheEntity {
+	//TODO: Rename to VoterEntity
+	//TODO: Do I need a __separate__ type for the upstream GraphQL API? The fields in the exposed API are different from this ORM Panache entity!
 	/*
-	About the equality of UserModels
+	#### Lombok @Data
+	From the lombok docu: https://projectlombok.org/features/Data
+	The @Data annotation creates getters for all fields, setters for all non-final fields, and appropriate toString, equals and hashCode implementations
+	that involve the fields of the class, and a constructor that initializes all final fields, as well as all non-final fields with no initializer
+	that have been marked with @NonNull, in order to ensure the field is never null.
+	=> But be careful, it does NOT create a no-args constructor! And also no getters for fields of the parent class (see getId)!
+
+
+	##### About the equality of UserEntities
 
 	Equality is a big thing in Java! :-) And it is an especially nasty issue for UserModels.
 	When are two user models "equal" to each other?
@@ -51,6 +74,18 @@ public class UserEntity extends BaseEntity {
 	One user may be admin or member of several teams!
 	*/
 
+	//@EqualsAndHashCode.Include
+	public Long id;  // inherited from PanacheEntity
+
+	// UserEntity has a createdAt and and updatedAt but no "createdBy", because this would lead to a circular dependency.
+	@CreationTimestamp
+	@Column(nullable = false, updatable = false)
+	public LocalDateTime createdAt;
+
+	@UpdateTimestamp
+	@Column(nullable = false, updatable = false)
+	public LocalDateTime updatedAt;
+
 	/** Username, Nickname */
 	@NotNull
 	@lombok.NonNull
@@ -64,6 +99,7 @@ public class UserEntity extends BaseEntity {
 	@NotNull
 	@lombok.NonNull
 	@Column(unique = true)
+	//@EqualsAndHashCode.Include
   public String email;
 
 	/**
@@ -159,6 +195,30 @@ public class UserEntity extends BaseEntity {
 	public static Optional<UserEntity> findByMobilephone(String mobilephone) {
 		mobilephone = DoogiesUtil.cleanMobilephone(mobilephone);
 		return UserEntity.find("mobilephone", mobilephone).firstResultOptional();
+	}
+
+	/**
+	 * We assume that two persisted liquido voters entities are the same human being, if
+	 * <ul>
+	 *   <li>they are the same java object reference, or</li>
+	 *   <li>they both have the same ID and email</li>
+	 * </ul>
+	 * @param o the reference object with which to compare.
+	 * @return true if both objects represent the same voter
+	 */
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		UserEntity that = (UserEntity) o;
+		return id != null && id.equals(that.id) && email.equals(that.email);
+	}
+
+	@Override
+	public int hashCode() {
+		int result = id.hashCode();
+		result = 31 * result + email.hashCode();
+		return result;
 	}
 
 	@Override
