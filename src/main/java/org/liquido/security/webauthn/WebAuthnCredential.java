@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * A persisted credential for two-factor authentication (2FA).
+ * A persisted credential for two-factor authentication (2FA) with webauthn / keepass.
  * One user may have more than one credential registered.
  */
 @Slf4j
@@ -23,8 +23,12 @@ public class WebAuthnCredential extends PanacheEntityBase {
 	@Id
 	public String credentialId;
 
+	//TODO: public String label;  // set by user
+	//TODO: Datetime lastUsed;    // when this credential was last successfully used to log in
+
 	/**
-	 * The liquidoUser that is linked to this authenticator
+	 * The liquidoUser that is linked to this authenticator.
+	 * One user may have more than one authenticator device registered.
 	 */
 	@ManyToOne
 	@JoinColumn(name = "liquido_user_id", nullable = false)
@@ -34,6 +38,13 @@ public class WebAuthnCredential extends PanacheEntityBase {
 	public byte[] publicKey;
 	public long publicKeyAlgorithm;
 	public long counter;
+
+	/**
+	 * Authenticator Attestation GUID
+	 * 128-bit identifier (UUID) that identifies the authenticator model,
+	 * not a specific device and not a specific credential.
+	 * From the WebAuthn / FIDO2 spec: "The AAGUID identifies the type (make and model) of the authenticator."
+	 */
 	public UUID aaguid;
 
 	public WebAuthnCredential() {
