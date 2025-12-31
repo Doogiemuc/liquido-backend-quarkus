@@ -93,7 +93,7 @@ public class JwtTokenUtils {
 		if (team == null) {
 			List<TeamEntity> teams = TeamMemberEntity.findTeamsByMember(user);
 			if (teams.isEmpty()) {
-				log.warn("User ist not member of any team. This should not happen: " + user);
+				log.warn("User ist not member of any team. This should not happen: {}", user);
 				throw new LiquidoException(LiquidoException.Errors.CANNOT_LOGIN_USER_NOT_MEMBER_OF_TEAM, "Cannot login. User is not member of any team " + user);
 			} else if (teams.size() == 1) {
 				team = teams.get(0);
@@ -107,7 +107,7 @@ public class JwtTokenUtils {
 		user.setLastLogin(LocalDateTime.now());
 		user.setLastTeamId(team.getId());
 		user.persist();
-		log.debug("LOGIN " + user.toStringShort() + " into team '" + team.getTeamName() + "'");
+		log.debug("LOGIN {} into team '{}'", user.toStringShort(), team.getTeamName());
 		String jwt = generateToken(user.email, team.id, team.isAdmin(user));
 		// MUST programmatically log in the user, because we already need it to create TeamDataResponse.poll.proposal.isCreatedByCurrentUser
 		setCurrentUserAndTeam(user, team);
