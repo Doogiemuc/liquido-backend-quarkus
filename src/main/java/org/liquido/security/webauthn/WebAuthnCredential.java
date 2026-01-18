@@ -8,11 +8,12 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.liquido.user.UserEntity;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
 /**
- * A persisted credential for two-factor authentication (2FA) with webauthn / keepass.
+ * A persisted credential for two-factor authentication (2FA) with webauthn / passkey.
  * One user may have more than one credential registered.
  */
 @Slf4j
@@ -20,11 +21,28 @@ import java.util.UUID;
 @Entity
 public class WebAuthnCredential extends PanacheEntityBase {
 
+	// Very detailed description of data objects related to webauthn
+	// https://developers.yubico.com/WebAuthn/WebAuthn_Developer_Guide/WebAuthn_Client_Registration.html
+
+	// The official W3C spec (don't even try to read it!) Good docs are at https://webauthn.io/
+	// https://www.w3.org/TR/webauthn/#registering-a-new-credential
+
+	/**
+	 * Unique ID of this authenticator.
+	 * (This ID does not necessarily identify exactly one hardware device!)
+	 */
 	@Id
 	public String credentialId;
 
-	//TODO: public String label;  // set by user
-	//TODO: Datetime lastUsed;    // when this credential was last successfully used to log in
+	/**
+	 * Human-readable name of this authenticator.
+	 * To distinguish it from other authenticators a user might register.
+	 * Can be set by the user.
+	 */
+	public String label;
+
+	/** When was this authenticator last used to successfully(!) login */
+	public LocalDateTime lastUsed;
 
 	/**
 	 * The liquidoUser that is linked to this authenticator.
@@ -35,10 +53,6 @@ public class WebAuthnCredential extends PanacheEntityBase {
 	@JsonBackReference
 	public UserEntity liquidoUser;
 
-	public byte[] publicKey;
-	public long publicKeyAlgorithm;
-	public long counter;
-
 	/**
 	 * Authenticator Attestation GUID
 	 * 128-bit identifier (UUID) that identifies the authenticator model,
@@ -47,10 +61,14 @@ public class WebAuthnCredential extends PanacheEntityBase {
 	 */
 	public UUID aaguid;
 
+	public byte[] publicKey;
+	public long publicKeyAlgorithm;
+	public long counter;
+
 	public WebAuthnCredential() {
 	}
 
-	public WebAuthnCredential(WebAuthnCredentialRecord credentialRecord, @NonNull UserEntity user) {
+	public WebAuthnCredential(WebAuthnCredentialRecord credentialRecord, @NonNull UserEntity user, String label) {
 		WebAuthnCredentialRecord.RequiredPersistedData requiredPersistedData =
 				credentialRecord.getRequiredPersistedData();
 		aaguid = requiredPersistedData.aaguid();
@@ -58,6 +76,8 @@ public class WebAuthnCredential extends PanacheEntityBase {
 		credentialId = requiredPersistedData.credentialId();
 		publicKey = requiredPersistedData.publicKey();
 		publicKeyAlgorithm = requiredPersistedData.publicKeyAlgorithm();
+		this.label = label;
+		this.lastUsed = LocalDateTime.now();
 		this.liquidoUser = user;
 		user.webAuthnCredentials.add(this);
 	}

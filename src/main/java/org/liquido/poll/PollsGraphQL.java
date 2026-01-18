@@ -201,7 +201,7 @@ public class PollsGraphQL {
 	 * @throws LiquidoException when user is not logged into a team
 	 */
 	@Query
-	@Description("Get a one-time voter token to cast a vote in this poll. This token can only be used once!")
+	@Description("Get a one-time voter token to cast a vote in this poll. This token is only valid for this user and this poll. And it can only be used once!")
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
 	public String voterToken(
 			@NonNull Long pollId

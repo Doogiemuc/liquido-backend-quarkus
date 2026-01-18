@@ -103,6 +103,9 @@ public class LiquidoException extends Exception {
 		CANNOT_REQUEST_SMS_TOKEN(26, Response.Status.UNAUTHORIZED),              	// when entered mobile number is not valid
 		WONT_RESET_PASSWORD(27, Response.Status.UNAUTHORIZED),										// Someone requested a password reset for a non-registered email. But don't expose that. Return just a generic error
 
+		// WebAuthn Passkeys
+		WEBAUTHN_ERROR(28, Response.Status.BAD_REQUEST),
+
 		// Google One Tap Login
 		GOOGLE_LOGIN_GOOGLE_IDTOKEN_INVALID(30, Response.Status.UNAUTHORIZED),
 		GOOGLE_LOGIN_GOOGLE_MUST_REGISTER(31, Response.Status.ACCEPTED),					// HTTP 202 accepted - user needs to register (create or join a tema)   I love unknown HTTP status codes :-)
