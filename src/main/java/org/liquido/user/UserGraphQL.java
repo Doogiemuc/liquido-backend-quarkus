@@ -225,8 +225,8 @@ public class UserGraphQL {
 	@Query
 	@PermitAll
 	public TeamDataResponse devLogin(
-			@Name("devLoginToken") String devLoginToken,
-			@Name("email") String email
+			@Name("devLoginToken") @NonNull String devLoginToken,
+			@Name("email") @NonNull String email
 			//TODO:  @Name("team") Optional<Long> teamId   // optional
 	) throws LiquidoException {
 		if (LaunchMode.current() == LaunchMode.NORMAL || ConfigUtils.isProfileActive("prod"))

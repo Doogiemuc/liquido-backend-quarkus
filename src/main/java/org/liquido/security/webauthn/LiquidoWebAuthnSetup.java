@@ -59,7 +59,7 @@ public class LiquidoWebAuthnSetup implements WebAuthnUserProvider {
 	}
 
 	/**
-	 * Store a credential Record for a give Liquido user
+	 * Store a credential Record for a logged in liquido user
 	 * https://quarkus.io/guides/security-webauthn#exposing-your-entities-to-quarkus-webauthn
 	 * @param credentialRecord DTO
 	 * @return always Uni&lt;void&gt;
@@ -74,14 +74,15 @@ public class LiquidoWebAuthnSetup implements WebAuthnUserProvider {
 		String currentUsername = securityIdentity.getPrincipal().getName();
 		String email = credentialRecord.getUsername();
 		if (!currentUsername.equals(email)) {
-			throw new IllegalStateException("Authenticated user ("+currentUsername+") cannot register a credential for another user ("+email+").");
+			throw new IllegalStateException("A new authenticator MUST be registered for your user's email address: " + email);
 		}
 		UserEntity 	user = UserEntity.findByEmail(email)
 				.orElseThrow(() -> new IllegalStateException("Cannot store WebAuthn credential. User with email '" + email + "' not found. A user must be created before a credential can be stored."));
-		WebAuthnCredential credential = new WebAuthnCredential(credentialRecord, user);
+		String label = user.getName()+"-Passkey";
+		WebAuthnCredential credential = new WebAuthnCredential(credentialRecord, user, label);
 		credential.persist();
-		//needed in a 1:1 relation?   user.setWebAuthnCredential(credential);
-		log.info("Stored new WebAuthn credential for user {}", email);
+		//TODO: needed?  user.webAuthnCredentials.add(credential);
+		log.info("Stored new WebAuthn credential(id={}) for user {}", credential.credentialId, user.toStringShort());
 		return Uni.createFrom().voidItem();
 	}
 

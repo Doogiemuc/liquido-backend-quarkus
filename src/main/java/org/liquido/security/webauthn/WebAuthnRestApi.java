@@ -9,15 +9,22 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.transaction.Transactional;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 import lombok.extern.slf4j.Slf4j;
 import org.liquido.security.JwtTokenUtils;
 import org.liquido.team.TeamDataResponse;
 import org.liquido.user.UserEntity;
 import org.liquido.util.LiquidoException;
+import org.liquido.util.LiquidoException.Errors;
 
-import static org.liquido.util.LiquidoException.Errors;
+
+//Remark about imports
+//for REST: import jakarta.validation.constraints.NotNull;   // this is standard for REST
+//for GraphQL: import org.eclipse.microprofile.graphql.NonNull; //  <= use this for GraphQL!
+
 
 /**
  * JAX-RS endpoints for our <a href="https://quarkus.io/guides/security-webauthn#handling-login-and-registration-endpoints-yourself">
@@ -58,15 +65,14 @@ public class WebAuthnRestApi {
 	@GET
 	@Path("/register-options-challenge")
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
-	@Blocking // This method performs a blocking calls
+	@Blocking // This method performs blocking calls
 	public String registerOptions(RoutingContext ctx) throws LiquidoException {
 		UserEntity currentUser = jwtTokenUtils.getCurrentUser()
 				.orElseThrow(LiquidoException.supply(Errors.UNAUTHORIZED, "You must be logged in to get WebAuthn registration options."));
-		log.info("============ WebAuthN GET /register-options-challenge for {}", currentUser.toStringShort());
+		log.debug("============ WebAuthN GET /register-options-challenge for {}", currentUser.toStringShort());
 		PublicKeyCredentialCreationOptions creationOptions = webAuthnSecurity.getRegisterChallenge(currentUser.email, currentUser.name, ctx).await().indefinitely();
 		//log.info(creationOptions.toString());
 		return webAuthnSecurity.toJsonString(creationOptions);    //BUGFIX: Must use JSON serialization from  com.webauthn4j.converter.jackson.WebAuthnJSONModule
-
 	}
 
 	/**
@@ -75,28 +81,42 @@ public class WebAuthnRestApi {
 	 *
 	 * @param webAuthnRegisterData The credential data from the browser.
 	 * @param ctx Vert.x RoutingContext
-	 * @return The updated UserEntity.
+	 * @return HTTP 204 No Content on success
 	 * @throws LiquidoException if not logged in.
 	 */
 	@POST
 	@Path("/register")
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
-	@Blocking // This method performs a blocking DB call via getCurrentUser() and persist()
+	@Blocking
 	@Transactional
-	public Uni<UserEntity> register(JsonObject webAuthnRegisterData, RoutingContext ctx) throws LiquidoException {
+	public Uni<Response> register(
+			@NotNull @QueryParam("label") String label,   //remark: org.eclipse.microprofile.graphql.NonNull  is the official one!
+			JsonObject webAuthnRegisterData,
+			RoutingContext ctx) throws LiquidoException
+	{
+		if (label == null || label.isEmpty() || label.length() > 100)
+			throw new LiquidoException(Errors.WEBAUTHN_ERROR, "You must provide a label for your authenticator (max 100 chars)");
 		UserEntity currentUser = jwtTokenUtils.getCurrentUser()
-				.orElseThrow(LiquidoException.supply(Errors.UNAUTHORIZED, "You must be logged in to add a WebAuthn credential."));
-		log.info("======== WebAuthN POST /register new authenticator for {}", currentUser.toStringShort());
-		// The `register` method returns a Uni<WebAuthnCredentialRecord>.
-		// We chain it to persist our own WebAuthnCredential entity.
-		return webAuthnSecurity.register(currentUser.email, webAuthnRegisterData, ctx)
-				.onItem().invoke(credRecord -> {
-					WebAuthnCredential cred = new WebAuthnCredential(credRecord, currentUser);
-					cred.persist();
-					log.info("Successfully added 2FA webAuthnCredential for user {}", currentUser.toStringShort());
-				})
-				.onItem().transform(credRecord -> currentUser); // Return the user entity on success
+				.orElseThrow(LiquidoException.supply(Errors.WEBAUTHN_ERROR,"You must be logged in to add a WebAuthn credential."));
+
+		log.debug("======== WebAuthN POST /register new authenticator '{}' for {}", label, currentUser.toStringShort());
+		return webAuthnSecurity
+			.register(currentUser.email, webAuthnRegisterData, ctx)
+			.onFailure().transform(err -> {
+				log.warn("WebAuthn registration failed for user {}: {}", currentUser.toStringShort(), err.getMessage());
+				if ("Missing challenge".equals(err.getMessage())) {
+					log.info("=========> Is your frontend served on the same domain as the backend?");
+				}
+				return new LiquidoException(Errors.WEBAUTHN_ERROR, "WebAuthn registration failed for user: " + currentUser.toStringShort() + ": " + err.getMessage(), err);
+			})
+			.map(credRecord -> {
+				WebAuthnCredential cred = new WebAuthnCredential(credRecord, currentUser, label);
+				cred.persist();
+				log.info("Successfully added 2FA webAuthnCredential {} for user {}", label, currentUser.toStringShort());
+				return Response.noContent().build();
+			});
 	}
+
 
 	// =================================================================================================
 	// Endpoints for AUTHENTICATING (logging in) a user with a passkey / ASSERTION
@@ -112,10 +132,9 @@ public class WebAuthnRestApi {
 	 */
 	@GET
 	@Path("/login-options-challenge")
-	public Uni<PublicKeyCredentialRequestOptions> authenticateOptions(@QueryParam("email") String email, RoutingContext ctx) {
-		if (email == null || email.isBlank()) {
-			throw new BadRequestException("Email must be provided");
-		}
+	public Uni<PublicKeyCredentialRequestOptions> authenticateOptions(
+			@NotNull @QueryParam("email") String email, RoutingContext ctx)
+	{
 		log.info("======== WebAuthN POST login-options-challenge new authenticator for {}", email);
 		return webAuthnSecurity.getLoginChallenge(email, ctx);
 	}
@@ -131,7 +150,10 @@ public class WebAuthnRestApi {
 	@POST
 	@Path("/login")
 	@Blocking
-	public TeamDataResponse authenticate(JsonObject webAuthnLoginData, RoutingContext ctx) throws LiquidoException {
+	public TeamDataResponse authenticate(
+			@NotNull JsonObject webAuthnLoginData,
+			RoutingContext ctx
+	) throws LiquidoException {
 		log.info("======== WebAuthN POST /login");
 
 		// Perform WebAuthn login

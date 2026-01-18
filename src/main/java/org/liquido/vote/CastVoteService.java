@@ -123,7 +123,7 @@ public class CastVoteService {
 		//TODO: For even more security we could implement a challenge response mechanism for verifying plainVoterToken
 		log.info("castVote(poll={}, voteOrderIds={})", poll, voteOrderIds);
 
-		// CastVoteRequest must contain a poll
+		// We need a poll
 		if (poll == null || poll.getId() == null)
 			throw new LiquidoException(LiquidoException.Errors.CANNOT_CAST_VOTE, "Need poll to cast vote");
 
@@ -136,7 +136,7 @@ public class CastVoteService {
 			throw new LiquidoException(LiquidoException.Errors.CANNOT_CAST_VOTE, "Need voteOrder to cast vote");
 
 		// Convert voteOrderIds to list of actual ProposalEntities from poll.
-		// Therefore, voteOrderIds must only contain proposal.ids from this poll and it must not not contain any ID more than once!
+		// Therefore, voteOrderIds must only contain proposal.ids from this poll, and it must not contain any ID more than once!
 		List<ProposalEntity> voteOrder = new ArrayList<>();
 		Map<Long, ProposalEntity> pollProposals = new HashMap<>();
 		for (ProposalEntity prop : poll.getProposals()) {
