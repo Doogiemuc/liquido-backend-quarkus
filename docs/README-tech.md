@@ -150,6 +150,10 @@ https://stackoverflow.com/questions/56871033/how-to-fix-org-apache-commons-loggi
 
 # FURTHER LINKS & REFERENCES
 
+Remark about imports for null checks in method parameters:
+for REST: import jakarta.validation.constraints.NotNull;          
+for GraphQL: import org.eclipse.microprofile.graphql.NonNull;     
+
 ### Changes to the Spring version of the backend
 
  * New entity TeamMember

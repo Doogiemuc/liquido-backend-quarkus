@@ -163,8 +163,9 @@ public class UserEntity extends PanacheEntity {
 	@JsonIgnore
 	public String totpFactorSid;
 
-	/*
+	/**
 	 * Passwordless authentication with FaceID, fingerprint or hardware token.
+	 * One user may have more than one credential registered.
 	 */
 	@OneToMany(mappedBy = "liquidoUser", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
 	@Ignore  //SECURITY IMPORTANT: ignore in GraphQL and JSON
@@ -188,7 +189,7 @@ public class UserEntity extends PanacheEntity {
 	 * @return the found user or Optional.empty()
 	 */
 	public static Optional<UserEntity> findByEmail(String email) {
-		if (email == null) return Optional.empty();
+		if (email == null || email.trim().isEmpty()) return Optional.empty();
 		return UserEntity.find("email", email.toLowerCase()).firstResultOptional();
 	}
 
@@ -203,6 +204,9 @@ public class UserEntity extends PanacheEntity {
 	 *   <li>they are the same java object reference, or</li>
 	 *   <li>they both have the same ID and email</li>
 	 * </ul>
+	 * Every other attribute, e.g. the mobile phone number might even be different.
+	 * From the point of view of a secure voting application it's still the same human being!
+	 *
 	 * @param o the reference object with which to compare.
 	 * @return true if both objects represent the same voter
 	 */

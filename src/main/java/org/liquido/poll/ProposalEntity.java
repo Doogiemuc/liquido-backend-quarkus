@@ -83,10 +83,10 @@ public class ProposalEntity extends LiquidoBaseEntity {
 	private Set<UserEntity> supporters = new HashSet<>();
 
 	/**
-	 * When in status ELABORATION this is the link to the poll.
+	 * Link to parent poll.
 	 * All alternative proposals point to the same poll.
-	 * Can be NULL, when this is still an idea or proposal!
-	 * This is the many side of a bidirectional ManyToOne aggregation relationship.
+	 * (TODO: In future big liquido, this can be NULL, when this is still an "idea")
+	 * This is the owning or many side of a bidirectional ManyToOne relationship.
 	 * https://vladmihalcea.com/2017/03/29/the-best-way-to-map-a-onetomany-association-with-jpa-and-hibernate/
 	 *
 	 */
