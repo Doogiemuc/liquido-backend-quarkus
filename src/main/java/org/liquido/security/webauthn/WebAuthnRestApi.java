@@ -1,7 +1,6 @@
 package org.liquido.security.webauthn;
 
 import com.webauthn4j.data.PublicKeyCredentialCreationOptions;
-import com.webauthn4j.data.PublicKeyCredentialRequestOptions;
 import io.quarkus.security.webauthn.WebAuthnSecurity;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
@@ -9,7 +8,10 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.transaction.Transactional;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -19,6 +21,8 @@ import org.liquido.team.TeamDataResponse;
 import org.liquido.user.UserEntity;
 import org.liquido.util.LiquidoException;
 import org.liquido.util.LiquidoException.Errors;
+
+import java.util.Optional;
 
 
 //Remark about imports
@@ -51,6 +55,36 @@ public class WebAuthnRestApi {
 		this.jwtTokenUtils = jwtTokenUtils;
 	}
 
+
+	/**
+	 * Check if a user with the given email has registered WebAuthn authenticators.
+	 * This is used in the login flow to determine if we should show the "Login with WebAuthn" button.
+	 * No authentication required for this endpoint.
+	 *
+	 * @param email The user's email address
+	 * @return JSON response { "webauthn": true/false, email: "email_in_lowercase" }
+	 */
+	@GET
+	//@Description("Check if a user with the given email exists and has a registered WebAuthn authenticator.")
+	@Path("/check-login-email")
+	public Response checkLoginEmail(@NotBlank @Email @Size(max = 255) @QueryParam("email") String email) {
+		// Check if user exists
+		Optional<UserEntity> userOpt = UserEntity.findByEmail(email);
+		if (userOpt.isEmpty()) {
+			log.warn("[SECURITY] invalid login attempt for unknown email {}", email);
+			return Response.status(Response.Status.NOT_FOUND).build();
+		}
+
+		// Check if user has WebAuthn credentials
+		boolean hasWebAuthn = !userOpt.get().webAuthnCredentials.isEmpty();
+		log.debug("check-login-email: User {}, hasWebAuthn={}", email, hasWebAuthn);
+		JsonObject response = new JsonObject()
+				.put("webauthn", hasWebAuthn)
+				.put("email", email.toLowerCase());
+
+		return Response.ok(response).build();
+	}
+
 	// =================================================================================================
 	// Endpoints for REGISTERING a new passkey for an already authenticated user / ATTESTATION
 	// =================================================================================================
@@ -69,7 +103,7 @@ public class WebAuthnRestApi {
 	public String registerOptions(RoutingContext ctx) throws LiquidoException {
 		UserEntity currentUser = jwtTokenUtils.getCurrentUser()
 				.orElseThrow(LiquidoException.supply(Errors.UNAUTHORIZED, "You must be logged in to get WebAuthn registration options."));
-		log.debug("============ WebAuthN GET /register-options-challenge for {}", currentUser.toStringShort());
+		log.debug("WebAuthN GET /register-options-challenge for {}", currentUser.toStringShort());
 		PublicKeyCredentialCreationOptions creationOptions = webAuthnSecurity.getRegisterChallenge(currentUser.email, currentUser.name, ctx).await().indefinitely();
 		//log.info(creationOptions.toString());
 		return webAuthnSecurity.toJsonString(creationOptions);    //BUGFIX: Must use JSON serialization from  com.webauthn4j.converter.jackson.WebAuthnJSONModule
@@ -99,7 +133,7 @@ public class WebAuthnRestApi {
 		UserEntity currentUser = jwtTokenUtils.getCurrentUser()
 				.orElseThrow(LiquidoException.supply(Errors.WEBAUTHN_ERROR,"You must be logged in to add a WebAuthn credential."));
 
-		log.debug("======== WebAuthN POST /register new authenticator '{}' for {}", label, currentUser.toStringShort());
+		log.debug("WebAuthN POST /register new authenticator '{}' for {}", label, currentUser.toStringShort());
 		return webAuthnSecurity
 			.register(currentUser.email, webAuthnRegisterData, ctx)
 			.onFailure().transform(err -> {
@@ -127,16 +161,17 @@ public class WebAuthnRestApi {
 	 * This is the first step of logging in with a passkey.
 	 *
 	 * @param email The user's email.
-	 * @param ctx Vert.x RoutingContext
+	 * @param ctx   Vert.x RoutingContext
 	 * @return 2FA authentication options.
 	 */
 	@GET
 	@Path("/login-options-challenge")
-	public Uni<PublicKeyCredentialRequestOptions> authenticateOptions(
+	public Uni<String> authenticateOptions(
 			@NotNull @QueryParam("email") String email, RoutingContext ctx)
 	{
-		log.info("======== WebAuthN POST login-options-challenge new authenticator for {}", email);
-		return webAuthnSecurity.getLoginChallenge(email, ctx);
+		log.debug("WebAuthN POST /login-options-challenge new authenticator for {}", email);
+		return webAuthnSecurity.getLoginChallenge(email, ctx)
+				.map(this.webAuthnSecurity::toJsonString);
 	}
 
 	/**
@@ -150,18 +185,19 @@ public class WebAuthnRestApi {
 	@POST
 	@Path("/login")
 	@Blocking
+	@Produces(MediaType.APPLICATION_JSON)
 	public TeamDataResponse authenticate(
 			@NotNull JsonObject webAuthnLoginData,
 			RoutingContext ctx
 	) throws LiquidoException {
-		log.info("======== WebAuthN POST /login");
+		log.debug("WebAuthN POST /login");
 
 		// Perform WebAuthn login
 		var securityIdentity = webAuthnSecurity.login(webAuthnLoginData, ctx)
 				.await().indefinitely();  // Wait for the login to complete
 
 		String email = securityIdentity.getUsername();
-		log.info("WebAuthn login successful for {}. Now finding user and creating JWT.", email);
+		log.debug("WebAuthn login successful for {}. Now finding user and creating JWT.", email);
 
 		// Find the user entity
 		var user = UserEntity.findByEmail(email)
