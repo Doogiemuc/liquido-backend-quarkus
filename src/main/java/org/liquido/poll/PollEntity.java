@@ -48,7 +48,7 @@ public class PollEntity extends LiquidoBaseEntity {
 	 * proposals may be added. When The PollStatus == VOTING, then proposals must not be added or be changed anymore.
 	 */
   /* Implementation notes:
-     This is the ONE side of a bidirectional ManyToOne aggregation relationship.
+     This is the ONE side of a bidirectional ManyToOne relationship.
      Keep in mind that you must not call  poll.proposals.add(prop). Because this circumvents all the restrictions that there are for adding a proposals to a poll!
      Instead use PollService.addProposalToPoll(proposals, poll) !
 	   We deliberately fetch all proposals in this poll EAGERly, so that getNumCompetingProposals can be called on the returned entity.

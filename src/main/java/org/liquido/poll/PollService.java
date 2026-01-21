@@ -117,7 +117,7 @@ public class PollService {
 
 		proposal.setStatus(ProposalEntity.LawStatus.ELABORATION);
 		poll.getProposals().add(proposal);
-		proposal.setPoll(poll);
+		proposal.setPoll(poll); // also update the in-memory poll object
 		poll.persist();
 		log.debug("Added "+proposal+" to poll(id="+poll.getId()+")");
 		return poll;
