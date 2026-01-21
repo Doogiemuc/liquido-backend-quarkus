@@ -81,7 +81,7 @@ public class LiquidoWebAuthnSetup implements WebAuthnUserProvider {
 		String label = user.getName()+"-Passkey";
 		WebAuthnCredential credential = new WebAuthnCredential(credentialRecord, user, label);
 		credential.persist();
-		//TODO: needed?  user.webAuthnCredentials.add(credential);
+		user.webAuthnCredentials.add(credential);  // also update the in-memory user object
 		log.info("Stored new WebAuthn credential(id={}) for user {}", credential.credentialId, user.toStringShort());
 		return Uni.createFrom().voidItem();
 	}
