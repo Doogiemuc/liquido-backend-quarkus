@@ -175,10 +175,10 @@ public class WebAuthnRestApi {
 	}
 
 	/**
-	 * Authenticate a user with their existing passkey.
+	 * Authenticate/Login a user with their existing passkey.
 	 * This is the second step of logging in. If successful, it returns a JWT.
 	 *
-	 * @param webAuthnLoginData The assertion data from the browser must be sent as body.
+	 * @param webAuthnLoginData The assertion data from the browser must be sent as JSON body.
 	 * @param ctx Vert.x RoutingContext
 	 * @return A TeamDataResponse containing the user, team, and a new JWT.
 	 */
