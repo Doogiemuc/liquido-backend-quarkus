@@ -74,7 +74,6 @@ public class UserEntity extends PanacheEntity {
 	One user may be admin or member of several teams!
 	*/
 
-	//@EqualsAndHashCode.Include
 	public Long id;  // inherited from PanacheEntity
 
 	// UserEntity has a createdAt and and updatedAt but no "createdBy", because this would lead to a circular dependency.
@@ -99,7 +98,6 @@ public class UserEntity extends PanacheEntity {
 	@NotNull
 	@lombok.NonNull
 	@Column(unique = true)
-	//@EqualsAndHashCode.Include
   public String email;
 
 	/**
@@ -179,6 +177,14 @@ public class UserEntity extends PanacheEntity {
 	public void setEmail(String email) {
 		if (email == null || email.trim().isEmpty()) throw new RuntimeException("A user's email must not be null!");
 		this.email = email.toLowerCase();
+	}
+
+	/**
+	 * Has this user at least one registered webauthn authenticator.
+	 * @return true if authenticator has been registered
+	 */
+	public boolean getHasWebauthn() {
+		return this.webAuthnCredentials != null && !this.webAuthnCredentials.isEmpty();
 	}
 
 	// ====================== Active Record - query methods ===================
