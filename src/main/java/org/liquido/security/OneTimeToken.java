@@ -39,6 +39,20 @@ public class OneTimeToken extends PanacheEntity {
 	@NotNull
 	LocalDateTime validUntil;
 
+	/**
+	 * Create a one time token for a user.
+	 * @param nonce the value of the OTT
+	 * @param user the token is only valid for this user
+	 * @param validMinutes the token is valid for so many minutes
+	 * @return the persisted one time token
+	 */
+	public static OneTimeToken build(String nonce, UserEntity user, long validMinutes) {
+		LocalDateTime validUntil = LocalDateTime.now().plusMinutes(validMinutes);
+		OneTimeToken oneTimeToken = new OneTimeToken(nonce, user, validUntil);
+		oneTimeToken.persist();
+		return oneTimeToken;
+	}
+
 	public boolean isExpired() {
 		return validUntil.isBefore(LocalDateTime.now());
 	}

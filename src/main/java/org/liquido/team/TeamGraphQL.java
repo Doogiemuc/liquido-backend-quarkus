@@ -209,15 +209,20 @@ public class TeamGraphQL {
 	}
 
 	/**
-	 * Get information about a team by inviteCode
-	 * @param inviteCode a valid InviteCode
-	 * @return TeamEntity or nothing if InviteCode is invalid
+	 * When a user gets invited to a team with an inviteCode,
+	 * then the frontend can fetch the full team info here.
+	 * GraphQl: "query { teamForInviteCode("AB12DE34") { ... } }   (remove get- prefix!)
+	 * @param inviteCode must be a valid InviteCode
+	 * @return the team for this invite code
+	 * @throws LiquidoException if invite code is invalid
 	 */
 	@Query
-	public Optional<TeamEntity> getTeamForInviteCode(
+	@PermitAll
+	public TeamEntity getTeamForInviteCode(
 			@Name("inviteCode") String inviteCode
-	) {
-		return TeamEntity.findByInviteCode(inviteCode);
+	) throws LiquidoException {
+		return TeamEntity.findByInviteCode(inviteCode)
+				.orElseThrow(LiquidoException.supply(Errors.CANNOT_JOIN_TEAM_INVITE_CODE_INVALID, "Invalid invite code!"));
 	}
 
 
