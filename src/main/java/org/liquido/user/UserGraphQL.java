@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.graphql.*;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.liquido.security.JwtTokenUtils;
+import org.liquido.security.OneTimeToken;
 import org.liquido.security.PasswordServiceBcrypt;
 import org.liquido.team.TeamDataResponse;
 import org.liquido.team.TeamEntity;
@@ -159,9 +160,48 @@ public class UserGraphQL {
 		return userService.resetPassword(email, resetPasswordToken, newPassword);
 	}
 
+	//================== Login via SMS =====================
 
 	/**
-	 * Before the Authy app can be used for login, the authy factor, ie. the Authy Mobile App, must be verified once.
+	 * Request an SMS token to login via a user's mobilephone
+	 * @param mobilephone must be a mobilephone number of a registered user
+	 * @return a one time token
+	 * @throws LiquidoException when mobilephone is not found in DB
+	 */
+	@Query
+	@PermitAll
+	@Description("Request an smsToken to login via SMS")
+	public String requestSmsToken(
+			@NonNull String mobilephone
+	) throws LiquidoException {
+		mobilephone = DoogiesUtil.cleanMobilephone(mobilephone);
+		UserEntity user = UserEntity.findByMobilephone(mobilephone)
+				.orElseThrow(() -> new LiquidoException(Errors.CANNOT_LOGIN_MOBILE_NOT_FOUND, "Cannot login. There is no register user with that mobilephone number."));
+		String smsTokenNonce = DoogiesUtil.easyToken(6);  // 6 alphanumeric characters
+		OneTimeToken token = OneTimeToken.build(smsTokenNonce, user, config.loginLinkExpirationMinutes());
+		return "{ \"smsToken\": \"" + smsTokenNonce + "\" }";
+	}
+
+	@Query
+	@PermitAll
+	@Description("Login with a one time token that the user has received via SMS")
+	public TeamDataResponse loginWithSmsToken(
+			@NonNull String mobilephone,
+			@NonNull String smsToken
+	) throws LiquidoException {
+		UserEntity user = UserEntity.findByEmail(mobilephone)
+			.orElseThrow(LiquidoException.supply(Errors.CANNOT_LOGIN_MOBILE_NOT_FOUND, "Cannot login with SMS token. No user with that mobilephone found!"));
+		OneTimeToken.findByNonce(smsToken).orElseThrow(
+      //[Security] We allow the user to try a second time. We don't delete all user tokens here although we could.
+			LiquidoException.supply(Errors.CANNOT_LOGIN_TOKEN_INVALID, "Cannot login. SMS token is invalid")
+		);
+		return jwtTokenUtils.doLoginInternal(user, null);
+	}
+
+	//================== Login via Authy App =====================
+
+	/**
+	 * Before the Authy app can be used for login, the Authy factor, ie. the Authy Mobile App, must be verified once.
 	 * The user MUST be logged in for this call and provide a TOTP from the Authy App.
 	 *
 	 * @param authToken first auth token (TOTP) from the Authy mobile app
@@ -203,7 +243,7 @@ public class UserGraphQL {
 		UserEntity user = UserEntity.findByEmail(email)
 				.orElseThrow(LiquidoException.supply(Errors.CANNOT_LOGIN_EMAIL_NOT_FOUND, "Cannot login with Authy token. No user with that email!"));
 		boolean approved = twilioVerifyClient.loginWithAuthyToken(user, authToken);
-		if (!approved) throw new LiquidoException(Errors.CANNOT_LOGIN_TOKEN_INVALID, "Cannot login. AuthToken is invalid");
+		if (!approved) throw new LiquidoException(Errors.CANNOT_LOGIN_TOKEN_INVALID, "Cannot login. Authy token is invalid");
 		return jwtTokenUtils.doLoginInternal(user, null);
 	}
 

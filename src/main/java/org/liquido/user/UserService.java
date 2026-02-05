@@ -37,13 +37,10 @@ public class UserService {
 		OneTimeToken.deleteUsersOldTokens(user);
 
 		// Create a one time token that allows to reset user's password exactly once.
-		UUID tokenUUID = UUID.randomUUID();
-		LocalDateTime validUntil = LocalDateTime.now().plusMinutes(config.loginLinkExpirationMinutes());
-		OneTimeToken oneTimeToken = new OneTimeToken(tokenUUID.toString(), user, validUntil);
-		oneTimeToken.persist();
+		OneTimeToken ott = OneTimeToken.build(UUID.randomUUID().toString(), user, config.loginLinkExpirationMinutes());
 
 		// This link is parsed in a cypress test case. You must also update that test if you change this.
-		String resetPasswordLink = "<a id='resetPasswordLink' style='font-size: 20pt;' href='" + config.frontendUrl() + "/resetPassword?email=" + user.getEmail() + "&resetPasswordToken=" + oneTimeToken.getNonce() + "'>Reset Password</a>";
+		String resetPasswordLink = "<a id='resetPasswordLink' style='font-size: 20pt;' href='" + config.frontendUrl() + "/resetPassword?email=" + user.getEmail() + "&resetPasswordToken=" + ott.getNonce() + "'>Reset Password</a>";
 		String body = String.join(
 				System.lineSeparator(),
 				"<html><h1>LIQUIDO - Reset Password</h1>",
