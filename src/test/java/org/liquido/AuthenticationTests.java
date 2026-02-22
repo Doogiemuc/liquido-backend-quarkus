@@ -188,18 +188,19 @@ public class AuthenticationTests {
 		assertNotNull(teamData.jwt);
 	}
 
+
+
 	/**
 	 * Test login flow via email. This can be tested with the {@link MockMailbox} provided by quarkus.
 	 * The test checks for the actual link in the email body.
 	 */
 	@Test
-	@Disabled   //TODO: needs update: LoginViaEmailAndPassword
 	@Transactional
-	public void loginViaEmail() {
+	public void loginViaEmailToken() {
 		UserEntity user = util.getRandomUser();
 
 		//  WHEN requesting and email token for this user
-		String reqEmailQuery = "query reqEmail($email: String) { requestEmailToken(email: $email) }";
+		String reqEmailQuery = "query requestEmailToken($email: String) { requestEmailToken(email: $email) }";
 		ValidatableResponse reqEmailResponse = TestFixtures.sendGraphQL(reqEmailQuery, Lson.builder("email", user.email));
 
 		// THEN login link is sent via email

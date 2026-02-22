@@ -64,9 +64,14 @@ public class CastVoteService {
 	}
 
 	/**
-	 * Consume the one-time voterToken.
-	 * Check that it is valid, known and hashes to a not yet expired VoterTokenEntity.
+	 * Consume the one-time voterToken for a poll.
+	 * Check that the plainVoterToken links to a known VoterTokenEntity.
 	 * And that a valid RightToVote is linked.
+	 *
+	 * <pre>plainVoterToken --hashed--> VoterTokenEntity --> RightToVoteEntity</pre>
+	 *
+	 * If everything is fine, then extends the validity of the RightToVoteEntity and
+	 * delete the consumed VoterTokenEntity.
 	 *
 	 * @param plainVoterToken the plain voter token that the voter sent
 	 * @param poll the poll we want to vote in.
@@ -75,21 +80,25 @@ public class CastVoteService {
 	 */
 	public RightToVoteEntity consumeVoterToken(String plainVoterToken, PollEntity poll) throws LiquidoException {
 		if (plainVoterToken == null || plainVoterToken.length() < 10)
-			throw new LiquidoException(LiquidoException.Errors.INVALID_VOTER_TOKEN, "This voterToken is valid.");
+			throw new LiquidoException(LiquidoException.Errors.INVALID_VOTER_TOKEN, "Need plainVoterToken to cast a vote.");
 
 		// check voterToken
 		String hashedVoterToken = calcHashedVoterToken(plainVoterToken, poll.id);
-		log.info("consumeVoterToken: plainVoterToken = {} hashedVoterToken = {} in poll.id = {}", "XXXXXX", hashedVoterToken, poll.id);
+		//log.debug("consumeVoterToken: plainVoterToken = {} hashedVoterToken = {} in poll.id = {}", "XXXXXX", hashedVoterToken, poll.id);
 		VoterTokenEntity voterToken = VoterTokenEntity.<VoterTokenEntity>findByIdOptional(hashedVoterToken)
-				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.INVALID_VOTER_TOKEN, "This voterToken is invalid."));
+				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.INVALID_VOTER_TOKEN, "Cannot find a voterToken for you in this poll."));
 		if (LocalDateTime.now().isAfter(voterToken.expiresAt))
 			throw new LiquidoException(LiquidoException.Errors.INVALID_VOTER_TOKEN, "This voterToken is expired.");
 
-		// check that it's linked to a right to vote
-		if (voterToken.getRightToVote() == null)
+		// check that the VoterToken linked to a right to vote.
+		RightToVoteEntity rightToVote = voterToken.getRightToVote();
+		if (rightToVote == null || !rightToVote.isValid())
 			throw new LiquidoException(LiquidoException.Errors.INVALID_VOTER_TOKEN, "You are not allowed to cast a vote.");
+		// and extends the RightToVote's expiration time.
+		rightToVote.setExpiresAt(LocalDateTime.now().plusHours(config.rightToVoteExpirationDays()));
+		rightToVote.persist();
 
-		// Delete the consumed voterToken
+		// Finally delete the consumed voterToken. It may only be used ONCE!
 		voterToken.delete();
 
 		return voterToken.getRightToVote();

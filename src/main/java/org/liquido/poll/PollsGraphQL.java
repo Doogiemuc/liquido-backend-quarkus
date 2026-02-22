@@ -262,6 +262,7 @@ public class PollsGraphQL {
 
 	/**
 	 * Get the ballot of a voter in a poll if the voter has already cast one.
+	 * Security: A voter can of course only get his own ballot. Not the ballots of others.
 	 * @param pollId poll.id
 	 * @return the voter's ballot if there is one
 	 * @throws LiquidoException when poll cannot be found
