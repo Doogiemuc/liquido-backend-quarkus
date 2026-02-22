@@ -17,7 +17,8 @@ import java.util.Set;
 /**
  * This entity is the digital representation of a voters right to vote.
  * Every voter has one RightToVote for all polls in their LIQUIDO team.
- * But a voter needs a new VoterTokenEntity for every vote they want to cast.
+ * A right to vote expires when not used for too long.
+ * A voter needs a new VoterTokenEntity for every vote they want to cast.
  *
  * The RightToVote of a given user can be looked up by hashing their user info.
  * But for a RightToVote it cannot be found out whom it belongs to.
@@ -36,7 +37,6 @@ public class RightToVoteEntity extends PanacheEntityBase {
 	// RightToVoteEntity extends PanacheEntityBase! not our own BaseEntity. No createdBy! And we have our own ID.
 	//TODO: Should a RightToVote be per user? Or per user and team?
 	//TODO: Should a RightToVote.hash include the user's passwordHash? Change password -> need to recreate all RightToVotes for this user.
-	//TODO: Should a RightToVote expire? (one-time VoterTokens already do.)
 
 	/**
 	 * Hashed info about voter. The ID of this entity.
@@ -91,6 +91,11 @@ public class RightToVoteEntity extends PanacheEntityBase {
 		// ConfigProvider.getConfig().getValue("liquido.right-to-vote-expiration-days", Integer.class); - would be possible but not clean. So we simply pass the salt as parameter.
 		LocalDateTime expiresAt = LocalDateTime.now().plusDays(expirationDays);
 		return new RightToVoteEntity(hashedUserInfo, expiresAt);
+	}
+
+	/** Check if this RightToVot is not yet expired */
+	public boolean isValid() {
+		return this.expiresAt.isAfter(LocalDateTime.now());
 	}
 
 	/**

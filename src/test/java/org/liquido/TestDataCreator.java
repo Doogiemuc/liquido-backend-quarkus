@@ -17,6 +17,7 @@ import org.liquido.model.LiquidoBaseEntity;
 import org.liquido.poll.PollEntity;
 import org.liquido.poll.ProposalEntity;
 import org.liquido.security.OneTimeToken;
+import org.liquido.security.webauthn.WebAuthnCredential;
 import org.liquido.team.TeamDataResponse;
 import org.liquido.team.TeamEntity;
 import org.liquido.team.TeamMemberEntity;
@@ -163,6 +164,8 @@ public class TestDataCreator {
 			} catch (SQLException e) {
 				log.error("Cannot extract test data ", e);
 			}
+
+			log.info("========== CreateTestData finished SUCCESSFULLY =============");
 		}
 	}
 
@@ -287,6 +290,7 @@ public class TestDataCreator {
 		BallotEntity.deleteAll();
 		VoterTokenEntity.deleteAll();
 		RightToVoteEntity.deleteAll();
+		WebAuthnCredential.deleteAll();
 
 		entityManager.flush();
 

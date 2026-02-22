@@ -11,6 +11,8 @@ import org.liquido.util.LiquidoConfig;
 import org.liquido.util.LiquidoException;
 import org.liquido.vote.RightToVoteEntity;
 
+import java.util.List;
+
 @Slf4j
 @ApplicationScoped
 public class DelegationService {
@@ -45,11 +47,14 @@ public class DelegationService {
 		if (delegationWouldCauseCycle(usersRightToVote, proxyRightToVote))
 			throw new LiquidoException(LiquidoException.Errors.CANNOT_ASSIGN_CIRCULAR_PROXY, "Delegation to this proxy would cause a circle. This proxy or one of his proxies already delegate his RightToVote to you. You can already vote for this user.");
 
-		log.info("Delegation: {} delegates to {}", currentUser.toStringShort(), proxy.toStringShort());
-		usersRightToVote.delegateToProxy(proxyRightToVote);
-
 		//TODO:  HIGH PRIO MUST:  A voter must request a delegation! Otherwise he could know the vote of the proxy.
-		//DelegationEntity.buildDelegationRequest(currentUser, proxy, )
+		if (proxyRightToVote.getPublicProxy() != null) {
+			log.info("Delegation: {} requests delegation to proxy {}", currentUser.toStringShort(), proxy.toStringShort());
+			DelegationEntity.buildDelegationRequest(currentUser, proxy, usersRightToVote);
+		} else {
+			log.info("Delegation: {} delegates to proxy {}", currentUser.toStringShort(), proxy.toStringShort());
+			usersRightToVote.delegateToProxy(proxyRightToVote);
+		}
 
 		proxyRightToVote.persist();
 		usersRightToVote.persist();
@@ -73,6 +78,28 @@ public class DelegationService {
 		proxiesRightToVote.persist();
 		usersRightToVote.persist();
 	}
+
+
+
+	public List<DelegationEntity> getDelegationRequests() throws LiquidoException {
+		UserEntity proxy = jwtTokenUtils.getCurrentUser()
+				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.UNAUTHORIZED, "Must be logged in to get your delegation requests"));
+		return DelegationEntity.findDelegationRequestsTo(proxy);
+	}
+
+	public void acceptDelegationRequests(List<Long> delegationRequestIds) throws LiquidoException {
+		UserEntity proxy = jwtTokenUtils.getCurrentUser()
+				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.UNAUTHORIZED, "Must be logged in to accept delegation requests"));
+		RightToVoteEntity proxyRightToVote = RightToVoteEntity.findByVoter(proxy, config.hashSecret())
+				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_ASSIGN_PROXY, "Cannot delegate to Proxy. Cannot find RightToVote"));
+
+		DelegationEntity.findByIds(delegationRequestIds).forEach(delegationRequest -> {
+			RightToVoteEntity requestedDelegationFrom = delegationRequest.getRequestedDelegationFrom();
+			if (requestedDelegationFrom == null) return;
+			requestedDelegationFrom.delegateToProxy(proxyRightToVote);
+		});
+	}
+
 
 	/**
 	 * Check if adding this delegation would create a cycle.

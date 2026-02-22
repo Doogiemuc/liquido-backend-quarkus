@@ -12,6 +12,7 @@ import org.liquido.user.UserEntity;
 import org.liquido.vote.RightToVoteEntity;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Delegation from a user to a proxy in a given area.
@@ -67,6 +68,24 @@ public class DelegationEntity extends LiquidoBaseEntity {
 
   /** When was the delegation to that proxy requested */
   LocalDateTime requestedDelegationAt = null;
+
+
+	/**
+	 * Find all requested delegations for a given proxy.
+	 * @param proxy the proxy
+	 * @return list of delegation requests to this proxxy
+	 */
+	public static List<DelegationEntity> findByToProxy(UserEntity proxy) {
+		return DelegationEntity.find("toProxy", proxy).list();
+	}
+
+	public static List<DelegationEntity> findDelegationRequestsTo(UserEntity proxy) {
+		return DelegationEntity.find("toProxy = ?1 and requestedDelegationFrom != null", proxy).list();
+	}
+
+	public static List<DelegationEntity> findByIds(List<Long> ids) {
+		return list("id in ?1", ids);
+	}
 
 	/**
 	 * @return true if this delegation is requested. Proxy must still confirm.
