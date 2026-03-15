@@ -99,7 +99,7 @@ public class PollEntity extends LiquidoBaseEntity {
 
 
 	// Implementation note: A poll does not contain a link to its BallotModels. We do not want to expose the ballots while the voting phase is still running.
-	// But clients are allowed to get the number of already casted ballots.
+	// But clients are allowed to get the number of already cast ballots.
 	public long getNumBallots() {
 		return BallotEntity.count("poll", this);
 	}

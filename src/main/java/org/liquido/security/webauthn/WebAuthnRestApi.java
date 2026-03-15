@@ -42,7 +42,7 @@ import java.util.Optional;
  * </p>
  */
 @Slf4j
-@Path("/liquido/v2/webauthn")
+@Path("/webauthn")         // There might also be a quarkus.http.root-path in application.properties before this!
 @Produces(MediaType.APPLICATION_JSON)
 public class WebAuthnRestApi {
 

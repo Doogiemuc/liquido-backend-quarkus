@@ -62,10 +62,10 @@ public class TeamEntity extends LiquidoBaseEntity {
 	Set<PollEntity> polls = new HashSet<>();   //BUGFIX: Changed from List to Set https://stackoverflow.com/questions/4334970/hibernate-throws-multiplebagfetchexception-cannot-simultaneously-fetch-multipl
 
 	/** Create a new Team entity */
-	public TeamEntity(String teamName, UserEntity admin) {
+	public TeamEntity(String teamName, UserEntity admin, int inviteCodeLength) {
 		this.teamName = teamName;
 		this.members.add(new TeamMemberEntity(this, admin, TeamMemberEntity.Role.ADMIN));
-		this.inviteCode = DoogiesUtil.easyToken(8);
+		this.inviteCode = DoogiesUtil.easyToken(inviteCodeLength);
 	}
 
 	/**

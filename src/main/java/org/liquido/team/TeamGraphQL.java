@@ -188,7 +188,7 @@ public class TeamGraphQL {
 	private TeamEntity createNewTeam(String teamName, UserEntity admin) {
 		if (admin.id == null) throw new RuntimeException("cannot createNewTeam. Admin must already be persisted.");
 		jwtTokenUtils.setCurrentUserAndTeam(admin, null);   //BUGFIX: Also set createdBy in TeamEntity
-		TeamEntity team = new TeamEntity(teamName, admin);
+		TeamEntity team = new TeamEntity(teamName, admin, config.inviteCodeLength());
 		team.persist();
 		log.info("CREATE NEW TEAM: {}", team);
 		return team;
