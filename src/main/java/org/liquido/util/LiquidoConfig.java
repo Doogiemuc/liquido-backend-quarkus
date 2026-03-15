@@ -13,62 +13,76 @@ import java.util.Optional;
  */
 @ConfigMapping(prefix = "liquido")
 public interface LiquidoConfig {
-    String apiVersion();
+	/** version of liquido backend API. Used in response to ping request */
+	String apiVersion();
 
-		// URL of liquido frontend. Use for link in login email.
-    @NotNull
-    String frontendUrl();
+	/** URL of liquido frontend. Used as prefix for link in login email. */
+	@NotNull
+	String frontendUrl();
 
-		// login link in email is only valid for this long.
-		@WithDefault("10")
-    int loginLinkExpirationMinutes();
+	/** Login link in email is only valid for this long. */
+	@WithDefault("10")
+	int loginLinkExpirationMinutes();
 
-    @NotNull
-    int durationOfVotingPhase();
+	/** How long do polls run by default (TODO: future bigger LIQUIDO) */
+	@NotNull
+	int durationOfVotingPhase();
 
-    @WithDefault("365")
-    int rightToVoteExpirationDays();
+	/** When does a right to vote expire when a voter doesn't use it anymore? */
+	@WithDefault("365")
+	int rightToVoteExpirationDays();
 
-    @WithDefault("20")
-    int voterTokenExpirationMinutes();
+	/** When does a voter token expire that a voter just fetched for a poll */
+	@WithDefault("20")
+	int voterTokenExpirationMinutes();
 
-		@NonNull
-		String googleClientId();
+	/** Length of team invide codes. Must match frontend config!!! */
+	@WithDefault("8")
+	int inviteCodeLength();
 
-    @NotNull
-    String hashSecret();  // the secret only know to the server that is used to create rightToVote tokens
+	/** Keep passwords secure! */
+	@WithDefault("10")
+	int minPasswordLength();
 
-		// (optional) login token that can be used to login during dev. (This CANNOT be used PROD!)
-		@WithName("dev-login-token")
-    Optional<String> devLoginTokenOpt();
 
-		/* MAYBE: would also be possible. But I don't like the RuntimeException.
-		default String devLoginToken() {
-			return devLoginTokenOpt().orElseThrow(
-					() -> new RuntimeException("DevLogin token is not defined in config")
-			);
-		}
-		*/
+	/** Used for login with google */
+	@NonNull
+	String googleClientId();
 
-		// (optional) token that is used in cypress E2E test to automatically test the full the password reset process (This CANNOT be used in PROD!)
-		@WithName("test-password-reset-token")
-    Optional<String> testPasswordResetTokenOpt();
+	/** the secret only know to the server that is used to create rightToVote tokens */
+	@NotNull
+	String hashSecret();
 
-		@WithDefault("10")
-    int minPasswordLength();
+	/** (optional) login token that can be used to login during dev. (This CANNOT be used PROD!) */
+	@WithName("dev-login-token")
+	Optional<String> devLoginTokenOpt();
 
-    Jwt jwt();
-    interface Jwt {
-        //String secret();   not used
-        @WithDefault("60")
-        Long expirationSecs();
-    }
+	/* MAYBE: would also be possible. But I don't like the RuntimeException.
+	default String devLoginToken() {
+		return devLoginTokenOpt().orElseThrow(
+				() -> new RuntimeException("DevLogin token is not defined in config")
+		);
+	}
+	*/
 
-    Twilio twilio();
-    interface Twilio {
-        String accountSid();
-        String authToken();
-        String serviceSid();
-    }
+	/** (optional) token that is used in cypress E2E test to automatically test the full the password reset process (This CANNOT be used in PROD!) */
+	@WithName("test-password-reset-token")
+	Optional<String> testPasswordResetTokenOpt();
+
+	/** Login JsonWebtoken */
+	Jwt jwt();
+
+	interface Jwt {
+		@WithDefault("60")
+		Long expirationSecs();
+	}
+
+	/** Sending SMS */
+	Twilio twilio();
+	interface Twilio {
+		String accountSid();
+		String authToken();
+		String serviceSid();
+	}
 
 }

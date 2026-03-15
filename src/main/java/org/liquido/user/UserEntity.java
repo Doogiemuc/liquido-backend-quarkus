@@ -41,6 +41,7 @@ import java.util.Optional;
 @NoArgsConstructor
 //@EqualsAndHashCode(callSuper = false, onlyExplicitlyIncluded = true)    //BUGFIX: We have our own equals() implementation.
 @Entity(name = "liquido_user")
+//TODO: @Cacheable Can a user be cached?  For how long?
 //DEPRECATED: @GraphQLType(name="user", description = "A LiquidoUser that can be an admin or member in a team.")  // Don't need to manually name the GraphQL DTO. It will be named "userInput" by graphql-spqr
 //BUGFIX: UserEntity does not extend LiquidoBaseEntity. Yes we want createdAt and updatedAt. But we cant have a createdBy, because this would lead to a circular dependency.
 public class UserEntity extends PanacheEntity {
