@@ -1,8 +1,7 @@
 package org.liquido.vote;
 
 
-import lombok.NonNull;
-
+import java.util.Arrays;
 import java.util.Comparator;
 
 /**
@@ -12,9 +11,12 @@ import java.util.Comparator;
  *
  */
 class MajorityComparator implements Comparator<long[]> {
+	/**
+	 * The duelMatrix contains the number of pairwise preferences of a candidate i over another candidate j.
+	 */
 	Matrix duelMatrix;
 
-	public MajorityComparator(@NonNull Matrix duelMatrix) {
+	public MajorityComparator(Matrix duelMatrix) {
 		this.duelMatrix = duelMatrix;
 	}
 
@@ -25,20 +27,21 @@ class MajorityComparator implements Comparator<long[]> {
 	 *
 	 * @param m1 majority one
 	 * @param m2 majority two
-	 * @return a negative number IF m1 < m2   OR
-	 * a positive number IF m2 > m1
+	 * @return a positive number IF m1 < m2 OR a negative number IF m1 < m2 OR zero IF m1 exactly equals m2
 	 */
 	@Override
 	public int compare(long[] m1, long[] m2) {
 		if (m1 == null && m2 == null) return 0;
-		if (m1.equals(m2)) return 0;
+		if (Arrays.equals(m1, m2)) return 0;
 		if (m1 == null) return -1;
 		if (m2 == null) return 1;
-		int diff = (int)(m2[2] - m1[2]);  // (1)
-		if (diff == 0) {
-			return (int)(duelMatrix.get((int)m2[1], (int)m2[0]) - duelMatrix.get((int)m1[1], (int)m1[0]));  // (2)
-		} else {
-			return diff;
-		}
+
+		int supportDiff = Long.compare(m2[2], m1[2]); // (1)
+		if (supportDiff != 0) return supportDiff;
+
+		return Long.compare(
+				duelMatrix.get((int)m1[1], (int)m1[0]),
+				duelMatrix.get((int)m2[1], (int)m2[0])
+		); // (2)
 	}
 }

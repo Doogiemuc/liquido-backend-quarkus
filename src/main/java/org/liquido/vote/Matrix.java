@@ -11,7 +11,7 @@ import java.util.function.Function;
 public class Matrix {
   // Implementation note: Be careful that you do not accidentally invert the matrix!
 	// All methods with two parameters have "row" and then "col".
-	// This different than "x" and then "y" axis!  But that may only be of importance to completely fanatic geeks :-)
+	// This is different to the x (left-right) then y (top-down) order for axis coordinates! But that may only be of importance to completely fanatic geeks :-)
 
 	public long[][] data;
 
@@ -23,8 +23,8 @@ public class Matrix {
 	/**
 	 * Create a new matrix. All values are 0 by default.
 	 * An empty Matrix of limit 0,0 is allowed.
-	 * @param rows
-	 * @param cols
+	 * @param rows number of rows
+	 * @param cols number of columns
 	 */
 	public Matrix(int rows, int cols) {
 		if (rows < 0 || cols < 0) throw new IllegalArgumentException("rows and cols must be positive");
@@ -63,9 +63,10 @@ public class Matrix {
 	}
 
 	/**
-	 * Add the value of each elements of m to our elements
+	 * Add two matrices
+	 * Add the value of each element of m to our elements
 	 * If m is larger than this matrix, then only the values that fit into this matrix will be added. This matrix will not be resized.
-	 * If m is smaller then this matrix, then only those rows and cols from m will be added to this matrix.
+	 * If m is smaller than this matrix, then only those rows and cols from m will be added to this matrix.
 	 * @param m another Matrix
 	 */
 	public void add(Matrix m) {
@@ -118,10 +119,10 @@ public class Matrix {
 	/**
 	 * Create a Matrix from a JSON array of arrays, e.g. [[1,2,3],[4,5,6],[7,8,9]]
 	 * Edge case: "[]" will be converted to a Matrix of limit (0,0)
-	 * @param json a json value that contains an array of arrays
-	 * @return
-	 * @throws IllegalArgumentException when json is null or does not start with [ or does not end with ]
-	 * @throws RuntimeException when the the rows in the array do not have the same length
+	 * @param json a JSON string that contains an array of arrays
+	 * @return the created Matrix
+	 * @throws IllegalArgumentException when JSON is null or does not start with [ or does not end with ]
+	 * @throws RuntimeException when the JSON rows in the array do not have the same length
 	 * @throws NumberFormatException when any of the values inside the arrays is not an int
 	 */
 	public static Matrix fromJsonValue(String json) {
@@ -138,7 +139,7 @@ public class Matrix {
 			String[] values = parts[i].split(",");
 			if (values.length != cols) throw new RuntimeException("Cannot parse Matrix form JSON. Invalid data for Matrix. Rows in data do not have the same width.");
 			for (int j = 0; j < cols; j++) {
-				duelMatrix.set(i,j, Long.valueOf(values[j]));
+				duelMatrix.set(i,j, Long.parseLong(values[j]));
 			}
 		}
 		return duelMatrix;
