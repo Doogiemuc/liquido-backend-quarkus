@@ -84,11 +84,18 @@ public class AuthenticationTests {
 		// so no additional assertions necessary here.
 	}
 
+	/**
+	 * Test normal login with email + password.
+	 * Uses the {@link TestFixtures} adminEmail
+	 * @throws Exception when adminEmail cannot be found in test data
+	 */
 	@Test
-	public void testLoginWithUsernameAndPassword() {
+	public void testLoginWithUsernameAndPassword() throws Exception {
 		// GIVEN a random user
-		UserEntity user = util.getRandomUser();
-		String plainPassword = user.getEmail() + TestFixtures.PASSWORD_SUFFIX;  // easy hack for testing
+		UserEntity user = UserEntity.findByEmail(TestFixtures.adminEmail).orElseThrow(
+				() -> new Exception("Need user to test login. Cannot find "+TestFixtures.adminEmail)
+		);
+		String plainPassword = user.email + TestFixtures.PASSWORD_SUFFIX;  // easy hack for testing
 		String query = "query loginWithEmailPassword($email: String!, $password: String!) {" +
 				" loginWithEmailPassword(email: $email, password: $password)" + CREATE_OR_JOIN_TEAM_RESULT + "}";
 		Lson vars = Lson.builder()
@@ -173,7 +180,7 @@ public class AuthenticationTests {
 	public void testDevLogin() {
 		// GIVEN a random user
 		UserEntity user = util.getRandomUser();
-		String query = "query devLogin($devLoginToken: String, $email: String) {" +
+		String query = "query devLogin($devLoginToken: String!, $email: String!) {" +
 				" devLogin(devLoginToken: $devLoginToken, email: $email)" + CREATE_OR_JOIN_TEAM_RESULT + "}";
 		Lson vars = Lson.builder()
 				.put("devLoginToken", config.devLoginTokenOpt().get())
@@ -200,7 +207,7 @@ public class AuthenticationTests {
 		UserEntity user = util.getRandomUser();
 
 		//  WHEN requesting and email token for this user
-		String reqEmailQuery = "query requestEmailToken($email: String) { requestEmailToken(email: $email) }";
+		String reqEmailQuery = "query requestEmailLoginLink($email: String!) { requestEmailLoginLink(email: $email) }";
 		ValidatableResponse reqEmailResponse = TestFixtures.sendGraphQL(reqEmailQuery, Lson.builder("email", user.email));
 
 		// THEN login link is sent via email
@@ -229,9 +236,9 @@ public class AuthenticationTests {
 
 		// ========= Login with token from email
 
-		String loginQuery = "query loginWithEmailToken($email: String, $authToken: String) {" +
-				"loginWithEmailToken(email: $email, authToken: $authToken)" + CREATE_OR_JOIN_TEAM_RESULT + "}";
-		Lson loginVars = new Lson().put("email", user.email).put("authToken", resToken);
+		String loginQuery = "query loginWithEmailToken($email: String!, $emailToken: String!) {" +
+				"loginWithEmailToken(email: $email, emailToken: $emailToken)" + CREATE_OR_JOIN_TEAM_RESULT + "}";
+		Lson loginVars = new Lson().put("email", user.email).put("emailToken", resToken);
 		ValidatableResponse loginRes = TestFixtures.sendGraphQL(loginQuery, loginVars);
 		TeamDataResponse teamDataResponse = loginRes.extract().jsonPath().getObject("data.loginWithEmailToken", TeamDataResponse.class);
 		log.info("Successfully logged in with email token into team " + teamDataResponse.team + " as user " + teamDataResponse.user);
@@ -389,7 +396,7 @@ public class AuthenticationTests {
 	/**
 	 * Register as a new user and create a new team
 	 * @param adminEmail email of new user
-	 * @param teamName new teamname
+	 * @param teamName new teamName
 	 * @return team data and login information incl. JWT
 	 */
 	private TeamDataResponse createNewTeam(String adminName, String adminEmail, String teamName) {
@@ -431,7 +438,7 @@ public class AuthenticationTests {
 	@Disabled
 	public void testRegistrationAndAuthyFactor() {
 		// (1) Register as a new admin in a new team
-		Long now = System.currentTimeMillis() % 1000000;
+		long now = System.currentTimeMillis() % 1000000;
 		String email = "authTestAdmin"+now+"@liquido.vote";
 		String name  = "AuthTest Admin"+now;
 		String teamName = "AuthTestTeam"+now;
