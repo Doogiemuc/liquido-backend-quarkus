@@ -3,7 +3,6 @@ package org.liquido.vote;
 //Implementation note: This class is completely independent of any Liquido data model. It's just the algorithm
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Ranked Pairs voting
@@ -20,40 +19,36 @@ public class RankedPairVoting {
 	/**
 	 * Sum up the pairwise comparison of proposals/candidates in every ballot.
 	 * How many ballots prefer candidate i over candidate j.
-	 * The returned table is "sum symmetric" along its diagonal axis. The sum of each pair of cells
-	 * along this symmetry equals the number of ballots.
+	 * The returned table is "sum symmetric" along its diagonal axis.
+	 * For each candidate pair i and j, the sum of matrix(i,j) and matrix(j,i)
+	 * equals the number of ballots that ranked both i and j.
 	 *
 	 * @param allIds all proposal/candidate IDs that can be voted for in this poll.
 	 * @param idsInBallots the list of ballots. Each ballot consists of an ordered list of proposal/candidate IDs from allIds
 	 *                     A ballot does not necessarily need to contain all candidate IDs. It is also possible that
-	 *                     a voter only votes for some candidates. This means that he prefers all the candidates
-	 *                     that he sorted into his ballot over the candidates that hi did not vote for at all.
+	 *                     a voter only votes for some candidates.
+	 *                     Candidates that are not listed in a ballot are treated as neutral in that ballot.
+	 *                     That means the ballot does not express any pairwise preference that includes those candidates.
 	 *                     <h3>Example</h3>
 	 *                     <ul>
 	 *                       <li>allIDs = {1,2,3,4}</li>
 	 *                     	 <li>idsInBallots[0] = { 2, 1}</li>
 	 *                     </ul>
-	 *                     This voter prefers candidate 2 over 1. And he prefers these two candidates over all the other ones
-	 *                     [ 2, 1 ] > { 3 4} The candidates 3 and 4 do not have any preferred order within them. They
-	 *                     are all just "low".
+	 *                     This voter prefers candidate 2 over 1.
+	 *                     The ballot does not express any preference involving 3 or 4.
 	 * @throws IllegalArgumentException when one of the required param is null
 	 * @return the duelMatrix, which is a pairwise comparison of each preference i > j
 	 */
 	public static Matrix calcDuelMatrix(List<Long> allIds, List<List<Long>> idsInBallots)  {
 		if (allIds == null || idsInBallots == null)
-			throw new IllegalArgumentException("id2index and idsInBallots params must not be null!");
+			throw new IllegalArgumentException("allIds and idsInBallots params must not be null!");
 
-		// reverse map IDs to their index in allIds, so that we can use these indexes as row and col numbers in the duelMatrix
+		// reverse map IDs to their array index in allIds, so that we can use these indexes as row and col numbers in the duelMatrix
 		HashMap<Long, Integer> id2index = new HashMap<>();
 		int index = 0;
 		for (Long id : allIds) {
 			id2index.put(id, index++);
 		}
-
-		// When there are many ballots, then some will have the same vote order.
-		// This cache stores the Set of IDs that have NOT been voted for in a ballot.
-		// E.g. for voteOrder A > B  the notVotedFor Set is {C, D}
-		Map<List<Long>, Set<Long>> notVotedForMap = new HashMap<>();
 
 		// DuelMatrix is a pairwise comparison of preferences proposal1.id > proposal2.id
 		// Proposal IDs are mapped to row/col index in duelMatrix via the passed id2index map.
@@ -61,25 +56,25 @@ public class RankedPairVoting {
 
 		// For each ballot
 		for (List<Long> votedForIds : idsInBallots) {
-
-			// calc (and cache) the proposal ids that were not voted for at all for this voteOrder
-			Set<Long> notVotedForIds = notVotedForMap.get(votedForIds);
-			if (notVotedForIds == null) {
-				notVotedForIds = id2index.keySet().stream().filter(id -> !votedForIds.contains(id)).collect(Collectors.toSet());
-				notVotedForMap.put(votedForIds, notVotedForIds);
+			if (votedForIds == null) {
+				throw new IllegalArgumentException("Ballot must not be null");
 			}
 
-			// For each pair of votedForIds add one to the cell in the duelMatrix
-			for (int i = 0; i < votedForIds.size(); i++) {					//BUGFIX: Must loop over all votedForIds. We could skip the last for preference i > j, but I need this last loop iteration for counting the preferences over notVotedForIds
+			Set<Long> seenIdsInBallot = new HashSet<>();
+			for (Long votedForId : votedForIds) {
+				if (!id2index.containsKey(votedForId)) {
+					throw new IllegalArgumentException("Ballot contains unknown candidate id " + votedForId);
+				}
+				if (!seenIdsInBallot.add(votedForId)) {
+					throw new IllegalArgumentException("Ballot must not contain duplicate candidate id " + votedForId);
+				}
+			}
+
+			// For each ordered pair in this ballot, add one preference i > j.
+			for (int i = 0; i < votedForIds.size() - 1; i++) {
 				int prefIndex = id2index.get(votedForIds.get(i));
 				for (int j = i + 1; j < votedForIds.size(); j++) {
-					// add count preferences i > j
 					duelMatrix.add(prefIndex, id2index.get(votedForIds.get(j)), 1);
-				}
-				// AND add one preference i > k  for  each notVotedForId[k]
-				// the notVotedForIds among themselves do not have any preference. They are all just simply "lower" than the votedForIds.
-				for (Long notVotedForId : notVotedForIds) {
-					duelMatrix.add(prefIndex, id2index.get(notVotedForId), 1);
 				}
 			}
 
@@ -127,6 +122,9 @@ public class RankedPairVoting {
 		// LOCK IN
 		// The node ids in DirectedGraph are row/col indexes in the duelMatrix (int)
 		DirectedGraph<Integer> digraph = new DirectedGraph<>();
+		for (int i = 0; i < duelMatrix.getRows(); i++) {
+			digraph.addNode(i);
+		}
 		for (long[] majority : majorities) {
 			if (!digraph.reachable((int)majority[1], (int)majority[0])) {
 				digraph.addDirectedEdge((int)majority[0], (int)majority[1]);
