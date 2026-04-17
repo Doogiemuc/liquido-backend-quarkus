@@ -146,33 +146,21 @@ public class UserGraphQL {
 		}
 	}
 
+	//================== Login via Email =====================
+
 	@Query
-	@Description("Request a login link via email.")
-	@Transactional
-	public String requestEmailLoginLink(@Name("email") String email) throws LiquidoException {
+	@Description("Request a login link via email. If the given email is registered, will send an email with a one time login link. Returns a static success message.")
+	public String requestEmailLoginLink(@Name("email") @NonNull String email) throws LiquidoException {
 		return userService.requestEmailLoginLink(email);
 	}
 
-	//================== Password reset =====================
-
 	@Query
-	@Description("Request a password reset. Will send a mail with a link where user can reset his password.")
-	@Transactional
-	public String requestPasswordReset(
-			@Description("Must be a registered mail.") @Name("email") @NonNull String email
+	@Description("Login with the token from link in the login email")
+	public TeamDataResponse loginWithEmailToken(
+			@Name("email") @NonNull String email,
+			@Name("emailToken") @Description("The token from the link in the login email") @NonNull String emailToken
 	) throws LiquidoException {
-		return userService.requestPasswordReset(email);
-	}
-
-	@Query
-	@Description("Reset a user's password. Needs valid one time token.")
-	@Transactional
-	public String resetPassword(
-			@Description("Must be a registered mail.") @Name("email") @NonNull String email,
-			@Description("The OTT user received from requestPasswordReset") @NonNull String resetPasswordToken,
-			@NonNull String newPassword
-	) throws LiquidoException {
-		return userService.resetPassword(email, resetPasswordToken, newPassword);
+		return userService.loginWithEmailToken(email, emailToken);
 	}
 
 	//================== Login via SMS =====================
@@ -204,7 +192,7 @@ public class UserGraphQL {
 			@NonNull String mobilephone,
 			@NonNull String smsToken
 	) throws LiquidoException {
-		UserEntity user = UserEntity.findByEmail(mobilephone)
+		UserEntity user = UserEntity.findByMobilephone(mobilephone)
 			.orElseThrow(LiquidoException.supply(Errors.CANNOT_LOGIN_MOBILE_NOT_FOUND, "Cannot login with SMS token. No user with that mobilephone found!"));
 		OneTimeToken.findByNonce(smsToken).orElseThrow(
       //[Security] We allow the user to try a second time. We don't delete all user tokens here although we could.
@@ -289,6 +277,26 @@ public class UserGraphQL {
 		return jwtTokenUtils.doLoginInternal(user, null);
 	}
 
+	//================== Password reset =====================
 
+	@Query
+	@Description("Request a password reset. Will send a mail with a link where user can reset his password.")
+	@Transactional
+	public String requestPasswordReset(
+			@Description("Must be a registered mail.") @Name("email") @NonNull String email
+	) throws LiquidoException {
+		return userService.requestPasswordReset(email);
+	}
+
+	@Query
+	@Description("Reset a user's password. Needs valid one time token.")
+	@Transactional
+	public String resetPassword(
+			@Description("Must be a registered mail.") @Name("email") @NonNull String email,
+			@Description("The OTT user received from requestPasswordReset") @NonNull String resetPasswordToken,
+			@NonNull String newPassword
+	) throws LiquidoException {
+		return userService.resetPassword(email, resetPasswordToken, newPassword);
+	}
 
 }

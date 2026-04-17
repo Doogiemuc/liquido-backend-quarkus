@@ -291,6 +291,7 @@ public class TestDataCreator {
 		VoterTokenEntity.deleteAll();
 		RightToVoteEntity.deleteAll();
 		WebAuthnCredential.deleteAll();
+		OneTimeToken.deleteAll();
 
 		entityManager.flush();
 
@@ -307,7 +308,6 @@ public class TestDataCreator {
 		TeamMemberEntity.deleteAll();
 		TeamEntity.deleteAll();
 		UserEntity.deleteAll();
-		OneTimeToken.deleteAll();
 	}
 
 }

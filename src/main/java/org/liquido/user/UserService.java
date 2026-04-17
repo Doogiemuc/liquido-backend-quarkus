@@ -5,9 +5,13 @@ import io.quarkus.mailer.Mailer;
 import io.quarkus.runtime.LaunchMode;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
+import org.eclipse.microprofile.graphql.NonNull;
+import org.liquido.security.JwtTokenUtils;
 import org.liquido.security.OneTimeToken;
 import org.liquido.security.PasswordServiceBcrypt;
+import org.liquido.team.TeamDataResponse;
 import org.liquido.util.DoogiesUtil;
 import org.liquido.util.LiquidoConfig;
 import org.liquido.util.LiquidoException;
@@ -24,6 +28,9 @@ public class UserService {
 
 	@Inject
 	Mailer mailer;
+
+	@Inject
+	JwtTokenUtils jwtTokenUtils;
 
 	public String requestPasswordReset(String email) throws LiquidoException {
 		String emailLowerCase = DoogiesUtil.cleanEmail(email);
@@ -91,7 +98,13 @@ public class UserService {
 	}
 
 
-
+	/**
+	 * Request an email that contains a login link.
+	 * @param email must be an existing email
+	 * @return only a static success message
+	 * @throws LiquidoException when email is unkown/not registered. Or email cannot be sent.
+	 */
+	@Transactional
 	public String requestEmailLoginLink(String email) throws LiquidoException {
 		String emailLowerCase = DoogiesUtil.cleanEmail(email);
 		UserEntity user = UserEntity.findByEmail(emailLowerCase)
@@ -133,5 +146,20 @@ public class UserService {
 		return "{ \"message\": \"Email successfully sent.\" }";
 	}
 
-
+	/**
+	 * Login with the token that was provided in a login email.
+	 * @see #requestEmailLoginLink(String) requestEmailLoginLink
+	 * @param email must be a registered email
+	 * @param emailToken the auth token from the email
+	 * @return TeamDataResponse with team, user and JWT
+	 * @throws LiquidoException when user is not registred or authToken invalid
+	 */
+	public TeamDataResponse loginWithEmailToken(@NonNull String email, @NonNull String emailToken) throws LiquidoException {
+		UserEntity user = UserEntity.findByEmail(email)
+				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_LOGIN_MOBILE_NOT_FOUND, "Cannot login via email token. No user with that email found!"));
+		OneTimeToken.findByNonce(emailToken).orElseThrow(
+				LiquidoException.supply(LiquidoException.Errors.CANNOT_LOGIN_TOKEN_INVALID, "Cannot login. Token from email is invalid")
+		);
+		return jwtTokenUtils.doLoginInternal(user, null);
+	}
 }
