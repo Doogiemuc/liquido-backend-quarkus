@@ -107,7 +107,7 @@ public class JwtTokenUtils {
 		user.setLastLogin(LocalDateTime.now());
 		user.setLastTeamId(team.getId());
 		user.persist();
-		log.debug("LOGIN {} into team '{}'", user.toStringShort(), team.getTeamName());
+		log.debug("doLoginInternal(): {} into team '{}'", user.toStringShort(), team.getTeamName());
 		String jwt = generateToken(user.email, team.id, team.isAdmin(user));
 		// MUST programmatically log in the user, because we already need it to create TeamDataResponse.poll.proposal.isCreatedByCurrentUser
 		setCurrentUserAndTeam(user, team);
