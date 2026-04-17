@@ -75,7 +75,7 @@ public class UserGraphQL {
 	@PermitAll
 	public String pingApi() {
 		if (log.isDebugEnabled() && request != null) {
-			log.debug("Ping API from {}", request.getCurrent().request().remoteAddress());
+			log.debug("LIQUIDO App opened. pingApi() from {}", request.getCurrent().request().remoteAddress());
 		}
 		// Keep this very simple! Just return a string!
 		return "Welcome to LIQUIDO GraphQL API " + config.apiVersion();
@@ -107,6 +107,8 @@ public class UserGraphQL {
 		return "{\"message\": \"Hello " + email + "\" }";
 	}
 
+	//================== Login with Username and Password =====================
+
 	@Query
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)  // <= this checks for a valid JWT
 	@Description("Login with an existing and valid JWT. The user that is encoded in the JWT must exist. Then this will return a NEW updated JWT!")
@@ -117,7 +119,14 @@ public class UserGraphQL {
 		return jwtTokenUtils.doLoginInternal(currentUser, null);
 	}
 
-
+	/**
+	 * Standard login via email and password.
+	 * Although login with biometric authenticator (webauthn) is preferred in LIQUIDO
+	 * @param email user's email that must exist
+	 * @param plainPassword the login password (it is sent via encrypted HTTPS)
+	 * @return LIQUIDO standard login response (user, team, jwt)
+	 * @throws LiquidoException when email is not registered on password doesn't match
+	 */
 	@Query
 	@Description("Standard login with email and password")
 	public TeamDataResponse loginWithEmailPassword(
@@ -130,13 +139,21 @@ public class UserGraphQL {
 		boolean verified = PasswordServiceBcrypt.verifyPassword(plainPassword, user.getPasswordHash());
 		if (verified) {
 			TeamEntity team = TeamEntity.findById(user.getLastTeamId());  // team maybe null!
-			log.debug("LOGIN via email link: " + user.toStringShort());
+			log.debug("loginWithEmailPassword(): " + user.toStringShort());
 			return jwtTokenUtils.doLoginInternal(user, team);
 		} else {
 			throw new LiquidoException(Errors.UNAUTHORIZED, "Cannot login. Password is invalid");
 		}
 	}
 
+	@Query
+	@Description("Request a login link via email.")
+	@Transactional
+	public String requestEmailLoginLink(@Name("email") String email) throws LiquidoException {
+		return userService.requestEmailLoginLink(email);
+	}
+
+	//================== Password reset =====================
 
 	@Query
 	@Description("Request a password reset. Will send a mail with a link where user can reset his password.")
@@ -146,8 +163,6 @@ public class UserGraphQL {
 	) throws LiquidoException {
 		return userService.requestPasswordReset(email);
 	}
-
-
 
 	@Query
 	@Description("Reset a user's password. Needs valid one time token.")
@@ -245,13 +260,6 @@ public class UserGraphQL {
 		boolean approved = twilioVerifyClient.loginWithAuthyToken(user, authToken);
 		if (!approved) throw new LiquidoException(Errors.CANNOT_LOGIN_TOKEN_INVALID, "Cannot login. Authy token is invalid");
 		return jwtTokenUtils.doLoginInternal(user, null);
-	}
-
-	@Query
-	@Description("Request a login link via email.")
-	@Transactional
-	public String requestEmailLoginLink(@Name("email") String email) throws LiquidoException {
-		return userService.requestEmailLoginLink(email);
 	}
 
 	/**
