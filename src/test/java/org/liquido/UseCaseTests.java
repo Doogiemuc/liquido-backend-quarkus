@@ -3,9 +3,7 @@ package org.liquido;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.junit.jupiter.api.Test;
-import org.liquido.delegation.DelegationEntity;
 import org.liquido.model.LiquidoBaseEntity;
 import org.liquido.poll.PollEntity;
 import org.liquido.team.TeamDataResponse;
@@ -14,7 +12,6 @@ import org.liquido.team.TeamMemberEntity;
 import org.liquido.user.UserEntity;
 import org.liquido.vote.BallotEntity;
 import org.liquido.vote.CastVoteResponse;
-import org.liquido.vote.RightToVoteEntity;
 import org.liquido.vote.VoterTokenEntity;
 
 import java.util.List;
@@ -100,8 +97,8 @@ public class UseCaseTests {
 		poll = util.seedRandomProposals(poll, adminRes.team, 2);
 		poll = util.startVotingPhase(poll.getId(), adminRes.jwt);
 
-		// AND admin is a public proxy
-		//TODO!
+		// AND and admin that is a public proxy
+
 
 		// WHEN member delegates to admin as his proxy
 		TeamDataResponse memberRes = util.devLogin(member.email);
@@ -110,41 +107,23 @@ public class UseCaseTests {
 		//  AND admin casts a vote
 		adminRes = util.devLogin(admin.email);
 		String voterToken = util.getVoterToken(poll.id, adminRes.jwt);
-
-		String hashedVoterToken = DigestUtils.sha3_256Hex(voterToken + poll.id + "hashSecretTest");
-		System.out.println("getVoterToken: VoterTokenEntity.buildAndPersist " + voterToken + " =>  hashedVoterToken="+hashedVoterToken);
-
 		List<Long> voteOrderIds = poll.getProposals().stream().map(LiquidoBaseEntity::getId).toList();
-		util.castVote(poll.getId(), voteOrderIds, voterToken);
+		CastVoteResponse castVoteResponse = util.castVote(poll.getId(), voteOrderIds, voterToken);
 
-		// THEN this vote is also counted for member
+		// THEN the proxy's own ballot is created
+		assertNotNull(castVoteResponse.getBallot(), "Proxy should have received a ballot");
+		//  AND the proxy's vote is counted for all his delegees (also transitive ones)
+		long delegationCount = util.getDelegationCount(adminRes.user, adminRes.jwt);
+		assertEquals(delegationCount, castVoteResponse.getVoteCount(), "Vote should have been counted for " + delegationCount + " delegee(s)");
+
+		// AND this vote is also counted for all delegee)
 		memberRes = util.devLogin(member.email);
-
-		System.out.println("=========== all RightToVotes");
-		RightToVoteEntity.findAll().stream().forEach(rtv -> {
-			System.out.println(((RightToVoteEntity)rtv).hashedVoterInfo + " => " + rtv.toString());
-		});
-		System.out.println("=========== all VoterTokens");
-		VoterTokenEntity.findAll().stream().forEach(token -> {
-			System.out.println(token.toString());
-		});
-		System.out.println("=========== all Delegations to a proxy");
-		DelegationEntity.findAll().stream().forEach(delegation -> {
-			System.out.println(delegation.toString());
-		});
-		System.out.println("=========== all Ballots");
-		BallotEntity.findAll().stream().forEach(ballot -> {
-			System.out.println(ballot.toString());
-		});
-
-
-		/*
-		BallotEntity ballot = util.verifyBallot(poll.id, ??????????)
-		assertNotNull(ballot);
-		List<Long> ballotVoteOrderIds = ballot.getVoteOrder().stream().map(BaseEntity::getId).toList();
-		assert ballotVoteOrderIds.equals(voteOrderIds) : "vote did not return same list of voteOrderIDs";
-
-		 */
+		BallotEntity memberBallot = util.getBallotOfCurrentUser(poll.id, memberRes.jwt);
+		assertNotNull(memberBallot, "Member should have a ballot cast by their proxy");
+		
+		List<Long> memberVoteOrderIds = memberBallot.getVoteOrder().stream().map(LiquidoBaseEntity::getId).toList();
+		assertEquals(voteOrderIds, memberVoteOrderIds, "Member's ballot should have the same vote order as the proxy's");
+		assertEquals(1, memberBallot.getLevel(), "Member's ballot should be at level 1 (delegated)");
 	}
 
 

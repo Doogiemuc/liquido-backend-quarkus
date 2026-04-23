@@ -8,7 +8,6 @@ import org.eclipse.microprofile.graphql.*;
 import org.liquido.security.JwtTokenUtils;
 import org.liquido.team.TeamEntity;
 import org.liquido.user.UserEntity;
-import org.liquido.util.LiquidoConfig;
 import org.liquido.util.LiquidoException;
 import org.liquido.vote.BallotEntity;
 import org.liquido.vote.CastVoteResponse;
@@ -34,9 +33,6 @@ public class PollsGraphQL {
 
 	@Inject
 	CastVoteService castVoteService;
-
-	@Inject
-	LiquidoConfig config;
 
 	/**
 	 * Get one poll by its ID
@@ -140,7 +136,7 @@ public class PollsGraphQL {
 		proposal.getSupporters().add(user);
 		proposal.persist();
 
-		log.info("likeProposal: " + user.toStringShort() + " likes proposal.id=" + proposalId + " in poll.id="+poll.id);
+		log.info("likeProposal: {} likes proposal.id={} in poll.id={}", user.toStringShort(), proposalId, poll.id);
 		return poll;
 	}
 
@@ -161,11 +157,11 @@ public class PollsGraphQL {
 	}
 
 	/**
-	 * Is a proposal created by the currently logged in user
-	 * This of course assumes that there is a currently logged in user. But polls and proposals can only be fetched by authenticated users.
+	 * Is a proposal created by the currently logged-in user
+	 * This of course assumes that there is a currently logged-in user. But polls and proposals can only be fetched by authenticated users.
 	 *
 	 * @param proposal A proposal in a poll.
-	 * @return true if proposal was created by the currently logged in user.
+	 * @return true if proposal was created by the currently logged-in user.
 	 */
 	@Query
 	@Description("Is a proposal created by the currently logged in user?")
@@ -239,7 +235,7 @@ public class PollsGraphQL {
 		PollEntity poll = PollEntity.<PollEntity>findByIdOptional(pollId)
 				.orElseThrow(LiquidoException.notFound("Cannot cast vote. Poll(id="+pollId+") not found!"));
 		CastVoteResponse res = castVoteService.castVote(voterToken, poll, voteOrderIds);
-		log.info("castVote: poll.id=" + pollId);		//TODO: log all user actions into separate file or even better into some business process data mining analytics tool. (buzzword bingo)
+		log.info("castVote: poll.id={}", pollId);		//TODO: log all user actions into separate file or even better into some business process data mining analytics tool. (buzzword bingo)
 		return res;
 	}
 

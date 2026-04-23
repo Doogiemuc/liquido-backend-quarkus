@@ -342,4 +342,16 @@ public class LiquidoTestUtils {
 		);
 	}
 
+	/**
+	 * Get the numver of (transitive) delegations to a proxy
+	 * @param proxy a proxy user
+	 * @return number of delegations to that proxy (0 or more)
+	 */
+	public long getDelegationCount(@NonNull UserEntity proxy, String jwt) {
+		String query = "query delegationCount($proxyId: BigInteger!) { " +
+				"  delegationCount(proxyId: $proxyId) }";
+		Lson vars = new Lson("proxyId", proxy.id);
+		return sendGraphQL(query, vars, jwt)
+				.extract().jsonPath().getLong("data.delegationCount");
+	}
 }
