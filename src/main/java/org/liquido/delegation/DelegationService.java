@@ -11,7 +11,9 @@ import org.liquido.util.LiquidoConfig;
 import org.liquido.util.LiquidoException;
 import org.liquido.vote.RightToVoteEntity;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Slf4j
 @ApplicationScoped
@@ -47,7 +49,8 @@ public class DelegationService {
 		if (delegationWouldCauseCycle(usersRightToVote, proxyRightToVote))
 			throw new LiquidoException(LiquidoException.Errors.CANNOT_ASSIGN_CIRCULAR_PROXY, "Delegation to this proxy would cause a circle. This proxy or one of his proxies already delegate his RightToVote to you. You can already vote for this user.");
 
-		//TODO:  HIGH PRIO MUST:  A voter must request a delegation! Otherwise he could know the vote of the proxy.
+		// A voter must first request a delegation to a proxy, because he will know how his proxy voted.
+		// Proxies can decide to be a public proxy and accept every delegation request immediately.
 		if (proxyRightToVote.getPublicProxy() != null) {
 			log.info("Delegation: {} requests delegation to proxy {}", currentUser.toStringShort(), proxy.toStringShort());
 			DelegationEntity.buildDelegationRequest(currentUser, proxy, usersRightToVote);
@@ -79,8 +82,6 @@ public class DelegationService {
 		usersRightToVote.persist();
 	}
 
-
-
 	public List<DelegationEntity> getDelegationRequests() throws LiquidoException {
 		UserEntity proxy = jwtTokenUtils.getCurrentUser()
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.UNAUTHORIZED, "Must be logged in to get your delegation requests"));
@@ -98,6 +99,25 @@ public class DelegationService {
 			if (requestedDelegationFrom == null) return;
 			requestedDelegationFrom.delegateToProxy(proxyRightToVote);
 		});
+	}
+
+	/**
+	 * Count how many voters delegate to this proxy, including transitive delegations.
+	 */
+	public long countDelegationsTo(@NonNull UserEntity proxy) throws LiquidoException {
+		RightToVoteEntity proxyRightToVote = RightToVoteEntity.findByVoter(proxy, config.hashSecret())
+				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_ASSIGN_PROXY, "Cannot count delegations. Cannot find RightToVote for proxy."));
+		return countDelegationsRec(proxyRightToVote, new HashSet<>());
+	}
+
+	private long countDelegationsRec(RightToVoteEntity proxyRightToVote, Set<String> visited) {
+		if (!visited.add(proxyRightToVote.getHashedVoterInfo())) return 0;
+
+		long count = 0;
+		for (RightToVoteEntity delegatedRightToVote : proxyRightToVote.getDelegations()) {
+			count += 1 + countDelegationsRec(delegatedRightToVote, visited);
+		}
+		return count;
 	}
 
 

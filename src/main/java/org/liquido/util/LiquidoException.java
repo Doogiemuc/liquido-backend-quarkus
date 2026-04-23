@@ -138,6 +138,7 @@ public class LiquidoException extends Exception {
 		// general errors
 		GRAPHQL_ERROR(400, Response.Status.BAD_REQUEST),                     // e.g. missing required fields, invalid GraphQL query, ...
 		UNAUTHORIZED(401, Response.Status.UNAUTHORIZED),                     // when client tries to call something without being authenticated!
+		CANNOT_FIND_USER(403, Response.Status.NOT_FOUND),
 		CANNOT_FIND_ENTITY(404, Response.Status.NOT_FOUND),                  // 404: cannot find entity
 		INTERNAL_ERROR(500, Response.Status.INTERNAL_SERVER_ERROR);
 
