@@ -31,11 +31,7 @@ import org.liquido.vote.VoterTokenEntity;
 import java.io.*;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 import static org.liquido.TestFixtures.*;
 
@@ -104,7 +100,7 @@ public class TestDataCreator {
 			purgeDb();
 		}
 		if (createTestData) {
-			log.info("Creating testdata in {}", url);
+			log.info("Creating test data in {}", url);
 
 			// Create a new team
 			TeamDataResponse adminRes = util.createTeam(teamName, adminEmail, 5);
@@ -127,7 +123,6 @@ public class TestDataCreator {
 			poll = util.seedRandomProposals(poll, adminRes.team, 4);
 
 			// Like a proposal
-
 			Optional<ProposalEntity> prop = poll.getProposals().stream().findFirst();
 			if (prop.isPresent()) {
 				poll = util.likeProposal(poll, prop.get().getId(), adminRes.jwt);
@@ -147,19 +142,22 @@ public class TestDataCreator {
 			String voterToken = util.getVoterToken(poll.id, memberRes.jwt);
 			List<Long> voteOrderIds = poll.getProposals().stream().map(LiquidoBaseEntity::getId).toList();
 			CastVoteResponse castVoteResponse = util.castVote(poll.id, voteOrderIds, voterToken);
+			log.debug("CastVoteResponse: {}", castVoteResponse.toString());
 
 			// Admin also casts a vote
 			String adminVoterToken = util.getVoterToken(poll.id, adminRes.jwt);
 			CastVoteResponse adminCastVoteResponse = util.castVote(poll.id, voteOrderIds, adminVoterToken);
 
 			// Verify ballot of admin
-			BallotEntity ballot =util. verifyBallot(poll.getId(), adminCastVoteResponse.getBallot().getChecksum());
+			BallotEntity ballot = util.verifyBallot(poll.getId(), adminCastVoteResponse.getBallot().getChecksum());
+			log.debug("Ballot successfully verified: {}", ballot.toString());
+
 
 			// Finish the voting phase of this poll
 			ProposalEntity winner = util.finishVotingPhase(poll.getId(), adminRes.jwt);
 
 			// Print winner
-			log.info("Winner: " + winner.toString());
+			log.info("Winner: {}", winner.toString());
 
 			try {
 				extractSql();
@@ -206,7 +204,7 @@ public class TestDataCreator {
 			PreparedStatement ps = dataSource.getConnection().prepareStatement("SCRIPT TO '" + sampleDbFile + "'");
 			ps.execute();
 			//adjustDbInitializationScript();
-			log.info("===== Successfully stored test data in file: " + sampleDbFile);
+			log.info("===== Successfully stored test data in file: {}", sampleDbFile);
 		}
 	}
 
@@ -224,11 +222,11 @@ public class TestDataCreator {
 	 * create the schema for Quartz.
 	 * So I let Quartz create its own stuff and remove any Quarts related lines from my DB script
 	 * <p>
-	 * The alternative would be do copy the Quartz lines into schema.sql and data.sql
+	 * The alternative would be to copy the Quartz lines into schema.sql and data.sql
 	 * Then I could also recreate Quartz sample data such as jobs.
 	 */
 	private void adjustDbInitializationScript() {
-		log.trace("removeQartzSchema from SQL script: start");
+		log.trace("removeQuartzSchema from SQL script: start");
 		try {
 			File sqlScript = new File(sampleDbFile);
 			BufferedReader reader = new BufferedReader(new FileReader(sqlScript));
@@ -246,11 +244,9 @@ public class TestDataCreator {
 					continue;
 				}
 				if (removeBlock) {
-					//log.trace("Removing line from block "+currentLine);
 					continue;
 				}
 				if (currentLine.matches("(ALTER|CREATE).*TABLE \"PUBLIC\"\\.\"QRTZ.*;")) {
-					//log.trace("Removing single line:    "+currentLine);
 					continue;
 				}
 				lines.add(currentLine);
@@ -267,10 +263,10 @@ public class TestDataCreator {
 				writer.newLine();        //  + System.getProperty("line.separator")
 			}
 			writer.close();
-			log.trace("removeQuartzSchema from SQL script successful: " + sqlScript.getAbsolutePath());
+			log.trace("removeQuartzSchema from SQL script successful: {}", sqlScript.getAbsolutePath());
 
 		} catch (Exception e) {
-			log.error("Could not remove Quarts statements from Schema: " + e.getMessage());
+			log.error("Could not remove Quarts statements from Schema: {}", e.getMessage());
 			throw new RuntimeException("Could not remove Quarts statements from Schema: " + e.getMessage(), e);
 		}
 	}
