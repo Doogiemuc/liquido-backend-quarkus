@@ -32,8 +32,10 @@ import java.io.*;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.liquido.TestFixtures.*;
 
@@ -278,7 +280,6 @@ public class TestDataCreator {
 
 	@Transactional
 	void purgeDb() {
-		//TODO: purge only one team
 		log.info("================================");
 		log.info("       PURGE Test Data");
 		log.info("================================");
@@ -308,6 +309,72 @@ public class TestDataCreator {
 		TeamMemberEntity.deleteAll();
 		TeamEntity.deleteAll();
 		UserEntity.deleteAll();
+	}
+
+	@Transactional
+	void purgeDb(Long teamId) {
+		if (teamId == null) {
+			throw new IllegalArgumentException("teamId must not be null");
+		}
+
+		TeamEntity team = TeamEntity.<TeamEntity>findByIdOptional(teamId)
+				.orElseThrow(() -> new IllegalArgumentException("No team found for id=" + teamId));
+
+		log.info("================================");
+		log.info("       PURGE Test Data for team {}", teamId);
+		log.info("================================");
+
+		List<TeamMemberEntity> teamMembers = TeamMemberEntity.list("team", team);
+		Set<UserEntity> usersToDelete = new HashSet<>();
+		for (TeamMemberEntity teamMember : teamMembers) {
+			UserEntity user = teamMember.getUser();
+			if (TeamMemberEntity.count("user", user) == 1) {
+				usersToDelete.add(user);
+			}
+		}
+
+		List<PollEntity> polls = PollEntity.list("team", team);
+		for (PollEntity poll : polls) {
+			BallotEntity.delete("poll", poll);
+			VoterTokenEntity.delete("poll", poll);
+		}
+
+		entityManager.flush();
+
+		for (PollEntity poll : polls) {
+			ProposalEntity.find("poll", poll).stream().forEach(PanacheEntityBase::delete);
+			poll.delete();
+		}
+
+		entityManager.flush();
+
+		for (UserEntity user : usersToDelete) {
+			DelegationEntity.find("fromUser = ?1 or toProxy = ?1", user).stream().forEach(PanacheEntityBase::delete);
+		}
+
+		entityManager.flush();
+
+		for (UserEntity user : usersToDelete) {
+			OneTimeToken.delete("user", user);
+			WebAuthnCredential.delete("liquidoUser", user);
+
+			RightToVoteEntity.findByVoter(user, config.hashSecret()).ifPresent(rightToVote -> {
+				rightToVote.removeDelegationToProxy();
+				new HashSet<>(rightToVote.getDelegations()).forEach(RightToVoteEntity::removeDelegationToProxy);
+				VoterTokenEntity.delete("rightToVote", rightToVote);
+				BallotEntity.delete("rightToVote", rightToVote);
+				rightToVote.delete();
+			});
+		}
+
+		entityManager.flush();
+
+		teamMembers.forEach(PanacheEntityBase::delete);
+		team.delete();
+
+		entityManager.flush();
+
+		usersToDelete.forEach(PanacheEntityBase::delete);
 	}
 
 }

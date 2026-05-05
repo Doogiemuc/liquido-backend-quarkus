@@ -142,19 +142,4 @@ public class EqualityTests {
 		assertTrue(poll.getProposals().contains(p2), "Poll.proposals should contain proposal2!");
 	}
 
-	@Test
-	@TestTransaction
-	@TestSecurity(user = TestFixtures.staticDummyEmail, roles = {JwtTokenUtils.LIQUIDO_ADMIN_ROLE, JwtTokenUtils.LIQUIDO_USER_ROLE})
-	@JwtSecurity(claims = {
-			@Claim(key = "email", value = TestFixtures.staticDummyEmail),
-			@Claim(key = "groups", value = JwtTokenUtils.LIQUIDO_ADMIN_ROLE)
-	})
-	public void testCastVotesInTwoPolls() throws LiquidoException {
-		UserEntity user = util.getRandomUser();
-		jwtTokenUtils.setCurrentUserAndTeam(user, null);
-
-		PollEntity.find("status=PollStatus.VOTING");
-
-	}
-
-	}
+}
