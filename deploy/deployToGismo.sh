@@ -5,6 +5,8 @@ echo "Deploying LIQUIDO to GISMO"
 echo
 set -e
 
+# TODO: build backend  "mvn package" with tests
+
 echo "Copy LIQUIDO quarkus-app to gismo:/opt/liquido-on-gismo"
 
 rsync --recursive --delete-after ./target/quarkus-app/ gismo:/opt/liquido-on-gismo/
@@ -66,6 +68,9 @@ else
   echo "$response"
   exit 1
 fi
+
+# TODO: Check that frontend has connection to backend
+# TODO: Offer to run full regression test after deployment.
 
 echo
 echo "Deployed successfully ✅ => Now go check on a real mobile device! :-)"

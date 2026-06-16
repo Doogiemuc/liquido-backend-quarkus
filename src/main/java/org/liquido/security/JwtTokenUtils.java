@@ -93,7 +93,7 @@ public class JwtTokenUtils {
 		if (team == null) {
 			List<TeamEntity> teams = TeamMemberEntity.findTeamsByMember(user);
 			if (teams.isEmpty()) {
-				log.warn("User ist not member of any team. This should not happen: {}", user);
+				log.warn("User ist not member of any team. Maybe his team was deleted? {}", user);
 				throw new LiquidoException(LiquidoException.Errors.CANNOT_LOGIN_USER_NOT_MEMBER_OF_TEAM, "Cannot login. User is not member of any team " + user);
 			} else if (teams.size() == 1) {
 				team = teams.get(0);
