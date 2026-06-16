@@ -19,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.liquido.security.JwtTokenUtils;
 import org.liquido.team.TeamDataResponse;
 import org.liquido.user.UserEntity;
+import org.liquido.util.DoogiesUtil;
 import org.liquido.util.LiquidoException;
 import org.liquido.util.LiquidoException.Errors;
 
@@ -68,17 +69,25 @@ public class WebAuthnRestApi {
 	//@Description("Check if a user with the given email exists and has a registered WebAuthn authenticator.")
 	@Path("/check-login-email")
 	public Response checkLoginEmail(@NotBlank @Email @Size(max = 255) @QueryParam("email") String email) {
+		// Normalize email
+		email = DoogiesUtil.cleanEmail(email);
 		// Check if user exists
 		Optional<UserEntity> userOpt = UserEntity.findByEmail(email);
 		if (userOpt.isEmpty()) {
-			log.warn("[SECURITY] invalid login attempt for unknown email {}", email);
-			return Response.status(Response.Status.NOT_FOUND).build();
+			log.debug("[SECURITY] Login attempt of unknown user: {}", email);
+			JsonObject response = new JsonObject()
+					.put("status", "UNKNOWN")
+					.put("email", email.toLowerCase());
+			// If user is not registered, we return HTTP 200 but with status: "UNKNOWN" in body.
+			// HTTP 404 would be too harsh. Client did not do anything wrong. Monitoring tools would complain about this response status.
+			return Response.status(Response.Status.OK).entity(response).build();
 		}
 
 		// Check if user has WebAuthn credentials
 		boolean hasWebAuthn = !userOpt.get().webAuthnCredentials.isEmpty();
 		log.debug("check-login-email: User {}, hasWebAuthn={}", email, hasWebAuthn);
 		JsonObject response = new JsonObject()
+				.put("status", "REGISTERED")
 				.put("webauthn", hasWebAuthn)
 				.put("email", email.toLowerCase());
 
