@@ -10,32 +10,33 @@ import java.util.*;
  * If there is a candidate who is preferred over the other candidates, when compared in turn with each of the others, RP guarantees that candidate will win. Because of this property, RP is, by definition, a Condorcet method.
  * <a href="https://en.wikipedia.org/wiki/Ranked_pairs">...</a>
  *
- * The code here is adapted from the JavaScript at <a href="https://gist.github.com/asafh/a8e9af7a3e5282cbba27">...</a>
+ * When Nicolaus Tideman published his paper on Ranked Pairs in 1987, he used Winning Margin as the sorting metric.
+ * However, there is a crucial caveat. Tideman’s original mathematical proofs implicitly assumed complete ballots (where every voter ranks every single candidate). When ballots are complete, the total number of voters in every pairwise matchup is identical. Under those conditions, sorting by Winning Votes and sorting by Winning Margin will always produce the exact same sequence.
+ * The divergence between the two only emerges when you introduce incomplete ballots (which you are allowing). Because the classical algorithm wasn't originally designed for partial participation, voting theorists have been fiercely debating whether Margin or Winning Votes is the "truer" adaptation ever since.
  */
 public class RankedPairVoting {
 
-
-
 	/**
 	 * Sum up the pairwise comparison of proposals/candidates in every ballot.
-	 * How many ballots prefer candidate i over candidate j.
-	 * The returned table is "sum symmetric" along its diagonal axis.
-	 * For each candidate pair i and j, the sum of matrix(i,j) and matrix(j,i)
-	 * equals the number of ballots that ranked both i and j.
+	 * Count how many ballots prefer candidate i over candidate j.
+	 * Ballots may be partial. Any candidate that is not ranked on a ballot is treated as ranked below
+	 * every candidate that is listed on that ballot. Unranked candidates remain neutral among themselves.
+	 *
+	 * <h3>Example</h3>
+	 * Given a vote with five candidates A,B,C,D and E, and a ballot that ranks the candidates in the order
+	 * C &gt; D &gt; E:
+	 * <pre>ballot = [C, D, E]</pre>
+	 * This ballot does not express any preference between candidates A and B.
+	 * It does express that the ranked candidates C, D, and E are preferred over the unranked candidates A and B.
+	 * The algorithm will therefore count the following pairwise comparisons:
+	 * <ul>
+	 *   <li>C&gt;D, D&gt;E, and C&gt;E</li>
+	 *   <li>C>A, C>B, D>A, D>B, E>A, E>B</li>
+	 * </ul>
 	 *
 	 * @param allIds all proposal/candidate IDs that can be voted for in this poll.
 	 * @param idsInBallots the list of ballots. Each ballot consists of an ordered list of proposal/candidate IDs from allIds
-	 *                     A ballot does not necessarily need to contain all candidate IDs. It is also possible that
-	 *                     a voter only votes for some candidates.
-	 *                     Candidates that are not listed in a ballot are treated as neutral in that ballot.
-	 *                     That means the ballot does not express any pairwise preference that includes those candidates.
-	 *                     <h3>Example</h3>
-	 *                     <ul>
-	 *                       <li>allIDs = {1,2,3,4}</li>
-	 *                     	 <li>idsInBallots[0] = { 2, 1}</li>
-	 *                     </ul>
-	 *                     This voter prefers candidate 2 over 1.
-	 *                     The ballot does not express any preference involving 3 or 4.
+	 *                     A ballot does not necessarily need to contain all candidate IDs.
 	 * @throws IllegalArgumentException when one of the required param is null
 	 * @return the duelMatrix, which is a pairwise comparison of each preference i > j
 	 */
@@ -43,7 +44,8 @@ public class RankedPairVoting {
 		if (allIds == null || idsInBallots == null)
 			throw new IllegalArgumentException("allIds and idsInBallots params must not be null!");
 
-		// reverse map IDs to their array index in allIds, so that we can use these indexes as row and col numbers in the duelMatrix
+
+		// Reverse map IDs to their array index in allIds, which will be used as the row and col numbers in the duelMatrix
 		HashMap<Long, Integer> id2index = new HashMap<>();
 		int index = 0;
 		for (Long id : allIds) {
@@ -51,36 +53,63 @@ public class RankedPairVoting {
 		}
 
 		// DuelMatrix is a pairwise comparison of preferences proposal1.id > proposal2.id
-		// Proposal IDs are mapped to row/col index in duelMatrix via the passed id2index map.
+		// Proposal IDs are mapped to row/col index in duelMatrix via the id2index map.
 		Matrix duelMatrix = new Matrix(id2index.size(), id2index.size());
 
-		// For each ballot
 		for (List<Long> votedForIds : idsInBallots) {
-			if (votedForIds == null) {
-				throw new IllegalArgumentException("Ballot must not be null");
-			}
-
-			Set<Long> seenIdsInBallot = new HashSet<>();
-			for (Long votedForId : votedForIds) {
-				if (!id2index.containsKey(votedForId)) {
-					throw new IllegalArgumentException("Ballot contains unknown candidate id " + votedForId);
-				}
-				if (!seenIdsInBallot.add(votedForId)) {
-					throw new IllegalArgumentException("Ballot must not contain duplicate candidate id " + votedForId);
-				}
-			}
-
-			// For each ordered pair in this ballot, add one preference i > j.
-			for (int i = 0; i < votedForIds.size() - 1; i++) {
-				int prefIndex = id2index.get(votedForIds.get(i));
-				for (int j = i + 1; j < votedForIds.size(); j++) {
-					duelMatrix.add(prefIndex, id2index.get(votedForIds.get(j)), 1);
-				}
-			}
-
+			addBallotToDuelMatrix(duelMatrix, id2index, allIds, votedForIds);
 		}
 
 		return duelMatrix;
+	}
+
+	/**
+	 * Add each pairwise comparison the dualMatrix
+	 * @param duelMatrix pairwise comparisons of preferences
+	 * @param id2index reverse map proposal IDs to the row/col index in duelMatrix
+	 * @param allIds all proposal IDs that can be voted for
+	 * @param votedForIds a ballot: the <b>ordered</b> list of IDs that this voter sorted according to his preferences
+	 */
+	private static void addBallotToDuelMatrix(Matrix duelMatrix,
+											  Map<Long, Integer> id2index,
+											  List<Long> allIds,
+											  List<Long> votedForIds) {
+		if (votedForIds == null) {
+			throw new IllegalArgumentException("Ballot must not be null");
+		}
+
+		Set<Long> rankedIds = new HashSet<>(votedForIds.size());
+		List<Integer> rankedIndexes = new ArrayList<>(votedForIds.size());
+		for (Long votedForId : votedForIds) {
+			Integer votedForIndex = id2index.get(votedForId);
+			if (votedForIndex == null) {
+				throw new IllegalArgumentException("Ballot contains unknown candidate id " + votedForId);
+			}
+			if (!rankedIds.add(votedForId)) {
+				throw new IllegalArgumentException("Ballot must not contain duplicate candidate id " + votedForId);
+			}
+			rankedIndexes.add(votedForIndex);
+		}
+
+		List<Integer> unrankedIndexes = new ArrayList<>(allIds.size() - rankedIndexes.size());
+		for (Long id : allIds) {
+			if (!rankedIds.contains(id)) {
+				unrankedIndexes.add(id2index.get(id));
+			}
+		}
+
+		for (int i = 0; i < rankedIndexes.size(); i++) {
+			// Add a preference favoriteIndex > unpreferredIndex for each pairwise comparison in the ballot.
+			int favoriteIndex = rankedIndexes.get(i);
+			for (int j = i + 1; j < rankedIndexes.size(); j++) {
+				int unpreferredIndex = rankedIndexes.get(j);
+				duelMatrix.add(favoriteIndex, unpreferredIndex, 1);
+			}
+			// And add a preference favoriteIndex > unrankedIndex for each unranked proposal
+			for (int unrankedIndex : unrankedIndexes) {
+				duelMatrix.add(favoriteIndex, unrankedIndex, 1);
+			}
+		}
 	}
 
 
@@ -89,7 +118,7 @@ public class RankedPairVoting {
 	 * Calculate the winner of the Ranked Pairs voting method.
 	 * 1. TALLY -   For each pair of proposals in the poll calculate the winner of the direct comparison
 	 *              Which proposal has more preferences i&lt;j compared to j&gt;i.
-	 * 2. SORT -    Sort these majorities by the number of preferences i over j
+	 * 2. SORT -    Sort these majorities by the absolute number of preferences i over j
 	 * 3. LOCK IN - For each of the sorted majorities: add the majority to a directed graph,
 	 *              IF this edge does not introduce a circle in the graph.
 	 * 4. WINNERS - The source of the tree, ie. the node with no incoming links is the winner of the poll.
