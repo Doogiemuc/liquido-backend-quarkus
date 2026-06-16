@@ -11,7 +11,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.graphql.*;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.liquido.security.JwtTokenUtils;
-import org.liquido.security.OneTimeToken;
 import org.liquido.security.PasswordServiceBcrypt;
 import org.liquido.team.TeamDataResponse;
 import org.liquido.team.TeamEntity;
@@ -90,6 +89,7 @@ public class UserGraphQL {
 	@Transactional
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)  // <= this already authenticates the JWT claim "groups"
 	public String requireUser() throws LiquidoException {
+		/*
 		//log.info("SecurityContext="+ ctx);
 		//log.info("SecurityContext.getUserPrincipal()" + ctx.getUserPrincipal());
 		log.info("VertexRequest={}", request);
@@ -103,8 +103,10 @@ public class UserGraphQL {
 				.orElseThrow(LiquidoException.supply(Errors.UNAUTHORIZED, "Valid JWT but user email not found in DB."));
 
 		log.info("requireUser(): currentUser = " + currentUser);
+		*/
 
-		return "{\"message\": \"Hello " + email + "\" }";
+
+		return "{\"message\": \"Hello user!\" }";
 	}
 
 	//================== Login with Username and Password =====================
@@ -139,14 +141,16 @@ public class UserGraphQL {
 		boolean verified = PasswordServiceBcrypt.verifyPassword(plainPassword, user.getPasswordHash());
 		if (verified) {
 			TeamEntity team = TeamEntity.findById(user.getLastTeamId());  // team maybe null!
-			log.debug("loginWithEmailPassword(): " + user.toStringShort());
+			log.info("loginWithEmailPassword(): {}", user.toStringShort());
 			return jwtTokenUtils.doLoginInternal(user, team);
 		} else {
 			throw new LiquidoException(Errors.UNAUTHORIZED, "Cannot login. Password is invalid");
 		}
 	}
 
-	//================== Login via Email =====================
+	//
+	//================== Login via Email Link =====================
+	//
 
 	@Query
 	@Description("Request a login link via email. If the given email is registered, will send an email with a one time login link. Returns a static success message.")
@@ -163,14 +167,16 @@ public class UserGraphQL {
 		return userService.loginWithEmailToken(email, emailToken);
 	}
 
+	//
 	//================== Login via SMS =====================
+	//  currently disabled, becasue it's expensive
 
-	/**
+	/*
 	 * Request an SMS token to login via a user's mobilephone
 	 * @param mobilephone must be a mobilephone number of a registered user
 	 * @return a one time token
 	 * @throws LiquidoException when mobilephone is not found in DB
-	 */
+
 	@Query
 	@PermitAll
 	@Description("Request an smsToken to login via SMS")
@@ -185,6 +191,7 @@ public class UserGraphQL {
 		return "{ \"smsToken\": \"" + smsTokenNonce + "\" }";
 	}
 
+
 	@Query
 	@PermitAll
 	@Description("Login with a one time token that the user has received via SMS")
@@ -195,11 +202,12 @@ public class UserGraphQL {
 		UserEntity user = UserEntity.findByMobilephone(mobilephone)
 			.orElseThrow(LiquidoException.supply(Errors.CANNOT_LOGIN_MOBILE_NOT_FOUND, "Cannot login with SMS token. No user with that mobilephone found!"));
 		OneTimeToken.findByNonce(smsToken).orElseThrow(
-      //[Security] We allow the user to try a second time. We don't delete all user tokens here although we could.
+      //[Security] We allow the user to try a second time. We don't delete all user tokens here, although we could.
 			LiquidoException.supply(Errors.CANNOT_LOGIN_TOKEN_INVALID, "Cannot login. SMS token is invalid")
 		);
 		return jwtTokenUtils.doLoginInternal(user, null);
 	}
+			*/
 
 	//================== Login via Authy App =====================
 
@@ -230,7 +238,7 @@ public class UserGraphQL {
 	}
 
 	/**
-	 * Login with a token from the Authy app
+	 * Login with a one time token from the Authy app
 	 * @param email registered user
 	 * @param authToken 6-digit token from Authy app
 	 * @return TeamDataResponse with team, user and JWT
@@ -241,7 +249,7 @@ public class UserGraphQL {
 	@Description("Login with a one time token from the Authy mobile app.")
 	public TeamDataResponse loginWithAuthyToken(
 			@Name("email") @NonNull String email,
-			@Name("authToken") @NonNull String authToken
+			@Name("authToken") @Description("The six digit one time token shown in your Authy App") @NonNull String authToken
 	) throws LiquidoException {
 		UserEntity user = UserEntity.findByEmail(email)
 				.orElseThrow(LiquidoException.supply(Errors.CANNOT_LOGIN_EMAIL_NOT_FOUND, "Cannot login with Authy token. No user with that email!"));
@@ -260,6 +268,7 @@ public class UserGraphQL {
 	 */
 	@Query
 	@PermitAll
+	@Description("This is only used for development purposes.")
 	public TeamDataResponse devLogin(
 			@Name("devLoginToken") @NonNull String devLoginToken,
 			@Name("email") @NonNull String email
@@ -273,7 +282,7 @@ public class UserGraphQL {
 			throw new LiquidoException(Errors.CANNOT_LOGIN_TOKEN_INVALID, "Invalid devLoginToken or in normal/prod LaunchMode.");
 		UserEntity user = UserEntity.findByEmail(email)
 				.orElseThrow(LiquidoException.supply(Errors.CANNOT_LOGIN_EMAIL_NOT_FOUND, "Cannot do devLogin. Email not found: "+email));
-		log.info("DevLogin: "+user.toStringShort());
+		log.info("DevLogin: {}", user.toStringShort());
 		return jwtTokenUtils.doLoginInternal(user, null);
 	}
 
