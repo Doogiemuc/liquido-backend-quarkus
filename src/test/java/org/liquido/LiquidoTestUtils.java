@@ -222,7 +222,7 @@ public class LiquidoTestUtils {
 	public CastVoteResponse castVote(Long pollId, List<Long> voteOrderIds, String voterToken) {
 		String castVoteQuery = "mutation castVote($pollId: BigInteger!, $voteOrderIds: [BigInteger!]!, $voterToken: String!) { " +
 				"  castVote(pollId: $pollId, voteOrderIds: $voteOrderIds, voterToken: $voterToken) " +
-				"  { voteCount ballot { level checksum voteOrder { id } } } " +
+				"  { voteCount ballot { id level checksum voteOrder { id } } } " +
 				"}";
 		Lson castVoteVars = Lson.builder()
 				.put("pollId", pollId)
