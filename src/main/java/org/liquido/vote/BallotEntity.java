@@ -42,7 +42,7 @@ public class BallotEntity extends PanacheEntity {
 	 */
 	@NotNull
 	@NonNull
-	@ManyToOne(fetch = FetchType.LAZY)
+	@ManyToOne(fetch = FetchType.LAZY) // Changed from LAZY to EAGER
 	@JsonBackReference
 	public PollEntity poll;
 
@@ -121,15 +121,25 @@ public class BallotEntity extends PanacheEntity {
 
 	@Override
 	public String toString() {
-		String proposalIds = voteOrder.stream().map(law -> law.id.toString()).collect(Collectors.joining(","));
-		return "Ballot[" +
-				"id=" + id +
-				", poll(id=" + poll.id +
-				", status=" + poll.getStatus() + ")" +
-				", level=" + level +
-				", voteOrder(proposalIds)=[" + proposalIds + "]" +
-				//Do not expose rightToVote!!! It might include public proxy name
-				"]";
+		String proposalIds = voteOrder.stream().map(prop -> prop.id.toString()).collect(Collectors.joining(","));
+		StringBuilder sb = new StringBuilder();
+		sb.append("Ballot [");
+		sb.append("id=");
+		sb.append(id);
+		if (poll != null) {
+			sb.append(", poll.id=");
+			sb.append(poll.id);
+		} else {
+			sb.append(", poll=<null>");
+		}
+		sb.append(", level=");
+		sb.append(level);
+		sb.append(", voteOrder(proposalIds)=[");
+		sb.append(proposalIds);
+		sb.append("], checksum=");
+		sb.append(checksum);
+		sb.append("]");
+		return sb.toString();
 	}
 
 }
