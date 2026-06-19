@@ -184,6 +184,7 @@ public class UserEntity extends PanacheEntity {
 	 * Has this user at least one registered webauthn authenticator.
 	 * @return true if authenticator has been registered
 	 */
+	//@JsonProperty(access = JsonProperty.Access.READ_ONLY)  // this is a computed field. So read and write it when serializing this class into JSON. But don't write it when deserializing => Ok, maybe I do need upstream DTOs
 	public boolean getHasWebauthn() {
 		return this.webAuthnCredentials != null && !this.webAuthnCredentials.isEmpty();
 	}

@@ -27,12 +27,12 @@ public class TestFixtures {
 	public static String memberEmail  = "testmember" + now + "@liquido.vote";
 	public static String pollTitle    = "TestPoll " + now;
 	public static final String PASSWORD_SUFFIX = "_PWD"; // must be same as in cypress.config.js
-	public static String tokenSecret  = "testTokenSecret";
 
 	public static final String staticDummyEmail = "staticDummyEmail@liquido.vote";
 
 	// GraphQL   This is port 8081 during testing, but 8443 in prod!
-	public static final String GRAPHQL_URI = "http://localhost:8081/graphql";
+	public static final String LIQUIDO_API = "http://localhost:8081";
+	public static final String GRAPHQL_URI = LIQUIDO_API+"/graphql";
 
 	public static final String JQL_USER =
 			"{ id name email mobilephone picture website }";

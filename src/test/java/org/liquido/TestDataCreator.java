@@ -2,6 +2,7 @@ package org.liquido;
 
 import io.agroal.api.AgroalDataSource;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
+import io.quarkus.runtime.LaunchMode;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.RestAssured;
 import jakarta.inject.Inject;
@@ -56,6 +57,12 @@ public class TestDataCreator {
 	@Inject
 	LiquidoConfig config;
 
+	@ConfigProperty(name = "quarkus.datasource.db-kind")
+	String dbKind;
+
+	@Inject
+	EntityManager entityManager;
+
 	@Inject
 	LiquidoTestUtils util;
 
@@ -63,11 +70,19 @@ public class TestDataCreator {
   String sampleDbFile = "liquido-testData.sql";
 
 	/**
-	 * DANGER ZOME!!! BE careful!
-	 * TestDataCreator can delete and re-create everything!
+	 * DANGER! Delete all the data of one given team
 	 */
-	boolean purgeDb = true;
-	boolean createTestData = true;
+	@Test
+	@Disabled
+	public void purgeTeam() throws Exception {
+		if (LaunchMode.current() != LaunchMode.TEST && LaunchMode.current() != LaunchMode.DEVELOPMENT)
+			throw new Exception("Will only purge team in test or development! Not anywhere else!");
+
+		purgeTeam(2901L);
+
+
+	}
+
 
 	/**
 	 * Run through the whole Happy Case:
@@ -88,85 +103,80 @@ public class TestDataCreator {
 		String url = "no DB URL!";
 		try {
 			url = dataSource.getConnection().getMetaData().getURL();
-
 		} catch (SQLException e) {
 			log.error("TestDataCreator Cannot connect to DB{}", e.getMessage());
 		}
 
 		RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
 
-		if (purgeDb) {
-			log.warn("Going to delete everything in DB!{}", url);
-			purgeDb();
+
+
+		log.info("Creating test data in {} for team {}", url, teamName);
+
+		// Create a new team
+		TeamDataResponse adminRes = util.createTeam(teamName, adminEmail, 5);
+
+		// Let another user join that team
+		TeamDataResponse memberRes = util.joinTeam(adminRes.team.inviteCode, memberEmail);
+
+		// Make sure that the team has enough members to create more polls & proposals
+		adminRes.team = util.ensureNumMembers(adminRes.team.id, 10);
+
+		// Create some polls in ELABORATION
+		PollEntity poll;
+		poll = util.createPoll(pollTitle+"_1 "+now, adminRes.jwt);
+		poll = util.seedRandomProposals(poll, adminRes.team, 3);
+
+		poll = util.createPoll(pollTitle+"_2 "+now, adminRes.jwt);
+		poll = util.seedRandomProposals(poll, adminRes.team, 4);
+
+		poll = util.createPoll(pollTitle+"_4 "+now+" with a very long title just for testing", adminRes.jwt);
+		poll = util.seedRandomProposals(poll, adminRes.team, 4);
+
+		// Like a proposal
+		Optional<ProposalEntity> prop = poll.getProposals().stream().findFirst();
+		if (prop.isPresent()) {
+			poll = util.likeProposal(poll, prop.get().getId(), adminRes.jwt);
 		}
-		if (createTestData) {
-			log.info("Creating test data in {}", url);
 
-			// Create a new team
-			TeamDataResponse adminRes = util.createTeam(teamName, adminEmail, 5);
+		// Create Poll in VOTING with started voting phase
+		poll = util.createPoll(pollTitle+" in voting", adminRes.jwt);
+		poll = util.seedRandomProposals(poll, adminRes.team, 4);
+		poll = util.startVotingPhase(poll.getId(), adminRes.jwt);
 
-			// Let another user join that team
-			TeamDataResponse memberRes = util.joinTeam(adminRes.team.inviteCode, memberEmail);
+		// Create a FINISHED poll
+		poll = util.createPoll(pollTitle+" finished", adminRes.jwt);
+		poll = util.seedRandomProposals(poll, adminRes.team, 5);
+		poll = util.startVotingPhase(poll.getId(), adminRes.jwt);
 
-			// Make sure that the team has enough members to create more polls & proposals
-			adminRes.team = util.ensureNumMembers(adminRes.team.id, 10);
+		// A member casts a vote
+		String voterToken = util.getVoterToken(poll.id, memberRes.jwt);
+		List<Long> voteOrderIds = poll.getProposals().stream().map(LiquidoBaseEntity::getId).toList();
+		CastVoteResponse castVoteResponse = util.castVote(poll.id, voteOrderIds, voterToken);
+		log.debug("CastVoteResponse: {}", castVoteResponse.toString());
 
-			// Create some polls in ELABORATION
-			PollEntity poll;
-			poll = util.createPoll(pollTitle+"_1 "+now, adminRes.jwt);
-			poll = util.seedRandomProposals(poll, adminRes.team, 3);
+		// Admin also casts a vote
+		String adminVoterToken = util.getVoterToken(poll.id, adminRes.jwt);
+		CastVoteResponse adminCastVoteResponse = util.castVote(poll.id, voteOrderIds, adminVoterToken);
 
-			poll = util.createPoll(pollTitle+"_2 "+now, adminRes.jwt);
-			poll = util.seedRandomProposals(poll, adminRes.team, 4);
-
-			poll = util.createPoll(pollTitle+"_4 "+now+" with a very long title just for testing", adminRes.jwt);
-			poll = util.seedRandomProposals(poll, adminRes.team, 4);
-
-			// Like a proposal
-			Optional<ProposalEntity> prop = poll.getProposals().stream().findFirst();
-			if (prop.isPresent()) {
-				poll = util.likeProposal(poll, prop.get().getId(), adminRes.jwt);
-			}
-
-			// Create Poll in VOTING with started voting phase
-			poll = util.createPoll(pollTitle+" in voting", adminRes.jwt);
-			poll = util.seedRandomProposals(poll, adminRes.team, 4);
-			poll = util.startVotingPhase(poll.getId(), adminRes.jwt);
-
-			// Create a FINISHED poll
-			poll = util.createPoll(pollTitle+" finished", adminRes.jwt);
-			poll = util.seedRandomProposals(poll, adminRes.team, 5);
-			poll = util.startVotingPhase(poll.getId(), adminRes.jwt);
-
-			// A member casts a vote
-			String voterToken = util.getVoterToken(poll.id, memberRes.jwt);
-			List<Long> voteOrderIds = poll.getProposals().stream().map(LiquidoBaseEntity::getId).toList();
-			CastVoteResponse castVoteResponse = util.castVote(poll.id, voteOrderIds, voterToken);
-			log.debug("CastVoteResponse: {}", castVoteResponse.toString());
-
-			// Admin also casts a vote
-			String adminVoterToken = util.getVoterToken(poll.id, adminRes.jwt);
-			CastVoteResponse adminCastVoteResponse = util.castVote(poll.id, voteOrderIds, adminVoterToken);
-
-			// Verify ballot of admin
-			BallotEntity ballot = util.verifyBallot(poll.getId(), adminCastVoteResponse.getBallot().getChecksum());
-			log.debug("Ballot successfully verified: {}", ballot.toString());
+		// Verify ballot of admin
+		BallotEntity ballot = util.verifyBallot(poll.getId(), adminCastVoteResponse.getBallot().getChecksum());
+		log.debug("Ballot successfully verified: {}", ballot.toString());
 
 
-			// Finish the voting phase of this poll
-			ProposalEntity winner = util.finishVotingPhase(poll.getId(), adminRes.jwt);
+		// Finish the voting phase of this poll
+		ProposalEntity winner = util.finishVotingPhase(poll.getId(), adminRes.jwt);
 
-			// Print winner
-			log.info("Winner: {}", winner.toString());
+		// Print winner
+		log.info("Winner: {}", winner.toString());
 
-			try {
-				extractSql();
-			} catch (SQLException e) {
-				log.error("Cannot extract test data ", e);
-			}
-
-			log.info("========== CreateTestData finished SUCCESSFULLY =============");
+		try {
+			extractSql();
+		} catch (SQLException e) {
+			log.error("Cannot extract test data ", e);
 		}
+
+		log.info("========== CreateTestData SUCCESSFULLY for team {} =============", teamName);
 	}
 
 
@@ -196,8 +206,7 @@ public class TestDataCreator {
 	 */
 
 
-	@ConfigProperty(name = "quarkus.datasource.db-kind")
-	String dbKind;
+	//===== We can extract the created DB content as SQL form the Quarkus build in H2 DB in DEV mode
 
 	public void extractSql() throws SQLException {
 		if ("h2".equals(dbKind)) {       // The `SCRIPT TO` command only works for H2 in-memory DB
@@ -271,8 +280,8 @@ public class TestDataCreator {
 		}
 	}
 
-	@Inject
-	EntityManager entityManager;
+
+	/**
 
 	@Transactional
 	void purgeDb() {
@@ -306,9 +315,15 @@ public class TestDataCreator {
 		TeamEntity.deleteAll();
 		UserEntity.deleteAll();
 	}
+	 */
 
+
+	/**
+	 * <h1>DANGER!</h1> This deletes all the data of tone team
+	 * @param teamId id of a team in DB
+	 */
 	@Transactional
-	void purgeDb(Long teamId) {
+	void purgeTeam(Long teamId) {
 		if (teamId == null) {
 			throw new IllegalArgumentException("teamId must not be null");
 		}
@@ -325,6 +340,7 @@ public class TestDataCreator {
 		for (TeamMemberEntity teamMember : teamMembers) {
 			UserEntity user = teamMember.getUser();
 			if (TeamMemberEntity.count("user", user) == 1) {
+				// Only delete user's that are only in this team and no other.
 				usersToDelete.add(user);
 			}
 		}

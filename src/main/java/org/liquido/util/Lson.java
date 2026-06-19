@@ -21,7 +21,9 @@ public class Lson extends HashMap<String, Object> implements Map<String, Object>
 	//  - Google's GSON
 	//  - com.fasterxml.jackson.ObjectMapper (although we use it to build from a JSON string)
 	//  - Jakarta JSON https://jakarta.ee/specifications/jsonp/2.1/apidocs/jakarta.json/jakarta/json/jsonarraybuilder#JsonArrayBuilderExample1
-	//  - Quarkus QSON  https://github.com/quarkusio/qson
+	//  - Quarkus QSON https://github.com/quarkusio/qson
+	//  - JSON-B       https://javaee.github.io/jsonb-spec/
+	//  - or even Binary JSON :)
 
 
 	public static ObjectMapper mapper = new ObjectMapper();

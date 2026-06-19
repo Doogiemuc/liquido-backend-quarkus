@@ -92,7 +92,7 @@ public class PollEntity extends LiquidoBaseEntity {
 
 	/**
 	 * The calculated duelMatrix when the voting phase is finished.
-	 * This attribute is serialized as JSON array of arrays and then stored as VARCHAR
+	 * This attribute is serialized as JSON array of arrays and then stored as VARCHAR in the DB.
 	 */
 	@Convert(converter = MatrixConverter.class)
 	Matrix duelMatrix = null;
