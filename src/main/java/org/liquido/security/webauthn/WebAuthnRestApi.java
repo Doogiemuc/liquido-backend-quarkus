@@ -133,7 +133,7 @@ public class WebAuthnRestApi {
 	@Blocking
 	@Transactional
 	public Uni<Response> register(
-			@NotNull @QueryParam("label") String label,   //remark: org.eclipse.microprofile.graphql.NonNull  is the official one!
+			@NotNull @QueryParam("label") String label,
 			JsonObject webAuthnRegisterData,
 			RoutingContext ctx) throws LiquidoException
 	{

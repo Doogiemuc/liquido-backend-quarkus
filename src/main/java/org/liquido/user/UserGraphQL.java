@@ -34,8 +34,6 @@ public class UserGraphQL {
 	@Inject
 	UserService userService;
 
-
-
 	/*
 	@Inject
 	io.smallrye.graphql.api.Context smallryeContext;
@@ -81,7 +79,7 @@ public class UserGraphQL {
 	}
 
 	/**
-	 * For debugging: Log information about the currently logged in user. Extracted from the JWT.
+	 * For debugging and testing: Log information about the currently logged in user. Extracted from the JWT.
 	 * @return a JSON message with the user's email
 	 * @throws LiquidoException When user is not logged in (no JWT was passed)
 	 */
@@ -149,27 +147,8 @@ public class UserGraphQL {
 	}
 
 	//
-	//================== Login via Email Link =====================
-	//
-
-	@Query
-	@Description("Request a login link via email. If the given email is registered, will send an email with a one time login link. Returns a static success message.")
-	public String requestEmailLoginLink(@Name("email") @NonNull String email) throws LiquidoException {
-		return userService.requestEmailLoginLink(email);
-	}
-
-	@Query
-	@Description("Login with the token from link in the login email")
-	public TeamDataResponse loginWithEmailToken(
-			@Name("email") @NonNull String email,
-			@Name("emailToken") @Description("The token from the link in the login email") @NonNull String emailToken
-	) throws LiquidoException {
-		return userService.loginWithEmailToken(email, emailToken);
-	}
-
-	//
 	//================== Login via SMS =====================
-	//  currently disabled, becasue it's expensive
+	//  currently disabled, because sending SMS is expensive
 
 	/*
 	 * Request an SMS token to login via a user's mobilephone
@@ -258,6 +237,9 @@ public class UserGraphQL {
 		return jwtTokenUtils.doLoginInternal(user, null);
 	}
 
+
+	//================== DevLogin (only in non prod envs) =====================
+
 	/**
 	 * Login used during development and in tests.
 	 * You MUST pass a valid devLoginToken, then this query will return a valid TeamDataResponse including a JWT for login.
@@ -279,33 +261,15 @@ public class UserGraphQL {
 		if (config.devLoginTokenOpt().isEmpty())
 			throw new LiquidoException(Errors.CANNOT_LOGIN_TOKEN_INVALID, "No devLoginToken defined in our config");
 		if (!devLoginToken.equals(config.devLoginTokenOpt().get()))
-			throw new LiquidoException(Errors.CANNOT_LOGIN_TOKEN_INVALID, "Invalid devLoginToken or in normal/prod LaunchMode.");
+			throw new LiquidoException(Errors.CANNOT_LOGIN_TOKEN_INVALID, "Invalid devLoginToken passed.");
 		UserEntity user = UserEntity.findByEmail(email)
-				.orElseThrow(LiquidoException.supply(Errors.CANNOT_LOGIN_EMAIL_NOT_FOUND, "Cannot do devLogin. Email not found: "+email));
+				.orElseThrow(LiquidoException.supply(Errors.CANNOT_LOGIN_EMAIL_NOT_FOUND, "Cannot do devLogin. User with email not found: "+email));
 		log.info("DevLogin: {}", user.toStringShort());
 		return jwtTokenUtils.doLoginInternal(user, null);
 	}
 
 	//================== Password reset =====================
-
-	@Query
-	@Description("Request a password reset. Will send a mail with a link where user can reset his password.")
-	@Transactional
-	public String requestPasswordReset(
-			@Description("Must be a registered mail.") @Name("email") @NonNull String email
-	) throws LiquidoException {
-		return userService.requestPasswordReset(email);
-	}
-
-	@Query
-	@Description("Reset a user's password. Needs valid one time token.")
-	@Transactional
-	public String resetPassword(
-			@Description("Must be a registered mail.") @Name("email") @NonNull String email,
-			@Description("The OTT user received from requestPasswordReset") @NonNull String resetPasswordToken,
-			@NonNull String newPassword
-	) throws LiquidoException {
-		return userService.resetPassword(email, resetPasswordToken, newPassword);
-	}
+	//================== Login via Email Link ===============
+	// are now in LoginRestAPI.java
 
 }

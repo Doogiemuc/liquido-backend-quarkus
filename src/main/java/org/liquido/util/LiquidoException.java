@@ -1,6 +1,8 @@
 package org.liquido.util;
 
 
+import jakarta.json.Json;
+import jakarta.json.JsonObject;
 import jakarta.ws.rs.core.Response;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -243,23 +245,18 @@ public class LiquidoException extends Exception {
 	}
 
 	//TODO: maybe use https://github.com/quarkusio/qson
-	/*
-	public Lson toLson() {
-		Lson lson = Lson.builder()
-			.put("exception", this.getClass().toString())
-			.put("message", this.getMessage())
-			.put("liquidoErrorCode", this.getErrorCodeAsInt())
-			.put("liquidoErrorName", this.getErrorName())
-			.put("Response.StatusCode", this.getHttpResponseStatus().getStatusCode())
-		  .put("Response.StatusName", this.getHttpResponseStatus().getReasonPhrase());
+	public JsonObject toJson() {
+		return Json.createObjectBuilder()
+				.add("liquidoErrorName", this.getErrorName())
+				.add("liquidoErrorCode", this.getErrorCodeAsInt())
+				.add("liquidoErrorMessage", this.getMessage())
+				.add("HttpResponse", Json.createObjectBuilder()
+					.add("StatusCode", this.getHttpResponseStatus().getStatusCode())
+					.add("ReasonPhrase", this.getHttpResponseStatus().getReasonPhrase())
+				)
+				.build();
 
-		if (this.getCause() != null) lson.put("cause", this.getCause().toString());
-		if (this.payload != null && payload.size() > 0) lson.put("liquidoErrorPayload", this.payload);
-
-		return lson;
 	}
-
-	 */
 
 	public String toString() {
 		StringBuilder b = new StringBuilder("LiquidoException[");

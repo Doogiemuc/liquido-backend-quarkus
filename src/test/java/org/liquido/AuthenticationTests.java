@@ -6,7 +6,9 @@ import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.MockMailbox;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
+import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
+import io.restassured.response.Response;
 import io.restassured.response.ValidatableResponse;
 import io.smallrye.jwt.build.Jwt;
 import jakarta.inject.Inject;
@@ -50,7 +52,7 @@ import static org.liquido.security.JwtTokenUtils.LIQUIDO_ISSUER;
 public class AuthenticationTests {
 
 	@Inject
-	MockMailbox mailbox;
+	MockMailbox mockMailbox;
 
 	@Inject
 	LiquidoConfig config;
@@ -203,19 +205,30 @@ public class AuthenticationTests {
 	 */
 	@Test
 	@Transactional
-	public void loginViaEmailToken() {
+	public void loginViaEmailLink_Mocked() {
 		UserEntity user = util.getRandomUser();
 
 		//  WHEN requesting and email token for this user
-		String reqEmailQuery = "query requestEmailLoginLink($email: String!) { requestEmailLoginLink(email: $email) }";
-		ValidatableResponse reqEmailResponse = TestFixtures.sendGraphQL(reqEmailQuery, Lson.builder("email", user.email));
+		RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
+		given() //.log().all()
+				.contentType(ContentType.JSON)
+				//.body(body)
+				.when()
+				.queryParam("email", user.email)
+				.get(TestFixtures.LIQUIDO_API+"/login/requestEmailLoginLink")
+				.then() //.log().all()
+				.statusCode(200);
 
 		// THEN login link is sent via email
-		reqEmailResponse.body(containsString("successfully"));
 		log.info("Successfully sent login email.");
 
+		/* MAYBE: migrate back to GraphQL when Quarkus bug is fixed
+		String reqEmailQuery = "query requestEmailLoginLink($email: String!) { requestEmailLoginLink(email: $email) }";
+		ValidatableResponse reqEmailResponse = TestFixtures.sendGraphQL(reqEmailQuery, Lson.builder("email", user.email));
+		*/
+
 		//  AND an email with a onetime password (nonce) is received
-		List<Mail> mails = mailbox.getMailsSentTo(user.email.toLowerCase());
+		List<Mail> mails = mockMailbox.getMailsSentTo(user.email.toLowerCase());
 		assertEquals(1, mails.size());
 		String html = mails.get(0).getHtml();
 		assertNotNull(html);
@@ -227,26 +240,49 @@ public class AuthenticationTests {
 		Pattern p = Pattern.compile(".*<a.*?id='loginLink'.*?href='.+/login\\?email=(.+?)&emailToken=(.+?)'>.*", Pattern.DOTALL);
 		Matcher matcher = p.matcher(html);
 		boolean matches = matcher.matches();
-		assertTrue(matches);
+		assertTrue(matches, "Could not find login link in email.");
 		String resEmail = matcher.group(1);
 		String resToken = matcher.group(2);
 		assertNotNull(resEmail);
 		assertNotNull(resToken);
-		log.info("Successfully received login link for email: " + user.email + " with token: " + resToken);
+		log.info("Successfully received login link for email: {} with token: {}", user.email, resToken);
 
-		// ========= Login with token from email
+		// WHEN Logging in with token from email
+		Response response = given()
+				.contentType(ContentType.JSON)
+				//.body(body)
+				.when()
+				.queryParam("email", resEmail)
+				.queryParam("emailToken", resToken)
+				.get(TestFixtures.LIQUIDO_API + "/login/loginWithEmailToken")
 
+			//THEN we receive a valid TeamDataResponse
+				.then().log().all()
+				.contentType(ContentType.JSON)
+				.statusCode(200)
+				.extract().response();
+			//.extract().as(TeamDataResponse.class);  Does not work, because we cannot deserialize user.hasWebauthn  and Matrix so easily
+
+		//  with teamName and userEmail
+		String teamName = response.jsonPath().getString("team.teamName");
+		String userEmail = response.jsonPath().getString("user.email");
+		assertEquals(user.email, userEmail, "Sent email equals the returned email");
+
+		log.info("Successfully logged in with email token into team '{}' as user {}", teamName, userEmail);
+
+		/*
 		String loginQuery = "query loginWithEmailToken($email: String!, $emailToken: String!) {" +
 				"loginWithEmailToken(email: $email, emailToken: $emailToken)" + CREATE_OR_JOIN_TEAM_RESULT + "}";
 		Lson loginVars = new Lson().put("email", user.email).put("emailToken", resToken);
 		ValidatableResponse loginRes = TestFixtures.sendGraphQL(loginQuery, loginVars);
 		TeamDataResponse teamDataResponse = loginRes.extract().jsonPath().getObject("data.loginWithEmailToken", TeamDataResponse.class);
-		log.info("Successfully logged in with email token into team " + teamDataResponse.team + " as user " + teamDataResponse.user);
+		 */
+
+
 	}
 
 
 	//TODO: test Twillio Login via GraphQL
-
 	/**
 	 * Test authentication with time based OneTimePassword (TOTP).
 	 *
