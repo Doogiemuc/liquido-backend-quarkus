@@ -8,10 +8,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.transaction.Transactional;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -19,11 +16,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.liquido.security.JwtTokenUtils;
 import org.liquido.team.TeamDataResponse;
 import org.liquido.user.UserEntity;
-import org.liquido.util.DoogiesUtil;
 import org.liquido.util.LiquidoException;
 import org.liquido.util.LiquidoException.Errors;
-
-import java.util.Optional;
 
 
 //Remark about imports
@@ -54,44 +48,6 @@ public class WebAuthnRestApi {
 	public WebAuthnRestApi(WebAuthnSecurity webAuthnSecurity, JwtTokenUtils jwtTokenUtils) {
 		this.webAuthnSecurity = webAuthnSecurity;
 		this.jwtTokenUtils = jwtTokenUtils;
-	}
-
-
-	/**
-	 * Check if a user with the given email has registered WebAuthn authenticators.
-	 * This is used in the login flow to determine if we should show the "Login with WebAuthn" button.
-	 * No authentication required for this endpoint.
-	 *
-	 * @param email The user's email address
-	 * @return JSON response { "webauthn": true/false, email: "email_in_lowercase" }
-	 */
-	@GET
-	//@Description("Check if a user with the given email exists and has a registered WebAuthn authenticator.")
-	@Path("/check-login-email")
-	public Response checkLoginEmail(@NotBlank @Email @Size(max = 255) @QueryParam("email") String email) {
-		// Normalize email
-		email = DoogiesUtil.cleanEmail(email);
-		// Check if user exists
-		Optional<UserEntity> userOpt = UserEntity.findByEmail(email);
-		if (userOpt.isEmpty()) {
-			log.debug("[SECURITY] Login attempt of unknown user: {}", email);
-			JsonObject response = new JsonObject()
-					.put("status", "UNKNOWN")
-					.put("email", email.toLowerCase());
-			// If user is not registered, we return HTTP 200 but with status: "UNKNOWN" in body.
-			// HTTP 404 would be too harsh. Client did not do anything wrong. Monitoring tools would complain about this response status.
-			return Response.status(Response.Status.OK).entity(response).build();
-		}
-
-		// Check if user has WebAuthn credentials
-		boolean hasWebAuthn = !userOpt.get().webAuthnCredentials.isEmpty();
-		log.debug("check-login-email: User {}, hasWebAuthn={}", email, hasWebAuthn);
-		JsonObject response = new JsonObject()
-				.put("status", "REGISTERED")
-				.put("webauthn", hasWebAuthn)
-				.put("email", email.toLowerCase());
-
-		return Response.ok(response).build();
 	}
 
 	// =================================================================================================
