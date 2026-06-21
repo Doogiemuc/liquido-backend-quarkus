@@ -1,0 +1,107 @@
+### GraphQL Team Endpoints
+### Quarkus GraphQL endpoint: POST http://localhost:8080/graphql
+###
+### JWT and inviteCode are captured automatically from the createNewTeam response
+### via the response handler script (> {% ... %}) and stored as client globals.
+
+@host = http://localhost:8080
+@graphql = {{host}}/graphql
+
+
+### ─────────────────────────────────────────────
+### 1. Create a new team (anonymous — no JWT needed)
+### Returns: team, user, jwt
+### ─────────────────────────────────────────────
+POST {{graphql}}
+Content-Type: application/json
+
+{
+  "query": "mutation createNewTeam($teamName: String!, $admin: UserEntityInput!, $password: String!) { createNewTeam(teamName: $teamName, admin: $admin, password: $password) { team { id teamName inviteCode } user { id name email mobilephone } jwt } }",
+  "variables": {
+    "teamName": "My Test Team",
+    "admin": {
+      "name": "Alice Admin",
+      "email": "alice@example.com",
+      "mobilephone": "+49123456789"
+    },
+    "password": "Secret123!"
+  }
+}
+
+> {%
+  // Extract JWT and inviteCode from response and store as global variables
+  var jwt = response.body.data.createNewTeam.jwt;
+  var inviteCode = response.body.data.createNewTeam.team.inviteCode;
+  client.global.set("jwt", jwt);
+  client.global.set("inviteCode", inviteCode);
+  client.log("JWT:        " + jwt);
+  client.log("inviteCode: " + inviteCode);
+%}
+
+
+### ─────────────────────────────────────────────
+### 2. Join an existing team with an invite code (anonymous)
+### Returns: team, user, jwt
+### ─────────────────────────────────────────────
+POST {{graphql}}
+Content-Type: application/json
+
+{
+  "query": "mutation joinTeam($inviteCode: String!, $member: UserEntityInput!, $password: String!) { joinTeam(inviteCode: $inviteCode, member: $member, password: $password) { team { id teamName } user { id name email } jwt } }",
+  "variables": {
+    "inviteCode": "{{inviteCode}}",
+    "member": {
+      "name": "Bob Member",
+      "email": "bob@example.com",
+      "mobilephone": "+49987654321"
+    },
+    "password": "Secret123!"
+  }
+}
+
+> {%
+  var jwt = response.body.data.joinTeam.jwt;
+  client.global.set("jwt", jwt);
+  client.log("JWT: " + jwt);
+%}
+
+
+### ─────────────────────────────────────────────
+### 3. Add another team (requires JWT)
+### ─────────────────────────────────────────────
+POST {{graphql}}
+Content-Type: application/json
+Authorization: Bearer {{jwt}}
+
+{
+  "query": "mutation addAnotherTeam($teamName: String!) { addAnotherTeam(teamName: $teamName) { team { id teamName inviteCode } user { id name email } jwt } }",
+  "variables": {
+    "teamName": "My Second Team"
+  }
+}
+
+
+### ─────────────────────────────────────────────
+### 4. Get my team info (requires JWT)
+### ─────────────────────────────────────────────
+POST {{graphql}}
+Content-Type: application/json
+Authorization: Bearer {{jwt}}
+
+{
+  "query": "query { team { id teamName inviteCode members { user { id name email } role } } }"
+}
+
+
+### ─────────────────────────────────────────────
+### 5. Get team info by invite code (anonymous)
+### ─────────────────────────────────────────────
+POST {{graphql}}
+Content-Type: application/json
+
+{
+  "query": "query getTeamForInviteCode($inviteCode: String!) { getTeamForInviteCode(inviteCode: $inviteCode) { id teamName } }",
+  "variables": {
+    "inviteCode": "{{inviteCode}}"
+  }
+}
