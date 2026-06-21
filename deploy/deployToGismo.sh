@@ -5,8 +5,6 @@ echo "Deploying LIQUIDO to GISMO"
 echo
 set -e
 
-# TODO: build backend  "mvn package" with tests
-
 printf "Do you want to build the backend [Y/n/t] "
 read build_backend
 case "$build_backend" in
