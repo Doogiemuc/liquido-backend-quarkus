@@ -92,7 +92,12 @@ public class UserService {
 		UserEntity user = UserEntity.findByEmail(emailLowerCase).orElseThrow(
 				LiquidoException.supply(LiquidoException.Errors.WONT_RESET_PASSWORD, "Won't reset password for <" + emailLowerCase + ">: User is not registered.")
 		);
-		if (DoogiesUtil.isEqual(config.testPasswordResetTokenOpt(), resetPasswordToken) && LaunchMode.current() != LaunchMode.NORMAL) {
+
+		boolean allowResetPasswordInDevOrTest =
+			LaunchMode.current().isDevOrTest() &&
+			config.testPasswordResetTokenOpt().map(t -> t.equals(resetPasswordToken)).orElse(false);
+
+		if (allowResetPasswordInDevOrTest) {
 			log.info("[TEST/DEV] reset password of {} in LaunchMode={}", user.toStringShort(), LaunchMode.current());
 			user.setPasswordHash(PasswordServiceBcrypt.hashPassword(newPassword));
 			user.persist();
