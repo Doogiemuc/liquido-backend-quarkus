@@ -35,7 +35,7 @@ public class CastVoteService {
 	 *   1. A general RightToVote to be allowed to vote at all and
 	 *   2. A one-time voterToken for that specific poll
 	 *
-	 * This method will generate a plainVoterToken, hash it and create a one-time VoterTokenEntity from this hash.
+	 * This method will generate a plainVoterToken, hash it and create a OneTimeVotingTokenEntity from this hash.
 	 *
 	 * @param voter the currently logged in and correctly authenticated user
 	 * @param poll the voterToken is only valid for one vote in this poll
@@ -57,7 +57,7 @@ public class CastVoteService {
 		String plainVoterToken  =  UUID.randomUUID().toString();
 		String hashedVoterToken =  calcHashedVoterToken(plainVoterToken, poll.id);
 		int ttl = config.voterTokenExpirationMinutes();
-		VoterTokenEntity ott = VoterTokenEntity.buildAndPersist(hashedVoterToken, poll, rightToVote, ttl);
+		OneTimeVotingToken ott = OneTimeVotingToken.buildAndPersist(hashedVoterToken, poll, rightToVote, ttl);
 
 		// Only return the plainOneTimeToken to the voter. They can then use this token to anonymously cast one vote in this poll.
 		return plainVoterToken;
@@ -65,13 +65,13 @@ public class CastVoteService {
 
 	/**
 	 * Consume the one-time voterToken for a poll.
-	 * Check that the plainVoterToken links to a known VoterTokenEntity.
+	 * Check that the plainVoterToken hashes to a known OneTimeVotingTokenEntity.
 	 * And that a valid RightToVote is linked.
 	 *
-	 * <pre>plainVoterToken --hashed--> VoterTokenEntity --> RightToVoteEntity</pre>
+	 * <pre>plainVoterToken --hashed--> OneTimeVotingTokenEntity --> RightToVoteEntity</pre>
 	 *
 	 * If everything is fine, then extends the validity of the RightToVoteEntity and
-	 * delete the consumed VoterTokenEntity.
+	 * delete the consumed OnetimeVotingTokenEntity.
 	 *
 	 * @param plainVoterToken the plain voter token that the voter sent
 	 * @param poll the poll we want to vote in.
@@ -85,15 +85,15 @@ public class CastVoteService {
 		// check voterToken
 		String hashedVoterToken = calcHashedVoterToken(plainVoterToken, poll.id);
 		//log.debug("consumeVoterToken: plainVoterToken = {} hashedVoterToken = {} in poll.id = {}", "XXXXXX", hashedVoterToken, poll.id);
-		VoterTokenEntity voterToken = VoterTokenEntity.<VoterTokenEntity>findByIdOptional(hashedVoterToken)
-				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.INVALID_VOTER_TOKEN, "Cannot find a voterToken for you in this poll."));
+		OneTimeVotingToken voterToken = OneTimeVotingToken.<OneTimeVotingToken>findByIdOptional(hashedVoterToken)
+				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.INVALID_VOTER_TOKEN, "You don't have a voter token for this poll."));
 		if (LocalDateTime.now().isAfter(voterToken.expiresAt))
 			throw new LiquidoException(LiquidoException.Errors.INVALID_VOTER_TOKEN, "This voterToken is expired.");
 
-		// check that the VoterToken linked to a right to vote.
+		// check that the VoterToken linked to a valid right to vote.
 		RightToVoteEntity rightToVote = voterToken.getRightToVote();
 		if (rightToVote == null || !rightToVote.isValid())
-			throw new LiquidoException(LiquidoException.Errors.INVALID_VOTER_TOKEN, "You are not allowed to cast a vote.");
+			throw new LiquidoException(LiquidoException.Errors.INVALID_VOTER_TOKEN, "You are not allowed to cast a vote. (no valid rightToVote)");
 		// and extends the RightToVote's expiration time.
 		rightToVote.setExpiresAt(LocalDateTime.now().plusHours(config.rightToVoteExpirationDays()));
 		rightToVote.persist();

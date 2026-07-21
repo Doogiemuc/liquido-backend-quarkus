@@ -171,7 +171,22 @@ public class PollsGraphQL {
 		return proposal != null && user.isPresent() && user.get().equals(proposal.createdBy);
 	}
 
-	//Reminder: It is not possible to check if a user has already voted in a poll. Pools and ballots are not linked via username! Only via hashedVoterTokens
+	/**
+	 * Has the current user already voted in this poll?
+	 * Only computed when the GraphQL client requests this field.
+	 *
+	 * @param poll GraphQL context: the PollEntity
+	 * @return true if the current user has a ballot in this poll
+	 */
+	@Query
+	@Description("Has the current user already voted in this poll?")
+	public boolean userAlreadyVoted(@Source PollEntity poll) {
+		try {
+			return pollService.getBallotOfCurrentUser(poll).isPresent();
+		} catch (LiquidoException e) {
+			return false; // poll in ELABORATION has no ballots — not an error
+		}
+	}
 
 	/**
 	 * Start the voting Phase of a poll

@@ -26,8 +26,8 @@ import org.liquido.user.UserEntity;
 import org.liquido.util.LiquidoConfig;
 import org.liquido.vote.BallotEntity;
 import org.liquido.vote.CastVoteResponse;
+import org.liquido.vote.OneTimeVotingToken;
 import org.liquido.vote.RightToVoteEntity;
-import org.liquido.vote.VoterTokenEntity;
 
 import java.io.*;
 import java.sql.PreparedStatement;
@@ -294,7 +294,7 @@ public class TestDataCreator {
 		//BUGFIX: PanacheEntityBase::delete ignores FK and relations: https://github.com/quarkusio/quarkus/issues/13941
 
 		BallotEntity.deleteAll();
-		VoterTokenEntity.deleteAll();
+		OneTimeVotingTokenEntity.deleteAll();
 		RightToVoteEntity.deleteAll();
 		WebAuthnCredential.deleteAll();
 		OneTimeToken.deleteAll();
@@ -348,7 +348,7 @@ public class TestDataCreator {
 		List<PollEntity> polls = PollEntity.list("team", team);
 		for (PollEntity poll : polls) {
 			BallotEntity.delete("poll", poll);
-			VoterTokenEntity.delete("poll", poll);
+			OneTimeVotingToken.delete("poll", poll);
 		}
 
 		entityManager.flush();
@@ -373,7 +373,7 @@ public class TestDataCreator {
 			RightToVoteEntity.findByVoter(user, config.hashSecret()).ifPresent(rightToVote -> {
 				rightToVote.removeDelegationToProxy();
 				new HashSet<>(rightToVote.getDelegations()).forEach(RightToVoteEntity::removeDelegationToProxy);
-				VoterTokenEntity.delete("rightToVote", rightToVote);
+				OneTimeVotingToken.delete("rightToVote", rightToVote);
 				BallotEntity.delete("rightToVote", rightToVote);
 				rightToVote.delete();
 			});

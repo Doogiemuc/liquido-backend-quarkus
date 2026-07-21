@@ -30,6 +30,16 @@ public class DoogiesUtil {
   }
 
 
+
+	//TODO: null save STRING equality!   Use everywhere where I compare strings, instead of below isEqual!
+	public static boolean isEqualString(String s1, String s2) {
+		if (s1 == null || s2 == null) {
+			return false;
+		} else {
+			return s1.equals(s2);
+		}
+	}
+
 	/**
 	 * null safe equals that also compares array elements.
 	 * @param o1 object may be null

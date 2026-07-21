@@ -16,14 +16,14 @@ import org.liquido.poll.PollEntity;
 import java.time.LocalDateTime;
 
 /**
- * One time voter token that grant's a voter the right to cast one vote in this poll.
+ * One time voter token that grant's a voter the right to cast <b>one</b> vote in this poll.
  * After it has been consumed, this token will be deleted.
  */
 @Data
 @NoArgsConstructor
 @EqualsAndHashCode(callSuper = true)
-@Entity(name = "votertokens")
-public class VoterTokenEntity extends PanacheEntityBase {
+@Entity(name = "voting_tokens")
+public class OneTimeVotingToken extends PanacheEntityBase {
 
 	/**
 	 * Hash of the user's voter token for this poll.
@@ -56,15 +56,23 @@ public class VoterTokenEntity extends PanacheEntityBase {
 	 * @param validHours how long is this OTT valid in HOURS
 	 * @return the newly created and persisted OTT.
 	 */
-	public static VoterTokenEntity buildAndPersist(@NonNull String hashedVoterToken, @NonNull PollEntity poll, @NonNull RightToVoteEntity rightToVote, int validHours) {
+	public static OneTimeVotingToken buildAndPersist(@NonNull String hashedVoterToken, @NonNull PollEntity poll, @NonNull RightToVoteEntity rightToVote, int validHours) {
 		if (validHours <= 0) throw new RuntimeException("Cannot build OneTimeToken. ttl must be positive!");
-		VoterTokenEntity ott = new VoterTokenEntity();
+		OneTimeVotingToken ott = new OneTimeVotingToken();
 		ott.hashedVoterToken = hashedVoterToken;
 		ott.poll = poll;
 		ott.rightToVote = rightToVote;
 		ott.expiresAt = LocalDateTime.now().plusHours(validHours);
 		ott.persist();
 		return ott;
+	}
+
+	/**
+	 * The one time voter token must not be expired. And it must be linked to a valid RightToVote
+	 * @return true if this is a valid OTT
+	 */
+	public boolean isValid() {
+		return this.expiresAt.isBefore(LocalDateTime.now()) && this.rightToVote != null && this.rightToVote.isValid();
 	}
 
 	public String toString() {
@@ -78,6 +86,6 @@ public class VoterTokenEntity extends PanacheEntityBase {
 	@Scheduled(every = "P1D")
 	@Transactional
 	public void deleteExpiredTokens() {
-		VoterTokenEntity.delete("expiresAt < ?1", LocalDateTime.now());
+		OneTimeVotingToken.delete("expiresAt < ?1", LocalDateTime.now());
 	}
 }

@@ -12,7 +12,7 @@ import org.liquido.team.TeamMemberEntity;
 import org.liquido.user.UserEntity;
 import org.liquido.vote.BallotEntity;
 import org.liquido.vote.CastVoteResponse;
-import org.liquido.vote.VoterTokenEntity;
+import org.liquido.vote.OneTimeVotingToken;
 
 import java.util.List;
 
@@ -79,7 +79,7 @@ public class UseCaseTests {
 		assertNotNull(ballot2);
 
 		// AND all voterTokens have been consumed
-		assertEquals(0, VoterTokenEntity.findAll().stream().count(), "All one time voterTokens should have been consumed.");
+		assertEquals(0, OneTimeVotingToken.findAll().stream().count(), "All one time voterTokens should have been consumed.");
 	}
 
 	@Test

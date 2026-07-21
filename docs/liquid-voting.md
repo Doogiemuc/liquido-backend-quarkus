@@ -43,7 +43,7 @@ that we need to overwrite, the backend uses this chain:
 1. When a user registers, a RightToVote is generated. 
 2. When a user wants to cast a vote then he fetches a one time voter token from the backend.
    The backend calculates the hashedVoter token (including some more attributes for enhanced security)
-   and then stores this VoterTokenEntity. 
+   and then stores this OneTimeVotingToken. 
 3. When a voter wants to cast a vote in one poll, then he must request a one time voterToken. 
 4. VoterTokens are completely anonymous. They are not linked back to the voter in any way.  VoterTokens are only valid for a short time. 
 5. Then the voter can anonymously cast a vote by sending this anonymous voterToken and his preferred vote order for this poll.

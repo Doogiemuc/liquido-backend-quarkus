@@ -16,12 +16,15 @@ import java.util.Set;
 
 /**
  * This entity is the digital representation of a voters right to vote.
+ *
  * Every voter has one RightToVote for all polls in their LIQUIDO team.
  * A right to vote expires when not used for too long.
- * A voter needs a new VoterTokenEntity for every vote they want to cast.
+ * A voter needs a fresh OneTimeVotingToken for every vote they want to cast.
  *
  * The RightToVote of a given user can be looked up by hashing their user info.
- * But for a RightToVote it cannot be found out whom it belongs to.
+ * But for a given RightToVote it cannot be determined to whom it belongs to.
+ *
+ * A RightToVote may be delegated to a proxy. Then the proxy can vote for the delegee.
  *
  * Every Ballot is linked to one RightToVote. But not to the voter!
  */
