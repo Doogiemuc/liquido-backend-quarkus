@@ -36,8 +36,8 @@ public class Liquido {
 	@ConfigProperty(name = "quarkus.datasource.jdbc.url")
 	String jdbcUrl;
 
-	@ConfigProperty(name = "quarkus.hibernate-orm.database.generation")
-	String databaseGeneration;
+	@ConfigProperty(name = "quarkus.hibernate-orm.schema-management.strategy")
+	String databaseGenerationStrategy;
 
 	@ConfigProperty(name = "quarkus.profile")
 	String quarkusProfile;
@@ -70,7 +70,7 @@ public class Liquido {
 		System.out.println("   CORS allow origins  : " + corsAllowOrigins);
 
 		System.out.println("============= DB INFO ===============");
-		System.out.println("   DB Generation       : " + databaseGeneration);
+		System.out.println("   DB Generation       : " + databaseGenerationStrategy);
 		System.out.println("   DB JDBC URL         : " + jdbcUrl);
 		System.out.println("   DB Username         : " + datasourceUsername);
 		try {

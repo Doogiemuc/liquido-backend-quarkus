@@ -9,7 +9,7 @@ import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.graphql.NonNull;
 import org.liquido.security.JwtTokenUtils;
-import org.liquido.security.OneTimeToken;
+import org.liquido.security.PasswordResetToken;
 import org.liquido.security.PasswordServiceBcrypt;
 import org.liquido.team.TeamDataResponse;
 import org.liquido.util.DoogiesUtil;
@@ -51,10 +51,10 @@ public class UserService {
 				});
 
 		// Delete all old one time tokens of this user.
-		OneTimeToken.deleteUsersOldTokens(user);
+		PasswordResetToken.deleteUsersOldTokens(user);
 
 		// Create a one time token that allows to reset user's password exactly once.
-		OneTimeToken ott = OneTimeToken.build(UUID.randomUUID().toString(), user, config.loginLinkExpirationMinutes());
+		PasswordResetToken ott = PasswordResetToken.build(UUID.randomUUID().toString(), user, config.loginLinkExpirationMinutes());
 
 		// This link is parsed in a cypress test case. You must also update that test if you change this.
 		String resetPasswordLink = "<a id='resetPasswordLink' style='font-size: 20pt;' href='" + config.frontendUrl() + "/resetPassword?email=" + user.getEmail() + "&resetPasswordToken=" + ott.getNonce() + "'>Reset Password</a>";
@@ -99,7 +99,7 @@ public class UserService {
 			return;
 		}
 
-		OneTimeToken ott = OneTimeToken.findByNonce(resetPasswordToken).orElseThrow(() -> {
+		PasswordResetToken ott = PasswordResetToken.findByNonce(resetPasswordToken).orElseThrow(() -> {
 			log.info("Won't reset password for <{}>. Invalid or expired one time token", emailLowerCase);
 			return new LiquidoException(LiquidoException.Errors.WONT_RESET_PASSWORD, "Won't reset password for <" + emailLowerCase + ">: Invalid or expired one time token");
 		});
@@ -126,12 +126,12 @@ public class UserService {
 				});
 
 		// If user already has a not used code, then delete it and create a new one
-		OneTimeToken.deleteUsersOldTokens(user);
+		PasswordResetToken.deleteUsersOldTokens(user);
 
 		// Create new email login link with a one time token in it.
 		UUID tokenUUID = UUID.randomUUID();
 		LocalDateTime validUntil = LocalDateTime.now().plusMinutes(config.loginLinkExpirationMinutes());
-		OneTimeToken oneTimeToken = new OneTimeToken(tokenUUID.toString(), user, validUntil);
+		PasswordResetToken oneTimeToken = new PasswordResetToken(tokenUUID.toString(), user, validUntil);
 		oneTimeToken.persist();
 		log.info("User " + user.getEmail() + " may login via email link.");
 
@@ -169,7 +169,7 @@ public class UserService {
 	public TeamDataResponse loginWithEmailToken(@NonNull String email, @NonNull String emailToken) throws LiquidoException {
 		UserEntity user = UserEntity.findByEmail(email)
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_LOGIN_MOBILE_NOT_FOUND, "Cannot login via email token. No user with that email found!"));
-		OneTimeToken.findByNonce(emailToken).orElseThrow(
+		PasswordResetToken.findByNonce(emailToken).orElseThrow(
 				LiquidoException.supply(LiquidoException.Errors.CANNOT_LOGIN_TOKEN_INVALID, "Cannot login. Token from email is invalid")
 		);
 		return jwtTokenUtils.doLoginInternal(user, null);

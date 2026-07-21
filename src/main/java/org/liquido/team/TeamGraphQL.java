@@ -171,9 +171,10 @@ public class TeamGraphQL {
 		user.setPasswordHash(PasswordServiceBcrypt.hashPassword(plainPassword));   // MUST set passwordHash before persisting UserEntity!
 		user.persist();
 
-		//TODO: should the RightToVote include the users password? When the user changes his password, should his old right to votes be invalidated?
+		//TODO: should the RightToVote include the users password? When the user changes his password, should his old right to vote be invalidated?
 		RightToVoteEntity rightToVote = RightToVoteEntity.build(user, config.rightToVoteExpirationDays(), config.hashSecret());
 		rightToVote.persist();
+		log.debug("Created liquido user with RightToVote"+rightToVote+" hashedVoterInfo="+rightToVote.hashedVoterInfo);
 
 		// Create a new auth Factor
 		//TODO: twilioVerifyClient.createFactor(user);  //  After a factor has been created, it must still be verified

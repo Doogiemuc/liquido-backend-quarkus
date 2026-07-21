@@ -61,7 +61,7 @@ public class EqualityTests {
 
 	@Test
 	@TestTransaction
-	public void twoInstancesOfSamePersitedUserEntity_ShouldBeEqual() {
+	public void twoInstancesOfSamePersistedUserEntity_ShouldBeEqual() {
 		UserEntity user1 = new UserEntity("DummyName_A", "dummy_A@email.de", "dummyPasswordHash_A");
 		user1.persist();
 		assertNotNull(user1.id, "Persisted UserEntity MUST have an ID!");
@@ -105,7 +105,7 @@ public class EqualityTests {
 
 	@Test
 	@TestTransaction
-	public void twoBallotsWithSameVoterToken() {
+	public void twoBallotsWithSameVoterToken_ShouldNotBeEqual() {
 		String hashedVoterToken1 = "superCoolHash1";
 		LocalDateTime expiresAt = LocalDateTime.now().plusYears(1);
 		RightToVoteEntity rightToVote1 = new RightToVoteEntity(hashedVoterToken1, expiresAt);

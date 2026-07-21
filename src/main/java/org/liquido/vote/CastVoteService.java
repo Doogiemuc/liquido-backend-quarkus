@@ -43,12 +43,13 @@ public class CastVoteService {
 	 */
 	@Transactional
 	public String createOneTimeVoterToken(UserEntity voter, PollEntity poll) throws LiquidoException {
-		log.debug("getVoterToken: for {} in poll.id={}", voter.toStringShort(), poll.id);
+		log.debug("createOneTimeVoterToken: for {} in poll.id={}", voter.toStringShort(), poll.id);
 		if (DoogiesUtil.isEmpty(voter.getEmail()))
-			throw new LiquidoException(LiquidoException.Errors.CANNOT_GET_TOKEN, "Need voter to build a OneTimeToken!");
+			throw new LiquidoException(LiquidoException.Errors.CANNOT_CREATE_VOTING_TOKEN, "Need voter with email to create a OneTimeVoterToken!");
 
 		RightToVoteEntity rightToVote = RightToVoteEntity.findByVoter(voter, config.hashSecret())
-				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_GET_TOKEN, "You are not allowed to vote!"));
+				.orElseThrow(LiquidoException.supplyAndLog(LiquidoException.Errors.CANNOT_CREATE_VOTING_TOKEN, "You are not allowed to vote! No RightToVote!"));
+		if (!rightToVote.isValid()) throw new LiquidoException(LiquidoException.Errors.CANNOT_CREATE_VOTING_TOKEN, "Your right to vote has expired.");
 
 		// Create a new one-time voter token for this poll and hash it with an additional salt.
 		// The hash input must exactly be the same as in castVote(). It CANNOT contain voter.id, because that is not known in castVote()

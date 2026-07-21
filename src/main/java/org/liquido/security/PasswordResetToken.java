@@ -21,8 +21,8 @@ import java.util.Optional;
 @NoArgsConstructor(force = true)
 @RequiredArgsConstructor
 @EqualsAndHashCode(callSuper = true)
-@Entity(name = "onetimetokens")
-public class OneTimeToken extends PanacheEntity {
+@Entity(name = "password_reset_tokens")
+public class PasswordResetToken extends PanacheEntity {
 	/** Nonce of the token. Can, for example, be a UUID. */
 	@NonNull
 	@NotNull
@@ -46,9 +46,9 @@ public class OneTimeToken extends PanacheEntity {
 	 * @param validMinutes the token is valid for so many minutes
 	 * @return the persisted one time token
 	 */
-	public static OneTimeToken build(String nonce, UserEntity user, long validMinutes) {
+	public static PasswordResetToken build(String nonce, UserEntity user, long validMinutes) {
 		LocalDateTime validUntil = LocalDateTime.now().plusMinutes(validMinutes);
-		OneTimeToken oneTimeToken = new OneTimeToken(nonce, user, validUntil);
+		PasswordResetToken oneTimeToken = new PasswordResetToken(nonce, user, validUntil);
 		oneTimeToken.persist();
 		return oneTimeToken;
 	}
@@ -58,7 +58,7 @@ public class OneTimeToken extends PanacheEntity {
 	}
 
 	public static void deleteUsersOldTokens(UserEntity user) {
-		OneTimeToken.delete("user", user);
+		PasswordResetToken.delete("user", user);
 		//OneTimeToken.find("user", user).stream().forEach(token -> token.delete());
 	}
 
@@ -67,8 +67,8 @@ public class OneTimeToken extends PanacheEntity {
 	 * @param nonce nonce of a one time token
 	 * @return the OneTimeToken if it is still valid.
 	 */
-	public static Optional<OneTimeToken> findByNonce(String nonce) {
-		Optional<OneTimeToken> ottOpt = OneTimeToken.find("nonce", nonce).firstResultOptional();
+	public static Optional<PasswordResetToken> findByNonce(String nonce) {
+		Optional<PasswordResetToken> ottOpt = PasswordResetToken.find("nonce", nonce).firstResultOptional();
 		if (ottOpt.isEmpty()) return ottOpt;
 		if (ottOpt.get().isExpired()) {
 			ottOpt.get().delete();			// immediately delete expired token
@@ -80,6 +80,6 @@ public class OneTimeToken extends PanacheEntity {
 	@Scheduled(every = "P1D")
 	@Transactional
 	public void deleteExpiredTokens() {
-		OneTimeToken.delete("validUntil < ?1", LocalDateTime.now());
+		PasswordResetToken.delete("validUntil < ?1", LocalDateTime.now());
 	}
 }

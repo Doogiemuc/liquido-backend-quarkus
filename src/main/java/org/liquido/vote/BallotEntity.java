@@ -86,7 +86,7 @@ public class BallotEntity extends PanacheEntity {
 	@NotNull
 	@NonNull
 	@ManyToOne
-	//@JoinColumn(name = "hashedVoterInfo")    // The @Id of a RightToVoteModel is the hashedVoterToken itself
+	@JoinColumn(name = "hashedVoterInfo")    // The @Id of a RightToVoteModel is the hashedVoterToken itself. This also makes the name of the column in the DB more readable
 	@JsonIgnore                               // [SECURITY] Do not expose voter's private right to vote (which might also include public proxies name)
 	public RightToVoteEntity rightToVote;
 

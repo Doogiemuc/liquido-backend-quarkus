@@ -312,7 +312,7 @@ public class PollService {
 	 * we look up the user's RightToVote and then can find the linked ballot.
 	 *
 	 * @param poll a poll at least in the voting phase
-	 * @return the ballot of the currently logged in user in that poll (if any)
+	 * @return the ballot of the currently logged-in user in that poll (if any)
 	 * @throws LiquidoException when something is wrong
 	 */
 	public Optional<BallotEntity> getBallotOfCurrentUser(PollEntity poll) throws LiquidoException {
@@ -321,7 +321,7 @@ public class PollService {
 		UserEntity currentUser = jwtTokenUtils.getCurrentUser()
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.UNAUTHORIZED, "Must be logged in to lookup your ballot in a poll!"));
 		RightToVoteEntity rightToVote = RightToVoteEntity.findByVoter(currentUser, config.hashSecret())
-				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.UNAUTHORIZED, "You have no valid RightToVote!"));
+				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.UNAUTHORIZED, "You need a valid RightToVote to get your ballot in poll.id="+poll.id));
 
 		return BallotEntity.findByPollAndRightToVote(poll, rightToVote);
 	}

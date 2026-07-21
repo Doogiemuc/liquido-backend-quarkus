@@ -125,11 +125,12 @@ public class JwtTokenUtils {
 	public Optional<UserEntity> getCurrentUser() {
 		if (this.currentUser != null) return Optional.of(currentUser);
 		if (jwt == null || DoogiesUtil.isEmpty(jwt.getName())) return Optional.empty();
-		String email = jwt.getName();   //TODO: or getClaim(Claims.sub)   ?
-		log.debug("Loading current user from DB ... " + email);
+		String email = jwt.getName();   //TODO: or getClaim(Claims.sub) ?
+		//TODO: this is performance critical.  Maybe cach currentUsers. At least for a minute. Or would this be a security issue?
+		log.debug("Loading current user from DB ... {}", email);
 		Optional<UserEntity> userOpt = UserEntity.findByEmail(email);
 		if (userOpt.isEmpty()) {
-			log.warn("Valid JWT, but user <" + email + "> not found in DB!");
+			log.warn("Valid JWT, but user <{}> not found in DB!", email);
 			return userOpt;
 		}
 		this.currentUser = userOpt.get();

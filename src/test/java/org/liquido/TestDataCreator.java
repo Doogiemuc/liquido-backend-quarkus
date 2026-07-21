@@ -17,7 +17,7 @@ import org.liquido.delegation.DelegationEntity;
 import org.liquido.model.LiquidoBaseEntity;
 import org.liquido.poll.PollEntity;
 import org.liquido.poll.ProposalEntity;
-import org.liquido.security.OneTimeToken;
+import org.liquido.security.PasswordResetToken;
 import org.liquido.security.webauthn.WebAuthnCredential;
 import org.liquido.team.TeamDataResponse;
 import org.liquido.team.TeamEntity;
@@ -78,7 +78,7 @@ public class TestDataCreator {
 		if (LaunchMode.current() != LaunchMode.TEST && LaunchMode.current() != LaunchMode.DEVELOPMENT)
 			throw new Exception("Will only purge team in test or development! Not anywhere else!");
 
-		purgeTeam(2901L);
+		purgeTeam(teamName);
 
 
 	}
@@ -320,19 +320,15 @@ public class TestDataCreator {
 
 	/**
 	 * <h1>DANGER!</h1> This deletes all the data of tone team
-	 * @param teamId id of a team in DB
+	 * @param teamName name of the team
 	 */
 	@Transactional
-	void purgeTeam(Long teamId) {
-		if (teamId == null) {
-			throw new IllegalArgumentException("teamId must not be null");
-		}
-
-		TeamEntity team = TeamEntity.<TeamEntity>findByIdOptional(teamId)
-				.orElseThrow(() -> new IllegalArgumentException("No team found for id=" + teamId));
+	void purgeTeam(String teamName) {
+		TeamEntity team = TeamEntity.<TeamEntity>findByTeamName(teamName)
+				.orElseThrow(() -> new IllegalArgumentException("No team found with teamName=" + teamName));
 
 		log.info("================================");
-		log.info("       PURGE Test Data for team {}", teamId);
+		log.info("       PURGE Test Data for team {}", teamName);
 		log.info("================================");
 
 		List<TeamMemberEntity> teamMembers = TeamMemberEntity.list("team", team);
@@ -367,7 +363,7 @@ public class TestDataCreator {
 		entityManager.flush();
 
 		for (UserEntity user : usersToDelete) {
-			OneTimeToken.delete("user", user);
+			PasswordResetToken.delete("user", user);
 			WebAuthnCredential.delete("liquidoUser", user);
 
 			RightToVoteEntity.findByVoter(user, config.hashSecret()).ifPresent(rightToVote -> {

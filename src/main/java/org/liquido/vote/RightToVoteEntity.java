@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.liquido.delegation.DelegationEntity;
 import org.liquido.poll.PollEntity;
@@ -28,6 +29,7 @@ import java.util.Set;
  *
  * Every Ballot is linked to one RightToVote. But not to the voter!
  */
+@Slf4j
 @Data
 @NoArgsConstructor
 @RequiredArgsConstructor
@@ -56,7 +58,7 @@ public class RightToVoteEntity extends PanacheEntityBase {
 
 	// ======= Bidirectional hibernate relation: Voter ---(delegates to)---> Proxy
 
-	//MAYBE: Create a custom Hibernate validator that prevents delegation to onself: https://docs.jboss.org/hibernate/stable/validator/reference/en-US/html_single/?v=9.0#section-class-level-constraints
+	//MAYBE: Create a custom Hibernate validator that prevents delegation to oneself: https://docs.jboss.org/hibernate/stable/validator/reference/en-US/html_single/?v=9.0#section-class-level-constraints
 	//       But this is also checked in DelegationService.java
 	/**
 	 * A voter can delegate his RightToVote to a proxy.
@@ -91,6 +93,7 @@ public class RightToVoteEntity extends PanacheEntityBase {
 	 */
 	public static RightToVoteEntity build(UserEntity voter, int expirationDays, String salt) {
 		String hashedUserInfo = DigestUtils.sha3_256Hex(voter.email + voter.passwordHash + salt);
+		log.debug("Creating new RightToVote for voter {}", voter.toStringShort());
 		// ConfigProvider.getConfig().getValue("liquido.right-to-vote-expiration-days", Integer.class); - would be possible but not clean. So we simply pass the salt as parameter.
 		LocalDateTime expiresAt = LocalDateTime.now().plusDays(expirationDays);
 		return new RightToVoteEntity(hashedUserInfo, expiresAt);
@@ -141,7 +144,8 @@ public class RightToVoteEntity extends PanacheEntityBase {
 	}
 
 	/**
-	 * Lookup the RightToVote of a voter. This is used to find a submitted ballot
+	 * Lookup the RightToVote of a voter. This is used to lookup a user's ballot
+	 * in {@link org.liquido.poll.PollService#getBallotOfCurrentUser(PollEntity)}
 	 * and to {@link org.liquido.poll.PollService#findEffectiveProxy(PollEntity, UserEntity)}
 	 *
 	 * Only the server can look up the RightToVote for a given voter, because a hashSecret is included in the hash.
@@ -152,6 +156,7 @@ public class RightToVoteEntity extends PanacheEntityBase {
 	 * @return RightToVote of this voter if he has one.
 	 */
 	public static Optional<RightToVoteEntity> findByVoter(UserEntity voter, String salt) {
+		//TODO: Check validity of returned right to vote here!
 		String hashedUserInfo = DigestUtils.sha3_256Hex(voter.email + voter.passwordHash + salt);
 		return RightToVoteEntity.findByIdOptional(hashedUserInfo);
 	}

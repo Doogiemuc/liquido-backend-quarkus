@@ -126,7 +126,7 @@ public class LiquidoException extends Exception {
 		CANNOT_ASSIGN_CIRCULAR_PROXY(56, Response.Status.CONFLICT),
 		CANNOT_REMOVE_PROXY(57, Response.Status.BAD_REQUEST),
 		CANNOT_CAST_VOTE(58, Response.Status.BAD_REQUEST),
-		CANNOT_GET_TOKEN(59, Response.Status.BAD_REQUEST),
+		CANNOT_CREATE_VOTING_TOKEN(59, Response.Status.BAD_REQUEST),
 		CANNOT_FINISH_POLL(60, Response.Status.BAD_REQUEST),
 		NO_DELEGATION(61, Response.Status.BAD_REQUEST),
 		NO_BALLOT(62, Response.Status.NO_CONTENT),                          // 204: voter has no ballot yet. This is OK and not an error.
@@ -217,9 +217,9 @@ public class LiquidoException extends Exception {
 
 	/**
 	 * Supply a LiquidoException that will automatically log the error message when thrown.
-	 * @param error
-	 * @param msg
-	 * @return
+	 * @param error the liquido error
+	 * @param msg a custom human-readable message that will be put into the exception and that will also be written to log.
+	 * @return the LiquidoException after it has been logged.
 	 */
 	public static Supplier<LiquidoException> supplyAndLog(Errors error, String msg) {
 		return () -> {

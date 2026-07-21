@@ -49,7 +49,12 @@ public interface LiquidoConfig {
 	@NonNull
 	String googleClientId();
 
-	/** the secret only know to the server that is used to create rightToVote tokens */
+	/**
+	 * A secret only know to the server. It is used
+	 *  - to create a RightToVote
+	 *  - to create one time VoterToken
+	 *  - to sign proxy delegations
+	 */
 	@NotNull
 	String hashSecret();
 
