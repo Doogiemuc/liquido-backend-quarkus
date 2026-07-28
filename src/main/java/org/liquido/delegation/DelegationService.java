@@ -94,7 +94,7 @@ public class DelegationService {
 		RightToVoteEntity proxyRightToVote = RightToVoteEntity.findByVoter(proxy, config.hashSecret())
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_ASSIGN_PROXY, "Cannot delegate to Proxy. Cannot find RightToVote"));
 
-		DelegationEntity.findByIds(delegationRequestIds).forEach(delegationRequest -> {
+		DelegationEntity.findByIdList(delegationRequestIds).forEach(delegationRequest -> {
 			RightToVoteEntity requestedDelegationFrom = delegationRequest.getRequestedDelegationFrom();
 			if (requestedDelegationFrom == null) return;
 			requestedDelegationFrom.delegateToProxy(proxyRightToVote);

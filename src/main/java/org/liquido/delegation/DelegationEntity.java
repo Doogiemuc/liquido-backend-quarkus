@@ -83,7 +83,9 @@ public class DelegationEntity extends LiquidoBaseEntity {
 		return DelegationEntity.find("toProxy = ?1 and requestedDelegationFrom != null", proxy).list();
 	}
 
-	public static List<DelegationEntity> findByIds(List<Long> ids) {
+	// Not named findByIds: PanacheEntityBase declares a generic findByIds(List<?>) which would
+	// clash with this method's erasure (neither would hide the other -> compile error).
+	public static List<DelegationEntity> findByIdList(List<Long> ids) {
 		return list("id in ?1", ids);
 	}
 

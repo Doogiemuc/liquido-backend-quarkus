@@ -13,7 +13,12 @@ release.properties
 bin/
 
 # IntelliJ
-.idea
+# Ignore .idea, but share the few files that set the project up for new contributors:
+# externalDependencies.xml -> IDEA offers to install/enable the Lombok plugin on first open
+# compiler.xml             -> keeps annotation processing enabled (Lombok needs it)
+.idea/*
+!.idea/externalDependencies.xml
+!.idea/compiler.xml
 *.ipr
 *.iml
 *.iws

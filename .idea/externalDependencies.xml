@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ExternalDependencies">
+    <!-- "Lombook" is not a typo here: it is the actual plugin id of the (bundled) Lombok plugin. -->
+    <plugin id="Lombook Plugin" />
+  </component>
+</project>

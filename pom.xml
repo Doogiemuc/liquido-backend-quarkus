@@ -8,12 +8,16 @@
     <version>1.0.0</version>
     <properties>
         <compiler-plugin.version>3.11.0</compiler-plugin.version>
-        <maven.compiler.release>17</maven.compiler.release>
+        <lombok.version>1.18.46</lombok.version>
+        <maven.compiler.release>26</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
-        <quarkus.platform.version>3.27.1</quarkus.platform.version>
+        <!-- Quarkus >= 3.37 is required for Java 26: older versions bundle an ASM that cannot
+             read class file major version 70 and fail augmentation with
+             "Unsupported class file major version 70". -->
+        <quarkus.platform.version>3.37.4</quarkus.platform.version>
         <skipITs>true</skipITs>
         <surefire-plugin.version>3.0.0-M7</surefire-plugin.version>
         <!-- webauthn4j.version>0.21.1.RELEASE</webauthn4j.version   use default version from quarkus BOM -->
@@ -89,14 +93,16 @@
         </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-junit5</artifactId>
+            <artifactId>quarkus-junit</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <version>1.18.26</version>
-            <scope>compile</scope>
+            <!-- Keep this current with the JDK! Lombok patches javac internals, so an older Lombok
+                 silently generates nothing on a newer JDK -> "cannot find symbol" on every getter/setter. -->
+            <version>${lombok.version}</version>
+            <scope>provided</scope>
         </dependency>
         <!-- dependency>
           <groupId>org.postgresql</groupId>
@@ -224,6 +230,17 @@
                 <configuration>
                     <debug>true</debug>
                     <debuglevel>lines,vars,source</debuglevel>
+                    <!-- Annotation processors MUST be declared explicitly here. Since JDK 23 javac no
+                         longer discovers processors on the compile classpath, so relying on the lombok
+                         dependency alone makes Lombok silently generate nothing -> "cannot find symbol"
+                         on every generated getter/setter/constructor. -->
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
                     <compilerArgs>
                         <arg>-parameters</arg>
                     </compilerArgs>

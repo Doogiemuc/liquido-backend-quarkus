@@ -1,7 +1,7 @@
 #
 # Stage 1: Build my quarkus application with maven
 #
-FROM maven:3.9.6-eclipse-temurin-17 AS build
+FROM maven:3.9.16-eclipse-temurin-26 AS build
 
 WORKDIR /build
 
@@ -42,7 +42,7 @@ RUN mvn -B package -DskipTests
 # Stage 2: Use a lightweight runtime image for the runtime container
 # Eclipse temurin is build on tip of alpine + Jave Runtime (JRE)
 #
-FROM eclipse-temurin:23-jre-alpine AS runtime
+FROM eclipse-temurin:26-jre-alpine AS runtime
 
 # Set the working directory inside the container
 WORKDIR /app
