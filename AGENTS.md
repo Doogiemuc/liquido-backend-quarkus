@@ -50,7 +50,8 @@ This project is a backend service built with **Quarkus**, designed to support a 
     - Supports hardware/security key authentication
 
 - **One-Time Tokens**
-    - `OneTimeToken` for temporary authentication flows
+    - `PasswordResetToken` (table `password_reset_tokens`) — allows a single passwordless login or a password reset. Deleted after use, with a limited TTL.
+    - `OneTimeVotingToken` (table `voting_tokens`) — grants a voter the right to cast exactly **one** vote in a poll. Deleted once consumed. Stores only a hash of the voter token.
 
 ### Password Security
 - **BCrypt**
@@ -85,7 +86,7 @@ This project is a backend service built with **Quarkus**, designed to support a 
 ### Voting Algorithms
 - Custom implementations:
     - `RankedPairVoting`
-    - `MajorityComparator`
+    - `ComparisonComparator` — orders `RankedPairVoting.Comparison` records: more winner votes first, then fewer loser votes
     - `DirectedGraph`
     - `Matrix`
 - Implement a ranked-choice or Condorcet-style voting system
@@ -109,7 +110,7 @@ The voting process in this system is designed to support liquid democracy princi
     *   **Delegated Vote**: If a user has delegated their vote, and the delegate casts a vote, that vote is counted for both the delegate and the delegator. The system ensures that each user's vote is counted only once, either directly or via delegation.
 4.  **Vote Counting and Outcome Determination**:
     *   Once a poll closes, the `CastVoteService` aggregates all `BallotEntity` instances.
-    *   The system then applies condocrete voting algorithms (in `RankedPairVoting` with `MajorityComparator`) to determine the winning proposal. These algorithms are designed to handle ranked-choice voting and Condorcet methods, ensuring a fair and robust outcome based on the collective preferences expressed through direct and delegated votes.
+    *   The system then applies Condorcet voting algorithms (in `RankedPairVoting` with `ComparisonComparator`) to determine the winning proposal. These algorithms are designed to handle ranked-choice voting and Condorcet methods, ensuring a fair and robust outcome based on the collective preferences expressed through direct and delegated votes.
     *   The `DirectedGraph` and `Matrix` utilities assist in the complex calculations required by these algorithms.
 
 ---
@@ -131,6 +132,42 @@ The voting process in this system is designed to support liquid democracy princi
 
 ---
 
+## Building & Running
+
+### Toolchain
+- **Java 26** (`maven.compiler.release=26` in `pom.xml`)
+- **Quarkus 3.37.4 or newer is REQUIRED for Java 26.** Older versions bundle an ASM that cannot read class file major version 70 and fail augmentation with `Unsupported class file major version 70`.
+- **Lombok** — two things must both hold, or every generated getter/setter/constructor fails with `cannot find symbol`:
+    1. Lombok must be recent enough for the JDK in use. It patches javac internals, so an old Lombok crashes or silently generates nothing on a newer JDK.
+    2. Lombok must be declared in `<annotationProcessorPaths>` of `maven-compiler-plugin`. Since **JDK 23** javac no longer discovers annotation processors on the compile classpath, so a plain dependency alone is not enough.
+- **IntelliJ** — the Lombok plugin has been bundled since IDEA 2020.3, so nothing needs installing. `.idea/externalDependencies.xml` and `.idea/compiler.xml` are committed so a fresh clone gets the plugin prompt and annotation processing already enabled.
+
+### Local database
+- PostgreSQL on `localhost:5432`, database **`LIQUIDO-DEV`**.
+- Create it with the name quoted — unquoted, Postgres folds it to lowercase and the hyphen is a syntax error:
+  ```sql
+  CREATE DATABASE "LIQUIDO-DEV" OWNER postgres;
+  ```
+- Datasource settings live in `config/application-{dev,test}.properties`. These are **gitignored** because they contain secrets, so a fresh clone must supply them.
+- Note that the `dev` and `test` profiles currently point at the **same** database. Enabling `drop-and-create` for the test profile therefore destroys dev data on every `mvn test`.
+
+### Schema and seed data
+- Schema generation is deliberately **off** (`quarkus.hibernate-orm.database.generation=none` and `quarkus.hibernate-orm.schema-management.strategy=none`). Both the legacy and the newer key are set.
+- To create the schema once in an empty DB, override via environment rather than editing the config files:
+  ```
+  QUARKUS_HIBERNATE_ORM_SCHEMA_MANAGEMENT_STRATEGY=drop-and-create
+  ```
+- Seed data comes from `TestDataCreator.createTestData()`, which is `@Disabled` **on purpose** — it is meant to be run by hand, never as part of a normal build. Do not enable it in the build.
+
+### Commands
+```bash
+./mvnw quarkus:dev          # dev mode
+./mvnw clean test           # unit + integration tests (needs a seeded LIQUIDO-DEV)
+./mvnw clean package        # build target/quarkus-app/
+```
+
+---
+
 ## Testing
 
 - JUnit-based test suite under `src/test/java`
@@ -138,6 +175,9 @@ The voting process in this system is designed to support liquid democracy princi
     - Voting algorithms
     - Authentication
     - Use cases and integration flows
+- Integration tests need a running, seeded `LIQUIDO-DEV`. Without it Quarkus cannot boot and the tests error rather than fail.
+- A handful of tests are `@Disabled` by design (`TestDataCreator`, and two in `AuthenticationTests` that only work in manual debug runs). Leave them disabled.
+- `skipITs` defaults to `true`, so failsafe integration tests do not run in a normal build.
 
 ---
 
