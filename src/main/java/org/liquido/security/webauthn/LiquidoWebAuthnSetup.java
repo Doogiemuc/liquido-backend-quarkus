@@ -9,6 +9,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
+import org.liquido.polly.PollyCredentialEntity;
 import org.liquido.security.JwtTokenUtils;
 import org.liquido.user.UserEntity;
 
@@ -48,14 +49,34 @@ public class LiquidoWebAuthnSetup implements WebAuthnUserProvider {
 		return Uni.createFrom().item(records);
 	}
 
+	/**
+	 * Resolve a credential from an assertion, for both products.
+	 *
+	 * <p>Quarkus allows exactly one {@link WebAuthnUserProvider}, and
+	 * {@code WebAuthnSecurity.login()} goes through this method to find the public key it needs
+	 * to verify a signature. So a Polly passkey is invisible to login unless this method knows
+	 * about it - which is why Polly's own table is checked here as a fallback.
+	 *
+	 * <p>Looking in both is also the intended behaviour, not just a necessity. A polly login asks
+	 * with an empty {@code allowCredentials} (that is what makes the share link need no secret),
+	 * so the browser offers <i>every</i> passkey it holds for this domain - including one the
+	 * person registered as a LIQUIDO team member. Accepting it means one device is one identity
+	 * and one vote, with no extra tap. The reverse direction is safe too: a polly credential
+	 * offered to the team login resolves here, and then
+	 * {@code WebAuthnRestApi.authenticate} fails to find a UserEntity for its opaque handle and
+	 * reports a clean login error.
+	 */
 	@Transactional
 	@Override
 	public Uni<WebAuthnCredentialRecord> findByCredentialId(String credId) {
 		WebAuthnCredential creds = WebAuthnCredential.findByCredentialId(credId);
-		if(creds == null)
-			return Uni.createFrom()
-					.failure(new RuntimeException("No such credential ID"));
-		return Uni.createFrom().item(creds.toWebAuthnCredentialRecord());
+		if (creds != null) return Uni.createFrom().item(creds.toWebAuthnCredentialRecord());
+
+		PollyCredentialEntity pollyCred = PollyCredentialEntity.findByCredentialId(credId);
+		if (pollyCred != null) return Uni.createFrom().item(pollyCred.toWebAuthnCredentialRecord());
+
+		return Uni.createFrom()
+				.failure(new RuntimeException("No such credential ID"));
 	}
 
 	/**

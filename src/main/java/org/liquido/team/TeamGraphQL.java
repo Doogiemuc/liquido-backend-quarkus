@@ -156,8 +156,7 @@ public class TeamGraphQL {
 	 * @throws LiquidoException When another user with same email or mobilephone already exists
 	 */
 	private void createNewLiquidoUser(UserEntity user, String plainPassword) throws LiquidoException {
-		if (plainPassword == null || plainPassword.length() < config.minPasswordLength())
-			throw new LiquidoException(Errors.PASSWORD_TOO_SHORT, "Password too short");
+		PasswordServiceBcrypt.assertPasswordStrongEnough(plainPassword, config.minPasswordLength());
 		// IF a user with that email or mobilephone already exists, throw error.
 		user.setMobilephone(DoogiesUtil.cleanMobilephone(user.mobilephone));
 		user.setEmail(DoogiesUtil.cleanEmail(user.email));
@@ -171,10 +170,9 @@ public class TeamGraphQL {
 		user.setPasswordHash(PasswordServiceBcrypt.hashPassword(plainPassword));   // MUST set passwordHash before persisting UserEntity!
 		user.persist();
 
-		//TODO: should the RightToVote include the users password? When the user changes his password, should his old right to vote be invalidated?
 		RightToVoteEntity rightToVote = RightToVoteEntity.build(user, config.rightToVoteExpirationDays(), config.hashSecret());
 		rightToVote.persist();
-		log.debug("Created liquido user with RightToVote"+rightToVote+" hashedVoterInfo="+rightToVote.hashedVoterInfo);
+		log.debug("Created liquido user with RightToVote"+rightToVote);
 
 		// Create a new auth Factor
 		//TODO: twilioVerifyClient.createFactor(user);  //  After a factor has been created, it must still be verified

@@ -23,10 +23,6 @@ import org.liquido.util.LiquidoConfig;
 import org.liquido.util.LiquidoException;
 import org.liquido.util.Lson;
 
-import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
-import java.io.InputStream;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -123,7 +119,6 @@ public class AuthenticationTests {
 				.issuer(LIQUIDO_ISSUER)
 				.groups(Collections.singleton(JwtTokenUtils.LIQUIDO_USER_ROLE))  // role
 				//.expiresIn(9000)
-				//.jws().algorithm(SignatureAlgorithm.HS256)
 				.sign();
 
 		ValidatableResponse res = TestFixtures.sendGraphQL(query, null, jwt);
@@ -132,25 +127,6 @@ public class AuthenticationTests {
 	}
 
 
-	/**
-	 * Read the secret key that we need to sign JWTs
-	 */
-	private SecretKey loadHs256Key() throws Exception {
-		ObjectMapper mapper = new ObjectMapper();
-		InputStream resource = Thread.currentThread().getContextClassLoader()
-				.getResourceAsStream("liquidoJwtKey.json");
-
-		JsonNode root = mapper.readTree(resource);
-		String k = root.get("k").asText();  // base64url encoded key
-
-		// Base64URL decode → raw secret bytes
-		byte[] secret = Base64.getUrlDecoder().decode(k);
-
-		// Construct an HS256 key
-
-		return new SecretKeySpec(secret, "HmacSHA256");
-	}
-
 	/** Send a request authenticated with a JWT */
 	@Test
 	public void testAuthenticatedGraphQlRequest() throws Exception {
@@ -158,15 +134,16 @@ public class AuthenticationTests {
 		// https://quarkus.io/guides/security-jwt#dealing-with-the-verification-keys
 
 		UserEntity user = util.getRandomUser();
-		SecretKey secretKey = loadHs256Key();
+		// sign() with no argument uses the configured smallrye.jwt.sign.key, i.e. exactly the same
+		// key the application itself signs with. We deliberately no longer load a key file here:
+		// the old src/main/resources/liquidoJwtKey.json was a committed secret and has been removed.
 		String jwt = Jwt
 				.subject(user.email)
 				//.upn("upn@liquido.vote")  // if upn is set, this will be used instead of subject   see JWTCallerPrincipal.getName()
 				.issuer(LIQUIDO_ISSUER)
 				.groups(Collections.singleton(JwtTokenUtils.LIQUIDO_USER_ROLE))  // role
 				//.expiresIn(9000)
-				//.jws().algorithm(SignatureAlgorithm.HS256)
-				.sign(secretKey);
+				.sign();
 
 		System.out.println("======= JWT: "+jwt);
 		String query = "{ requireUser }";
@@ -250,11 +227,9 @@ public class AuthenticationTests {
 		// WHEN Logging in with token from email
 		Response response = given()
 				.contentType(ContentType.JSON)
-				//.body(body)
+				.body(Lson.builder("email", resEmail).put("emailToken", resToken).toString())
 				.when()
-				.queryParam("email", resEmail)
-				.queryParam("emailToken", resToken)
-				.get(TestFixtures.LIQUIDO_API + "/login/loginWithEmailToken")
+				.post(TestFixtures.LIQUIDO_API + "/login/loginWithEmailToken")
 
 			//THEN we receive a valid TeamDataResponse
 				.then().log().all()
@@ -279,6 +254,122 @@ public class AuthenticationTests {
 		 */
 
 
+	}
+
+	/** Extract email and a second query param (token) from a link like {@code href='.../path?email=X&paramName=Y'} in a mail body. */
+	private String[] extractEmailAndToken(String html, String linkId, String tokenParamName) {
+		Pattern p = Pattern.compile(".*<a.*?id='" + linkId + "'.*?href='.+?email=(.+?)&" + tokenParamName + "=(.+?)'>.*", Pattern.DOTALL);
+		Matcher matcher = p.matcher(html);
+		assertTrue(matcher.matches(), "Could not find " + linkId + " in email.");
+		return new String[]{matcher.group(1), matcher.group(2)};
+	}
+
+	/**
+	 * Regression test for the account-takeover bug fixed in loginWithEmailToken: it used to resolve the
+	 * user from the client-supplied "email" and only check the token's nonce, so a token issued for A
+	 * could be used with a victim's email to log in as that victim. Now the user is resolved from the
+	 * token alone, so "email" cannot redirect the login to another account.
+	 */
+	@Test
+	public void loginWithEmailToken_ignoresEmailParam_onlyTokenDeterminesUser() {
+		long unique = new Date().getTime();
+		String emailA = "logintokena" + unique + "@liquido.vote";
+		String emailB = "logintokenb" + unique + "@liquido.vote";
+		// A dedicated, isolated team -- not the shared seeded one -- so this test can't shift member
+		// ordering/roles that other tests (and TestDataCreator's own happy-path) depend on.
+		String inviteCode = util.createFreshTeam("LoginTokenTest" + unique).team.inviteCode;
+		util.joinTeam(inviteCode, emailA);
+		util.joinTeam(inviteCode, emailB);
+
+		given()
+				.when()
+				.queryParam("email", emailA)
+				.get(TestFixtures.LIQUIDO_API + "/login/requestEmailLoginLink")
+				.then()
+				.statusCode(200);
+
+		List<Mail> mails = mockMailbox.getMailsSentTo(emailA.toLowerCase());
+		assertEquals(1, mails.size());
+		String tokenForA = extractEmailAndToken(mails.get(0).getHtml(), "loginLink", "emailToken")[1];
+
+		// WHEN calling loginWithEmailToken claiming to be victim B, but with A's own token
+		Response response = given()
+				.contentType(ContentType.JSON)
+				.body(Lson.builder("email", emailB).put("emailToken", tokenForA).toString())
+				.when()
+				.post(TestFixtures.LIQUIDO_API + "/login/loginWithEmailToken")
+				.then()
+				.statusCode(200)
+				.extract().response();
+
+		// THEN the session belongs to A, the token's real owner -- never to B
+		assertEquals(emailA, response.jsonPath().getString("user.email").toLowerCase(),
+				"loginWithEmailToken must ignore the email param and only trust the token's own user");
+
+		// AND the token cannot be replayed
+		Response replay = given()
+				.contentType(ContentType.JSON)
+				.body(Lson.builder("email", emailA).put("emailToken", tokenForA).toString())
+				.when()
+				.post(TestFixtures.LIQUIDO_API + "/login/loginWithEmailToken");
+		assertNotEquals(200, replay.getStatusCode(), "a used login token must not be usable a second time");
+	}
+
+	/**
+	 * Regression test for the account-takeover bug fixed in resetPassword: mirrors
+	 * {@link #loginWithEmailToken_ignoresEmailParam_onlyTokenDeterminesUser()} for the password-reset flow.
+	 */
+	@Test
+	public void resetPassword_ignoresEmailParam_onlyTokenDeterminesUser() {
+		long unique = new Date().getTime();
+		String emailA = "resettokena" + unique + "@liquido.vote";
+		String emailB = "resettokenb" + unique + "@liquido.vote";
+		// A dedicated, isolated team -- not the shared seeded one -- so this test can't shift member
+		// ordering/roles that other tests (and TestDataCreator's own happy-path) depend on.
+		String inviteCode = util.createFreshTeam("ResetTokenTest" + unique).team.inviteCode;
+		util.joinTeam(inviteCode, emailA);
+		util.joinTeam(inviteCode, emailB);
+
+		given()
+				.when()
+				.queryParam("email", emailA)
+				.get(TestFixtures.LIQUIDO_API + "/login/requestPasswordResetEmail")
+				.then()
+				.statusCode(200);
+
+		List<Mail> mails = mockMailbox.getMailsSentTo(emailA.toLowerCase());
+		assertEquals(1, mails.size());
+		String tokenForA = extractEmailAndToken(mails.get(0).getHtml(), "resetPasswordLink", "resetPasswordToken")[1];
+		String newPasswordForA = "BrandNewPassword123";
+
+		// WHEN calling resetPassword claiming to be victim B, but with A's own token
+		given()
+				.contentType(ContentType.JSON)
+				.body(Lson.builder("email", emailB).put("resetPasswordToken", tokenForA).put("newPassword", newPasswordForA).toString())
+				.when()
+				.post(TestFixtures.LIQUIDO_API + "/login/resetPassword")
+				.then()
+				.statusCode(200);
+
+		// THEN A's password was changed -- A can log in with the new password
+		String loginQuery = "query loginWithEmailPassword($email: String!, $password: String!) {" +
+				" loginWithEmailPassword(email: $email, password: $password)" + CREATE_OR_JOIN_TEAM_RESULT + "}";
+		Lson loginVarsA = Lson.builder().put("email", emailA).put("password", newPasswordForA);
+		TeamDataResponse loginDataA = TestFixtures.sendGraphQL(loginQuery, loginVarsA)
+				.extract().jsonPath().getObject("data.loginWithEmailPassword", TeamDataResponse.class);
+		assertEquals(emailA, loginDataA.user.email.toLowerCase());
+
+		// AND B's original password was never touched
+		Lson loginVarsB = Lson.builder().put("email", emailB).put("password", emailB + TestFixtures.PASSWORD_SUFFIX);
+		TestFixtures.sendGraphQL(loginQuery, loginVarsB);
+
+		// AND the token cannot be replayed
+		Response replay = given()
+				.contentType(ContentType.JSON)
+				.body(Lson.builder("email", emailA).put("resetPasswordToken", tokenForA).put("newPassword", "AnotherPassword456").toString())
+				.when()
+				.post(TestFixtures.LIQUIDO_API + "/login/resetPassword");
+		assertNotEquals(200, replay.getStatusCode(), "a used reset token must not be usable a second time");
 	}
 
 

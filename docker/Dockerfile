@@ -78,7 +78,8 @@ ENV JAVA_APP_JAR="/app/quarkus-run.jar"
 
 # Start the application
 CMD ["java", "-jar", "/app/quarkus-run.jar"]
-# could also pass the quarkus profile like this. But we do it via  fly.toml   CMD ["java", "-jar", "/app/quarkus-run.jar", "-Dquarkus.profile=fly-int"]
+# could also pass the quarkus profile like this: CMD ["java", "-jar", "/app/quarkus-run.jar", "-Dquarkus.profile=fly-int"]
+# (fly.toml used to set this via QUARKUS_PROFILE; fly.io deployment is archived, see backup/fly.io.bak/)
 
 # Nice for debugging
 # CMD ["tail", "-f", "/dev/null"]   # Just start the container and do not start the app yet. Nice for then debugging with   docker exec -it liquido-backend sh

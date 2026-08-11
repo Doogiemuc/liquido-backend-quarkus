@@ -82,6 +82,29 @@ public interface LiquidoConfig {
 		Long expirationSecs();
 	}
 
+	/** Polly: the small, passkey-only sibling of a LIQUIDO poll. */
+	Polly polly();
+
+	interface Polly {
+		/**
+		 * Secret for the owner-key and voter-key HMACs.
+		 *
+		 * Deliberately separate from {@link #hashSecret()}, which is pinned forever because
+		 * RightToVote ids (and therefore every ballot's foreign key) are derived from it.
+		 * This one can be rotated independently; doing so resets polly ownership and voting
+		 * history, which is contained damage.
+		 */
+		@NotNull
+		String hmacSecret();
+
+		/**
+		 * How long a polly passkey session lasts. Long on purpose: ~30 days means one tap on
+		 * the first visit and none afterwards, which is what lets a polly have no login screen.
+		 */
+		@WithDefault("2592000")
+		Long jwtExpirationSecs();
+	}
+
 	/** Sending SMS */
 	Twilio twilio();
 	interface Twilio {

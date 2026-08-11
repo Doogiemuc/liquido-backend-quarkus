@@ -1,6 +1,7 @@
 package org.liquido.security;
 
 import at.favre.lib.crypto.bcrypt.BCrypt;
+import org.liquido.util.LiquidoException;
 
 /**
  * Secure hashing of passwords with BCRYPT.
@@ -18,5 +19,11 @@ public class PasswordServiceBcrypt {
 	public static boolean verifyPassword(String plainPassword, String storedHash) {
 		BCrypt.Result result = BCrypt.verifyer().verify(plainPassword.toCharArray(), storedHash);
 		return result.verified;
+	}
+
+	/** Throw {@link LiquidoException.Errors#PASSWORD_TOO_SHORT} unless the password meets the configured minimum length */
+	public static void assertPasswordStrongEnough(String plainPassword, int minPasswordLength) throws LiquidoException {
+		if (plainPassword == null || plainPassword.length() < minPasswordLength)
+			throw new LiquidoException(LiquidoException.Errors.PASSWORD_TOO_SHORT, "Password too short");
 	}
 }

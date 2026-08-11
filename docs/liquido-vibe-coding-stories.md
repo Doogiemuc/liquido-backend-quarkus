@@ -8,3 +8,20 @@ The algo in my backend to find cast ballots of the currently logged-in user is c
 
 Log a lot. Debugging becomes harder and harder in bigger applications. (e.g. because of network timeouts you have to debug "fast" :-)
 If you change anything, no matter how little, then always run regression tests.
+
+# Test Data Creator
+
+Whuuhuu once again my famous `TestDataCreator.java`. It's two things at the same time. It's one large test case that runs through my full end-2-end use case flow. 
+And admin creates a Team. Then a second team member joins that team. Admin creates a new poll with two proposals. Then both vote. etc. 
+
+
+
+
+
+
+
+
+
+# Nice AI bugfix: `!= null` is not the same as `is not null` in Panache
+
+Root cause found: DelegationEntity.findDelegationRequestsTo uses HQL requestedDelegationFrom != null, which apparently doesn't work for entity-valued fields in this Hibernate version — is not null returns all 8 rows correctly, != null returns 0.

@@ -7,6 +7,7 @@ import jakarta.json.JsonObjectBuilder;
 import jakarta.json.JsonValue;
 import jakarta.ws.rs.ext.Provider;
 import lombok.extern.slf4j.Slf4j;
+import org.liquido.polly.PollyException;
 
 /**
  * Add liquido specific error codes to the GraphQL response.
@@ -31,6 +32,12 @@ public class LiquidoErrorExtensionProvider implements io.smallrye.graphql.api.Er
 	 */
 	@Override
 	public JsonValue mapValueFrom(Throwable throwable) {
+		// A polly error is described by PollyErrorExtensionProvider under its own key.
+		// Without this branch it would fall through to the catch-all below, which log.error()s
+		// it and attaches a bogus "This should not have happened" 500 to every ordinary
+		// NEED_PASSKEY or ALREADY_VOTED.
+		if (throwable instanceof PollyException) return null;
+
 		JsonObjectBuilder builder = Json.createObjectBuilder();
 		if (throwable instanceof LiquidoException le) {
 			builder

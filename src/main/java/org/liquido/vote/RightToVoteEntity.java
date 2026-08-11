@@ -41,16 +41,16 @@ import java.util.Set;
 public class RightToVoteEntity extends PanacheEntityBase {
 	// RightToVoteEntity extends PanacheEntityBase! not our own BaseEntity. No createdBy! And we have our own ID.
 	//TODO: Should a RightToVote be per user? Or per user and team?
-	//TODO: Should a RightToVote.hash include the user's passwordHash? Change password -> need to recreate all RightToVotes for this user.
 
 	/**
 	 * Hashed info about voter. The ID of this entity.
-	 * Every voter has one RightToVote in LIQUIDO
+	 * Every voter has one RightToVote in LIQUIDO.
+	 * Deliberately does NOT include the user's passwordHash: see {@link #calcHashedVoterInfo}.
    */
 	@Id
 	@NonNull
 	@EqualsAndHashCode.Include      //FIX: only use this in Lombok equals and Hash code
-	public String hashedVoterInfo;  // == SHA256(user.email + user.passwordHash + serverConfig.hashSecret)
+	public String hashedVoterInfo;  // == SHA3-256(user.email + serverConfig.hashSecret)
 
 	/** A RightToVote is only valid for a given time */
 	@NonNull
@@ -88,15 +88,42 @@ public class RightToVoteEntity extends PanacheEntityBase {
 	UserEntity publicProxy = null;
 
 	/**
+	 * Hash a voter's info into their {@link #hashedVoterInfo}.
+	 * Deliberately does NOT include {@link UserEntity#passwordHash}: that would make a
+	 * password change silently destroy the user's right to vote and orphan their ballots
+	 * (this is the {@code @Id} of this entity and the FK on every {@code ballots} row).
+	 */
+	private static String calcHashedVoterInfo(UserEntity voter, String salt) {
+		return DigestUtils.sha3_256Hex(voter.email + salt);
+	}
+
+	/**
 	 * Grant a user the right to vote.
 	 * @return a RightToVote that you still need to persist
 	 */
 	public static RightToVoteEntity build(UserEntity voter, int expirationDays, String salt) {
-		String hashedUserInfo = DigestUtils.sha3_256Hex(voter.email + voter.passwordHash + salt);
+		String hashedUserInfo = calcHashedVoterInfo(voter, salt);
 		log.debug("Creating new RightToVote for voter {}", voter.toStringShort());
 		// ConfigProvider.getConfig().getValue("liquido.right-to-vote-expiration-days", Integer.class); - would be possible but not clean. So we simply pass the salt as parameter.
-		LocalDateTime expiresAt = LocalDateTime.now().plusDays(expirationDays);
-		return new RightToVoteEntity(hashedUserInfo, expiresAt);
+		return new RightToVoteEntity(hashedUserInfo, expiryFromNow(expirationDays));
+	}
+
+	/**
+	 * The one place that turns "expiration DAYS" into a timestamp.
+	 * It exists because the same arithmetic used to be duplicated at three call sites, and two
+	 * of them said plusHours() - so casting a vote silently shortened a right to vote from a
+	 * year to about a fortnight instead of renewing it.
+	 */
+	private static LocalDateTime expiryFromNow(int expirationDays) {
+		return LocalDateTime.now().plusDays(expirationDays);
+	}
+
+	/**
+	 * Renew this right to vote, as happens whenever its owner casts a vote.
+	 * @param expirationDays validity from now, in DAYS (liquido.right-to-vote-expiration-days)
+	 */
+	public void renewExpiry(int expirationDays) {
+		this.expiresAt = expiryFromNow(expirationDays);
 	}
 
 	/** Check if this RightToVot is not yet expired */
@@ -157,7 +184,7 @@ public class RightToVoteEntity extends PanacheEntityBase {
 	 */
 	public static Optional<RightToVoteEntity> findByVoter(UserEntity voter, String salt) {
 		//TODO: Check validity of returned right to vote here!
-		String hashedUserInfo = DigestUtils.sha3_256Hex(voter.email + voter.passwordHash + salt);
+		String hashedUserInfo = calcHashedVoterInfo(voter, salt);
 		return RightToVoteEntity.findByIdOptional(hashedUserInfo);
 	}
 

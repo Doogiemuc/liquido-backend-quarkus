@@ -5,10 +5,13 @@ import io.vertx.core.json.JsonObject;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
@@ -135,16 +138,17 @@ public class LoginRestAPI {
 		}
 	}
 
-	/** Step 2: Reset a user's password. Needs valid one time token." */
-	@GET
+	/**
+	 * Step 2: Reset a user's password. Needs valid one time token.
+	 * POST with a body, not GET with query params: this carries a one-time token and a new password,
+	 * which must not end up in server access logs or browser history.
+	 */
+	@POST
 	@Path("/resetPassword")
+	@Consumes(MediaType.APPLICATION_JSON)
 	@Produces(MediaType.APPLICATION_JSON)
-	public Response resetPassword(
-			@RestQuery @NotNull @Email @Length(max = 100) String email,
-			@RestQuery @NotNull String resetPasswordToken,
-			@RestQuery @NotNull String newPassword
-	) throws LiquidoException {
-		userService.resetPassword(email, resetPasswordToken, newPassword);
+	public Response resetPassword(@NotNull @Valid ResetPasswordRequest req) throws LiquidoException {
+		userService.resetPassword(req.email(), req.resetPasswordToken(), req.newPassword());
 		return Response.ok(Lson.builder("message", "Your new password has been set successfully.")).build();
 	}
 
@@ -160,14 +164,16 @@ public class LoginRestAPI {
 		return Response.ok(Lson.builder("message", "Login email sent.")).build();
 	}
 
-	@GET
+	/**
+	 * POST with a body, not GET with query params: this carries a one-time login token,
+	 * which must not end up in server access logs or browser history.
+	 */
+	@POST
 	@Path("/loginWithEmailToken")
+	@Consumes(MediaType.APPLICATION_JSON)
 	@Produces(MediaType.APPLICATION_JSON)
-	public TeamDataResponse loginWithEmailToken(
-			@RestQuery @NotNull @Email @Length(max = 100)  String email,
-			@RestQuery @NotNull @Length(max = 100)  String emailToken
-	) throws LiquidoException {
-		return userService.loginWithEmailToken(email, emailToken);
+	public TeamDataResponse loginWithEmailToken(@NotNull @Valid LoginWithEmailTokenRequest req) throws LiquidoException {
+		return userService.loginWithEmailToken(req.email(), req.emailToken());
 	}
 
 }

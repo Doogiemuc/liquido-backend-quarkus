@@ -57,8 +57,8 @@ public class CastVoteService {
 		// But plainVoterToken is already random. This would only add little security.
 		String plainVoterToken  =  UUID.randomUUID().toString();
 		String hashedVoterToken =  calcHashedVoterToken(plainVoterToken, poll.id);
-		int ttl = config.voterTokenExpirationMinutes();
-		OneTimeVotingToken ott = OneTimeVotingToken.buildAndPersist(hashedVoterToken, poll, rightToVote, ttl);
+		int validMinutes = config.voterTokenExpirationMinutes();
+		OneTimeVotingToken ott = OneTimeVotingToken.buildAndPersist(hashedVoterToken, poll, rightToVote, validMinutes);
 
 		// Only return the plainOneTimeToken to the voter. They can then use this token to anonymously cast one vote in this poll.
 		return plainVoterToken;
@@ -96,7 +96,7 @@ public class CastVoteService {
 		if (rightToVote == null || !rightToVote.isValid())
 			throw new LiquidoException(LiquidoException.Errors.INVALID_VOTER_TOKEN, "You are not allowed to cast a vote. (no valid rightToVote)");
 		// and extends the RightToVote's expiration time.
-		rightToVote.setExpiresAt(LocalDateTime.now().plusHours(config.rightToVoteExpirationDays()));
+		rightToVote.renewExpiry(config.rightToVoteExpirationDays());
 		rightToVote.persist();
 
 		// Finally delete the consumed voterToken. It may only be used ONCE!
@@ -290,7 +290,7 @@ public class CastVoteService {
 	 */
 	@Transactional
 	public void refreshRightToVote(RightToVoteEntity rightToVote) {
-		rightToVote.setExpiresAt(LocalDateTime.now().plusHours(config.rightToVoteExpirationDays()));
+		rightToVote.renewExpiry(config.rightToVoteExpirationDays());
 		rightToVote.persist();
 	}
 

@@ -1,5 +1,6 @@
 package org.liquido.delegation;
 
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -52,11 +53,11 @@ public class DelegationService {
 		// A voter must first request a delegation to a proxy, because he will know how his proxy voted.
 		// Proxies can decide to be a public proxy and accept every delegation request immediately.
 		if (proxyRightToVote.getPublicProxy() != null) {
-			log.info("Delegation: {} requests delegation to proxy {}", currentUser.toStringShort(), proxy.toStringShort());
-			DelegationEntity.buildDelegationRequest(currentUser, proxy, usersRightToVote);
-		} else {
-			log.info("Delegation: {} delegates to proxy {}", currentUser.toStringShort(), proxy.toStringShort());
+			log.info("Delegation: {} delegates to public proxy {}", currentUser.toStringShort(), proxy.toStringShort());
 			usersRightToVote.delegateToProxy(proxyRightToVote);
+		} else {
+			log.info("Delegation: {} requests delegation to proxy {}", currentUser.toStringShort(), proxy.toStringShort());
+			DelegationEntity.createDelegationRequest(currentUser, proxy, usersRightToVote);
 		}
 
 		proxyRightToVote.persist();
@@ -73,6 +74,11 @@ public class DelegationService {
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.UNAUTHORIZED, "Must be logged in to remove delegation"));
 		RightToVoteEntity usersRightToVote = RightToVoteEntity.findByVoter(currentUser, config.hashSecret())
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_REMOVE_PROXY, "Cannot remove delegation, you have no right to vote!"));
+
+		// Delete the DelegationEntity row (pending request or accepted record) too, otherwise it's left
+		// behind occupying the fromuser_id unique slot and misreporting this user's delegation status.
+		DelegationEntity.findByFromUser(currentUser).ifPresent(PanacheEntityBase::delete);
+
 		RightToVoteEntity proxiesRightToVote = usersRightToVote.getDelegatedTo();
 		if (proxiesRightToVote == null) return;
 
@@ -88,17 +94,30 @@ public class DelegationService {
 		return DelegationEntity.findDelegationRequestsTo(proxy);
 	}
 
+	@Transactional
 	public void acceptDelegationRequests(List<Long> delegationRequestIds) throws LiquidoException {
 		UserEntity proxy = jwtTokenUtils.getCurrentUser()
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.UNAUTHORIZED, "Must be logged in to accept delegation requests"));
 		RightToVoteEntity proxyRightToVote = RightToVoteEntity.findByVoter(proxy, config.hashSecret())
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_ASSIGN_PROXY, "Cannot delegate to Proxy. Cannot find RightToVote"));
 
-		DelegationEntity.findByIdList(delegationRequestIds).forEach(delegationRequest -> {
-			RightToVoteEntity requestedDelegationFrom = delegationRequest.getRequestedDelegationFrom();
-			if (requestedDelegationFrom == null) return;
-			requestedDelegationFrom.delegateToProxy(proxyRightToVote);
-		});
+		// SECURITY: only ever accept requests that were actually addressed to this proxy (findDelegationRequestsTo
+		// already filters on toProxy=this proxy), then filter down to the requested IDs. Previously this used
+		// findByIdList(delegationRequestIds) directly, which fetched ANY delegation rows by arbitrary ID with no
+		// check they were addressed to the caller -- e.g. acceptDelegationRequests([1..1000]) absorbed every
+		// pending delegation request in the system.
+		DelegationEntity.findDelegationRequestsTo(proxy).stream()
+				.filter(delegationRequest -> delegationRequestIds.contains(delegationRequest.getId()))
+				.forEach(delegationRequest -> {
+					RightToVoteEntity requestedDelegationFrom = delegationRequest.getRequestedDelegationFrom();
+					requestedDelegationFrom.delegateToProxy(proxyRightToVote);
+					// Clear the request markers rather than deleting the row: the fromuser_id unique constraint
+					// means this row also IS the record of the now-accepted delegation (see isDelegationRequest()).
+					delegationRequest.setRequestedDelegationFrom(null);
+					delegationRequest.setRequestedDelegationAt(null);
+					delegationRequest.persist();
+				});
+		proxyRightToVote.persist();
 	}
 
 	/**

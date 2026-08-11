@@ -42,8 +42,7 @@ public class PollsGraphQL {
 	@Query
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
 	public PollEntity poll(@NonNull Long pollId) throws LiquidoException {
-		Optional<PollEntity> pollOpt = PollEntity.findByIdOptional(pollId);
-		return pollOpt.orElseThrow(LiquidoException.notFound("Poll.id=" + pollId + " not found."));
+		return pollService.getPollInCurrentTeam(pollId);
 	}
 
 	/**
@@ -97,7 +96,7 @@ public class PollsGraphQL {
 			@NonNull String description,
 			@NonNull String icon
 	) throws LiquidoException {
-		PollEntity poll = PollEntity.<PollEntity>findByIdOptional(pollId).orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_ADD_PROPOSAL, "Cannot addProposal: There is no poll with id="+pollId));
+		PollEntity poll = pollService.getPollInCurrentTeam(pollId);
 		ProposalEntity proposal = new ProposalEntity(title, description);
 		proposal.setIcon(icon);
 		proposal.setStatus(ProposalEntity.LawStatus.PROPOSAL);
@@ -124,8 +123,7 @@ public class PollsGraphQL {
 		UserEntity user = jwtTokenUtils.getCurrentUser().orElseThrow(LiquidoException.unauthorized("Must be logged in to like a proposal!"));
 
 		// Find the poll and check that poll is in status ELABORATION
-		PollEntity poll = PollEntity.<PollEntity>findByIdOptional(pollId)
-				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_ADD_SUPPORTER, "Cannot supportProposal: There is no poll with id=" + pollId));
+		PollEntity poll = pollService.getPollInCurrentTeam(pollId);
 		if (!poll.getStatus().equals(PollEntity.PollStatus.ELABORATION))
 			throw new LiquidoException(LiquidoException.Errors.CANNOT_ADD_SUPPORTER, "Cannot supportProposal: Poll is not in status ELABORATION");
 
@@ -199,8 +197,7 @@ public class PollsGraphQL {
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_ADMIN_ROLE)
 	@Transactional
 	public PollEntity startVotingPhase(@NonNull long pollId) throws LiquidoException {
-		PollEntity poll = PollEntity.<PollEntity>findByIdOptional(pollId)
-				.orElseThrow(LiquidoException.notFound("Cannot start voting phase. Poll(id="+pollId+") not found!"));
+		PollEntity poll = pollService.getPollInCurrentTeam(pollId);
 		return pollService.startVotingPhase(poll);
 	}
 
@@ -219,8 +216,7 @@ public class PollsGraphQL {
 	) throws LiquidoException {
 		UserEntity voter = jwtTokenUtils.getCurrentUser()
 				.orElseThrow(LiquidoException.unauthorized("You MUST be logged in to get a voterToken!"));
-		PollEntity poll = PollEntity.<PollEntity>findByIdOptional(pollId)
-				.orElseThrow(LiquidoException.notFound("Cannot get voterToken. poll.id=" + pollId + " not found!"));
+		PollEntity poll = pollService.getPollInCurrentTeam(pollId);
 			return castVoteService.createOneTimeVoterToken(voter, poll);
 	}
 
@@ -247,6 +243,15 @@ public class PollsGraphQL {
 			@Description("The plain voter token that the voter has received for this poll.")
 			@NonNull String voterToken
 	) throws LiquidoException {
+		// SECURITY: deliberately NOT team-scoped like the other poll lookups in this class (see
+		// PollService.getPollInCurrentTeam). This call is anonymous, so there is no current team to
+		// check against. It doesn't need one either: the voterToken is already poll-bound twice
+		// (poll.id is mixed into its hash in CastVoteService.calcHashedVoterToken, and
+		// OneTimeVotingToken.poll is a FK), so a token cannot be replayed against another poll.
+		// The team boundary for voting is enforced entirely at voterToken() above, the only
+		// authenticated step. Adding a team check here would require deriving a team from the
+		// RightToVote -- exactly the named-user<->ballot link that ballot secrecy forbids.
+		// (see CastVoteService.calcHashedVoterToken and OneTimeVotingToken.poll)
 		PollEntity poll = PollEntity.<PollEntity>findByIdOptional(pollId)
 				.orElseThrow(LiquidoException.notFound("Cannot cast vote. Poll(id="+pollId+") not found!"));
 		CastVoteResponse res = castVoteService.castVote(voterToken, poll, voteOrderIds);
@@ -265,8 +270,7 @@ public class PollsGraphQL {
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_ADMIN_ROLE)
 	@Transactional
 	public ProposalEntity finishVotingPhase(@NonNull long pollId) throws LiquidoException {
-		PollEntity poll = PollEntity.<PollEntity>findByIdOptional(pollId)
-				.orElseThrow(LiquidoException.notFound("Cannot start voting phase. Poll(id="+pollId+") not found!"));
+		PollEntity poll = pollService.getPollInCurrentTeam(pollId);
 		return pollService.finishVotingPhase(poll);
 	}
 
@@ -284,8 +288,7 @@ public class PollsGraphQL {
 	public Optional<BallotEntity> getBallotOfCurrentUser(
 			@NonNull long pollId
 	) throws LiquidoException {
-		PollEntity poll = PollEntity.<PollEntity>findByIdOptional(pollId)
-				.orElseThrow(LiquidoException.notFound("Cannot get Ballot! Poll(id="+pollId+") not found!"));
+		PollEntity poll = pollService.getPollInCurrentTeam(pollId);
 		return pollService.getBallotOfCurrentUser(poll);
 	}
 
@@ -307,6 +310,8 @@ public class PollsGraphQL {
 			@NonNull long pollId,
 			@NonNull String checksum
 	) throws LiquidoException {
+		// SECURITY: deliberately NOT team-scoped, same reasoning as castVote() above -- this is an
+		// anonymous, checksum-keyed lookup with no current team to check against.
 		PollEntity poll = PollEntity.<PollEntity>findByIdOptional(pollId)
 				.orElseThrow(LiquidoException.notFound("Cannot verify checksum. Poll(id="+pollId+") not found!"));
 		return BallotEntity.findByPollAndChecksum(poll, checksum)

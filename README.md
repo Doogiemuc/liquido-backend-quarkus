@@ -84,12 +84,9 @@ If you want to learn more about building native executables, please consult http
 
 # Deploy to fly.io
 
-[Fly.io](www.fly.io) is a cloud service that offers to run images on dedicated edge nodes. This is configured in `fly.toml`.
-To deploy the image build above run:
-
-```shell script
-fly deploy --local-only
-```
+Fly.io was tried as a deployment target but is not currently used. The config has been archived to
+`backup/fly.io.bak/` (`fly.toml`, `application-fly-int.properties`). To revive it, move those files
+back and run `fly deploy --local-only -c backup/fly.io.bak/fly.toml`.
 
 ### Further Related Quarkus Guides
 

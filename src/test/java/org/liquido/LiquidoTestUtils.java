@@ -79,6 +79,33 @@ public class LiquidoTestUtils {
 		return res;
 	}
 
+	/**
+	 * Create a brand-new, fully isolated team with just its admin -- no members, no shared state.
+	 * Unlike {@link #createTeam}, which is reserved for TestDataCreator's one-time seeding and reuses
+	 * a fixed mobile phone number tied to {@link org.liquido.TestFixtures#now}, this uses a fresh
+	 * timestamp-based phone number so it's safe to call as many times as needed within one test run
+	 * (e.g. from regression tests that need their own team, without touching the shared seeded one).
+	 * @param teamNamePrefix prefix for the team/admin name and email, made unique with a timestamp
+	 * @return TeamDataResponse for the new admin
+	 */
+	public TeamDataResponse createFreshTeam(String teamNamePrefix) {
+		long unique = new Date().getTime();
+		String adminEmail = teamNamePrefix.toLowerCase() + unique + "@liquido.vote";
+		Lson admin = Lson.builder()
+				.put("name", teamNamePrefix + " Admin")
+				.put("email", adminEmail)
+				.put("mobilephone", "0151 555 " + unique)
+				.put("picture", "Avatar1.png");
+		String query = "mutation createNewTeam($teamName: String!, $admin: UserEntityInput!, $password: String!) { " +
+				" createNewTeam(teamName: $teamName, admin: $admin, password: $password) " + CREATE_OR_JOIN_TEAM_RESULT + "}";
+		Lson variables = Lson.builder()
+				.put("teamName", teamNamePrefix + unique)
+				.put("admin", admin)
+				.put("password", adminEmail + PASSWORD_SUFFIX);
+		return sendGraphQL(query, variables)
+				.extract().jsonPath().getObject("data.createNewTeam", TeamDataResponse.class);
+	}
+
 	public TeamDataResponse joinTeam(String inviteCode, String memberEmail) {
 		long now = new Date().getTime();
 		if (memberEmail == null) memberEmail = "member" + now + "@liquido.vote";
@@ -278,6 +305,19 @@ public class LiquidoTestUtils {
 				" delegateTo(proxyId: $proxyId) }";
 		Lson vars = new Lson("proxyId", proxy.id);
 		sendGraphQL(startVotingPhaseQuery, vars, jwt);
+	}
+
+	/** IDs of the delegation requests waiting for the currently logged-in proxy to accept. */
+	public List<Long> getDelegationRequestIds(String proxyJwt) {
+		String query = "query { delegationRequests { id } }";
+		return sendGraphQL(query, null, proxyJwt)
+				.extract().jsonPath().getList("data.delegationRequests.id", Long.class);
+	}
+
+	public void acceptDelegationRequests(List<Long> delegationRequestIds, String proxyJwt) {
+		String query = "mutation acceptDelegationRequests($ids: [BigInteger!]!) { acceptDelegationRequests(delegationRequestIds: $ids) }";
+		Lson vars = new Lson("ids", delegationRequestIds);
+		sendGraphQL(query, vars, proxyJwt);
 	}
 
 	// ============ Smaller Utility Methods

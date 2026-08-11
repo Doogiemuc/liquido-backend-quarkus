@@ -53,16 +53,18 @@ public class OneTimeVotingToken extends PanacheEntityBase {
 	 * @param hashedVoterToken the already hashed voterToken.
 	 * @param poll A voter can only use this one time token to cast a vote in this poll.
 	 * @param rightToVote link to (anonymous) RightToVote
-	 * @param validHours how long is this OTT valid in HOURS
+	 * @param validMinutes how long is this OTT valid in MINUTES (liquido.voter-token-expiration-minutes)
 	 * @return the newly created and persisted OTT.
 	 */
-	public static OneTimeVotingToken buildAndPersist(@NonNull String hashedVoterToken, @NonNull PollEntity poll, @NonNull RightToVoteEntity rightToVote, int validHours) {
-		if (validHours <= 0) throw new RuntimeException("Cannot build OneTimeToken. ttl must be positive!");
+	public static OneTimeVotingToken buildAndPersist(@NonNull String hashedVoterToken, @NonNull PollEntity poll, @NonNull RightToVoteEntity rightToVote, int validMinutes) {
+		if (validMinutes <= 0) throw new RuntimeException("Cannot build OneTimeToken. ttl must be positive!");
 		OneTimeVotingToken ott = new OneTimeVotingToken();
 		ott.hashedVoterToken = hashedVoterToken;
 		ott.poll = poll;
 		ott.rightToVote = rightToVote;
-		ott.expiresAt = LocalDateTime.now().plusHours(validHours);
+		// MINUTES. The caller passes liquido.voter-token-expiration-minutes; this used to be
+		// plusHours(), which quietly gave every one-time token a 20 HOUR lifetime.
+		ott.expiresAt = LocalDateTime.now().plusMinutes(validMinutes);
 		ott.persist();
 		return ott;
 	}
@@ -72,7 +74,7 @@ public class OneTimeVotingToken extends PanacheEntityBase {
 	 * @return true if this is a valid OTT
 	 */
 	public boolean isValid() {
-		return this.expiresAt.isBefore(LocalDateTime.now()) && this.rightToVote != null && this.rightToVote.isValid();
+		return LocalDateTime.now().isBefore(this.expiresAt) && this.rightToVote != null && this.rightToVote.isValid();
 	}
 
 	public String toString() {

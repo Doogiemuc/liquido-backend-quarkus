@@ -88,21 +88,31 @@ public class UserService {
 	 */
 	@Transactional
 	public void resetPassword(String email, String resetPasswordToken, String newPassword) throws LiquidoException {
-		String emailLowerCase = email.toLowerCase();
-		UserEntity user = UserEntity.findByEmail(emailLowerCase).orElseThrow(
-				LiquidoException.supply(LiquidoException.Errors.WONT_RESET_PASSWORD, "Won't reset password for <" + emailLowerCase + ">: User is not registered.")
-		);
-		if (DoogiesUtil.isEqual(config.testPasswordResetTokenOpt(), resetPasswordToken) && LaunchMode.current() != LaunchMode.NORMAL) {
+		String emailLowerCase = DoogiesUtil.cleanEmail(email);
+
+		// [TEST/DEV] shortcut: reset by email with a fixed test token. Only ever active off LaunchMode.NORMAL,
+		// i.e. never in a packaged production run. This is the one legitimate case where we resolve the
+		// user from the client-supplied email instead of from a token.
+		if (LaunchMode.current() != LaunchMode.NORMAL && DoogiesUtil.isEqual(config.testPasswordResetTokenOpt(), resetPasswordToken)) {
+			UserEntity user = UserEntity.findByEmail(emailLowerCase).orElseThrow(
+					LiquidoException.supply(LiquidoException.Errors.WONT_RESET_PASSWORD, "Won't reset password for <" + emailLowerCase + ">: User is not registered.")
+			);
 			log.info("[TEST/DEV] reset password of {} in LaunchMode={}", user.toStringShort(), LaunchMode.current());
 			user.setPasswordHash(PasswordServiceBcrypt.hashPassword(newPassword));
 			user.persist();
 			return;
 		}
 
+		PasswordServiceBcrypt.assertPasswordStrongEnough(newPassword, config.minPasswordLength());
+
+		// SECURITY: the user is resolved from the token, never from the client-supplied `email`. The
+		// token is already bound to exactly one user (PasswordResetToken.user), so there is no second
+		// identity here to disagree with the caller's claim. `email` is kept only for log messages.
 		PasswordResetToken ott = PasswordResetToken.findByNonce(resetPasswordToken).orElseThrow(() -> {
 			log.info("Won't reset password for <{}>. Invalid or expired one time token", emailLowerCase);
 			return new LiquidoException(LiquidoException.Errors.WONT_RESET_PASSWORD, "Won't reset password for <" + emailLowerCase + ">: Invalid or expired one time token");
 		});
+		UserEntity user = ott.getUser();
 
 		log.info("Resetting password of {}", user.toStringShort());
 		ott.delete();
@@ -166,12 +176,16 @@ public class UserService {
 	 * @return TeamDataResponse with team, user and JWT
 	 * @throws LiquidoException when user is not registred or authToken invalid
 	 */
+	@Transactional
 	public TeamDataResponse loginWithEmailToken(@NonNull String email, @NonNull String emailToken) throws LiquidoException {
-		UserEntity user = UserEntity.findByEmail(email)
-				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_LOGIN_MOBILE_NOT_FOUND, "Cannot login via email token. No user with that email found!"));
-		PasswordResetToken.findByNonce(emailToken).orElseThrow(
+		// SECURITY: the user is resolved from the token, never from the client-supplied `email`. `email`
+		// is kept only for log messages (the frontend link sends it along with the token).
+		log.info("loginWithEmailToken for {}", email);
+		PasswordResetToken ott = PasswordResetToken.findByNonce(emailToken).orElseThrow(
 				LiquidoException.supply(LiquidoException.Errors.CANNOT_LOGIN_TOKEN_INVALID, "Cannot login. Token from email is invalid")
 		);
+		UserEntity user = ott.getUser();
+		ott.delete();
 		return jwtTokenUtils.doLoginInternal(user, null);
 	}
 }

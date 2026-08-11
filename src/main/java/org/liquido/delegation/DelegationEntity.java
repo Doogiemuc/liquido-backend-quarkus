@@ -2,6 +2,7 @@ package org.liquido.delegation;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Entity;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
@@ -13,6 +14,7 @@ import org.liquido.vote.RightToVoteEntity;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Delegation from a user to a proxy in a given area.
@@ -45,10 +47,15 @@ public class DelegationEntity extends LiquidoBaseEntity {
 	@OneToOne
 	public UserEntity fromUser;
 
-  /** Proxy that receives the delegation and can now cast votes in place of the voter */
+  /**
+   * Proxy that receives the delegation and can now cast votes in place of the voter.
+   * MUST be @ManyToOne, not @OneToOne: one proxy can receive delegations from many voters.
+   * @OneToOne here previously put a UNIQUE constraint on toproxy_id, silently limiting every
+   * proxy in the system to at most one delegee, ever -- breaking the core proxy feature.
+   */
   @NonNull
   @NotNull
-  @OneToOne
+  @ManyToOne
   public UserEntity toProxy;
 
 
@@ -80,13 +87,18 @@ public class DelegationEntity extends LiquidoBaseEntity {
 	}
 
 	public static List<DelegationEntity> findDelegationRequestsTo(UserEntity proxy) {
-		return DelegationEntity.find("toProxy = ?1 and requestedDelegationFrom != null", proxy).list();
+		// "requestedDelegationFrom != null" silently matches nothing here: Hibernate does not translate
+		// "!=" against an entity-valued (association) field into a working null check. "is not null" does.
+		return DelegationEntity.find("toProxy = ?1 and requestedDelegationFrom is not null", proxy).list();
 	}
 
-	// Not named findByIds: PanacheEntityBase declares a generic findByIds(List<?>) which would
-	// clash with this method's erasure (neither would hide the other -> compile error).
-	public static List<DelegationEntity> findByIdList(List<Long> ids) {
-		return list("id in ?1", ids);
+	/**
+	 * Find the (at most one, per the {@code fromuser_id} unique constraint) delegation row for a voter.
+	 * This is the single source of truth for who a voter currently delegates to -- pending request or
+	 * already accepted, see {@link #isDelegationRequest()}.
+	 */
+	public static Optional<DelegationEntity> findByFromUser(UserEntity fromUser) {
+		return DelegationEntity.find("fromUser", fromUser).firstResultOptional();
 	}
 
 	/**
@@ -97,20 +109,21 @@ public class DelegationEntity extends LiquidoBaseEntity {
 	}
 
 	/**
-	 * Build a delegation request
+	 * Create (or update) a delegation request from fromUser to proxy, and persist it.
+	 * Upserts on fromUser's existing row rather than always inserting: the {@code fromuser_id}
+	 * unique constraint means a plain insert on a re-request (e.g. after the first request was
+	 * accepted, or targeted a different proxy) would violate the constraint and 500.
 	 * @param fromUser this user delegates his right to vote
 	 * @param proxy to this proxy
 	 * @param rightToVoteModel the user's RightToVote that shall be delegated
-	 * @return
+	 * @return the persisted delegation request
 	 */
-	public static DelegationEntity buildDelegationRequest(UserEntity fromUser, UserEntity proxy, RightToVoteEntity rightToVoteModel) {
-		//Implementation note: This is my first try for builders. Inside the model class itself. Let's see how that works out.
-		//PRO: Easy, local.   CON(?)  Should models only be data models without any business logic.   But why?  This is just java code?
-		//Separation of concerns: More complicated business logic should be inside a Service class.
-		//A "builder" only creates a new object and sets some additional values, that the default RequiredArgs constructor does not set.
-		DelegationEntity delegationRequest = new DelegationEntity(fromUser, proxy);
+	public static DelegationEntity createDelegationRequest(UserEntity fromUser, UserEntity proxy, RightToVoteEntity rightToVoteModel) {
+		DelegationEntity delegationRequest = DelegationEntity.findByFromUser(fromUser).orElseGet(() -> new DelegationEntity(fromUser, proxy));
+		delegationRequest.setToProxy(proxy);
 		delegationRequest.setRequestedDelegationFrom(rightToVoteModel);
 		delegationRequest.setRequestedDelegationAt(LocalDateTime.now());
+		delegationRequest.persist();
 		return delegationRequest;
 	}
 

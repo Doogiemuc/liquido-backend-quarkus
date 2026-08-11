@@ -10,7 +10,6 @@ import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.liquido.delegation.DelegationEntity;
@@ -30,6 +29,7 @@ import org.liquido.vote.OneTimeVotingToken;
 import org.liquido.vote.RightToVoteEntity;
 
 import java.io.*;
+import java.net.URI;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.*;
@@ -37,17 +37,38 @@ import java.util.*;
 import static org.liquido.TestFixtures.*;
 
 /**
- * Many test cases rely on specific test data as their precondition.
- * This class creates all this test data.
- * <p>
- * Here we use GraphQL calls against our backend in the same way as a client would call it.
- * </p>
- * <p>
- * The result is an SQL script file, that can quickly be imported into the DB for future test runs.
- * </p>
+ * <h1>My famous TestDataCreator</h1>
+ *
+ * In theory every test should be independent, atomic and repeatable. This would imply that every test
+ * creates its own test data and also cleans up after itself. The Quarkus @TestTransaction annotation helps a lot with that.
+ *
+ * But this is theoretical. In a larger application, tests for use cases later in the process depend on all the data
+ * that was created in earlier use case steps. For example to test the calculation of the winner of a poll you
+ * need a team with an admin, one or more team members, a poll with proposals and some casted voted. It would
+ * take forever to create all that everytime the winnerCalculationTest runs.
+ *
+ * <h1>Liquido Test data approach</h1>
+ *
+ * In LIQUIDO many tests still are independent, atomic and repeatable. But other tests depend on a specific set of
+ * pre created test data. This TestDataCreator creates this test data.
+ *
+ * But now comes the trick: Creating all test data that is needed to test something late in the LIQUIDO voting use case
+ * such as calculating the winner, actually IS the test itself. Creating the testdata means to run through all
+ * steps in the use case flow. So TestDataCreator == HappyCaseTest   Do a full end-to-end test through my use case
+ * flow does exactly create the test data that other smaller tests can then rely on.
+ *
+ * But obviously TestDataCreator is not repeatable. You can run it multiple times. But it will create a new team
+ * everytime. So the previously generated team remains in the DB. (there is a purgeTeam() helper to clean this up.)
+ *
+ * <h1>Liquido Test Process</h1>
+ *
+ *  1. Start with a clean DB. (You can configure Quarkus to drop-and-create everything
+ *  2. Run TestDataCreator once: ./mvnw test -Dmaven.surefire.includedGroups=testDataCreator -Dmaven.surefire.excludedGroups=""    - which is in itself already a very nice regression test!!!
+ *  3. Now you can run all tests
+ *
  */
 @Slf4j
-@Tag("manual")   // <<<<<<==== DO NOT run during regular maven build. Only manually on request
+@Tag("testDataCreator")   // Will not run automatically. Only manually: ./mvnw test -Dmaven.surefire.includedGroups=testDataCreator -Dmaven.surefire.excludedGroups=""
 @QuarkusTest
 public class TestDataCreator {
 
@@ -60,28 +81,22 @@ public class TestDataCreator {
 	@ConfigProperty(name = "quarkus.datasource.db-kind")
 	String dbKind;
 
+	@ConfigProperty(name = "quarkus.datasource.jdbc.url")
+	String jdbcUrl;
+
+	@ConfigProperty(name = "quarkus.datasource.username")
+	String dbUsername;
+
+	@ConfigProperty(name = "quarkus.datasource.password")
+	String dbPassword;
+
 	@Inject
 	EntityManager entityManager;
 
 	@Inject
 	LiquidoTestUtils util;
 
-
-  String sampleDbFile = "liquido-testData.sql";
-
-	/**
-	 * DANGER! Delete all the data of one given team
-	 */
-	@Test
-	@Disabled
-	public void purgeTeam() throws Exception {
-		if (LaunchMode.current() != LaunchMode.TEST && LaunchMode.current() != LaunchMode.DEVELOPMENT)
-			throw new Exception("Will only purge team in test or development! Not anywhere else!");
-
-		purgeTeam(teamName);
-
-
-	}
+  	String sampleDbFile = "liquido-testData.sql";
 
 
 	/**
@@ -98,7 +113,7 @@ public class TestDataCreator {
 	 * Check the winning poll
 	 */
 	@Test
-	@Disabled  // Only run manually!
+	//@Disabled  // Only run's manually through the @tag annotation on the class above
 	public void createTestData() {
 		String url = "no DB URL!";
 		try {
@@ -108,8 +123,6 @@ public class TestDataCreator {
 		}
 
 		RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
-
-
 
 		log.info("Creating test data in {} for team {}", url, teamName);
 
@@ -171,8 +184,9 @@ public class TestDataCreator {
 		log.info("Winner: {}", winner.toString());
 
 		try {
-			extractSql();
-		} catch (SQLException e) {
+			extractSql();          // no-op unless dbKind=h2 (old Spring+H2+Quartz era, kept for reference)
+			extractPostgresData(); // the one that actually does something today
+		} catch (SQLException | IOException | InterruptedException e) {
 			log.error("Cannot extract test data ", e);
 		}
 
@@ -215,6 +229,53 @@ public class TestDataCreator {
 			//adjustDbInitializationScript();
 			log.info("===== Successfully stored test data in file: {}", sampleDbFile);
 		}
+	}
+
+	/**
+	 * Dump the current Postgres DB's data (not schema -- that's still owned by Hibernate's
+	 * drop-and-create, see AGENTS.md) to {@link #sampleDbFile}, via the {@code pg_dump} client tool.
+	 * This is the Postgres-native replacement for {@link #extractSql()}, which only ever worked
+	 * against the in-memory H2 dev-tools DB from an earlier Spring+H2+Quartz version of this app
+	 * and is a no-op against Postgres.
+	 * <p>
+	 * Requires {@code pg_dump} on PATH (e.g. Postgres.app's {@code Contents/Versions/latest/bin/},
+	 * or {@code brew install libpq}).
+	 * <p>
+	 * {@code --data-only}: schema is regenerated separately (see AGENTS.md's "Schema and seed data"),
+	 * so the dump should only ever replay data into an already-drop-and-created schema.
+	 * {@code --column-inserts}: each INSERT lists its column names explicitly, so replaying the dump
+	 * doesn't silently break if a column is reordered later.
+	 */
+	public void extractPostgresData() throws IOException, InterruptedException {
+		if (!"postgresql".equals(dbKind)) return;
+
+		URI jdbcUri = URI.create(jdbcUrl.substring("jdbc:".length()));
+		String host = jdbcUri.getHost();
+		int port = jdbcUri.getPort() > 0 ? jdbcUri.getPort() : 5432;
+		String dbName = jdbcUri.getPath().substring(1); // strip leading "/"
+
+		ProcessBuilder pb = new ProcessBuilder(
+				"pg_dump",
+				"--data-only",
+				"--column-inserts",
+				"--no-owner",
+				"--no-privileges",
+				"-h", host,
+				"-p", String.valueOf(port),
+				"-U", dbUsername,
+				"-d", dbName,
+				"-f", sampleDbFile
+		);
+		pb.environment().put("PGPASSWORD", dbPassword);
+		pb.redirectErrorStream(true);
+
+		Process process = pb.start();
+		String output = new String(process.getInputStream().readAllBytes());
+		int exitCode = process.waitFor();
+		if (exitCode != 0) {
+			throw new IOException("pg_dump failed with exit code " + exitCode + ": " + output);
+		}
+		log.info("===== Successfully dumped Postgres test data to file: {}", sampleDbFile);
 	}
 
 	/**
@@ -324,6 +385,11 @@ public class TestDataCreator {
 	 */
 	@Transactional
 	void purgeTeam(String teamName) {
+		if (LaunchMode.current() != LaunchMode.DEVELOPMENT) {
+			log.warn("Will not purgeTeam. LaunchMode is not DEVELOPMENT");
+			return;
+		}
+
 		TeamEntity team = TeamEntity.<TeamEntity>findByTeamName(teamName)
 				.orElseThrow(() -> new IllegalArgumentException("No team found with teamName=" + teamName));
 

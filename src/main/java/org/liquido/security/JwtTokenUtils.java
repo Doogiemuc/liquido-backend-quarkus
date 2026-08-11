@@ -38,6 +38,15 @@ public class JwtTokenUtils {
 	public static final String LIQUIDO_USER_ROLE = "LIQUIDO_USER";    // Everyone is a user (also members)
 	public static final String LIQUIDO_ADMIN_ROLE = "LIQUIDO_ADMIN";  // but only some are admins!
 
+	/**
+	 * A Polly passkey session - somebody identified by nothing but a WebAuthn credential.
+	 *
+	 * <p>Deliberately does NOT imply {@link #LIQUIDO_USER_ROLE}: a polly token must never open
+	 * a team endpoint. There is no UserEntity behind it, so anything calling
+	 * {@link #getCurrentUser()} with one of these would find nothing anyway.
+	 */
+	public static final String LIQUIDO_POLLY_ROLE = "LIQUIDO_POLLY";
+
 	@Inject
 	LiquidoConfig config;
 
@@ -62,8 +71,30 @@ public class JwtTokenUtils {
 				.groups(groups)
 				.claim(TEAM_ID_CLAIM, String.valueOf(teamId))  // better put strings into claims
 				.expiresIn(config.jwt().expirationSecs())
-				//.jws().algorithm(SignatureAlgorithm.HS256)
-				.sign();  // uses liquidoJwtKey.json configured in application.properties
+				.sign();  // uses the RS256 keypair configured per-environment (smallrye.jwt.sign.key)
+	}
+
+	/**
+	 * Generate a Polly session token. The WebAuthn credential id is the whole identity -
+	 * there is no user, no team and no email anywhere in a polly.
+	 *
+	 * <p>Same issuer and signing key as a team token, so smallrye-jwt validates it with no
+	 * extra configuration. What differs is the group: {@link #LIQUIDO_POLLY_ROLE} only, so the
+	 * token is worthless against every {@code @RolesAllowed(LIQUIDO_USER_ROLE)} endpoint.
+	 *
+	 * <p>Long lived (~30 days) on purpose: one tap on the first visit and none afterwards is
+	 * what lets a polly have no login screen at all.
+	 *
+	 * @param credentialId the id of a WebAuthn credential that has just been verified
+	 * @return a signed polly JWT
+	 */
+	public String generatePollyToken(@NonNull String credentialId) {
+		return Jwt
+				.subject(credentialId)
+				.issuer(LIQUIDO_ISSUER)
+				.groups(Set.of(LIQUIDO_POLLY_ROLE))
+				.expiresIn(config.polly().jwtExpirationSecs())
+				.sign();
 	}
 
 

@@ -19,8 +19,10 @@
              "Unsupported class file major version 70". -->
         <quarkus.platform.version>3.37.4</quarkus.platform.version>
         <skipITs>true</skipITs>
-        <surefire-plugin.version>3.0.0-M7</surefire-plugin.version>
         <!-- webauthn4j.version>0.21.1.RELEASE</webauthn4j.version   use default version from quarkus BOM -->
+        <surefire-plugin.version>3.0.0-M7</surefire-plugin.version>
+        <maven.surefire.excludedGroups>testDataCreator</maven.surefire.excludedGroups>
+        <maven.surefire.includedGroups/>
     </properties>
     <dependencyManagement>
         <dependencies>
@@ -253,6 +255,9 @@
                     <systemPropertyVariables>
                         <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
                     </systemPropertyVariables>
+                    <!-- Only run testDataCreator on demand: ./mvnw test -DincludedGroups=testDataCreator  -->
+                    <excludedGroups>${maven.surefire.excludedGroups}</excludedGroups>
+                    <groups>${maven.surefire.includedGroups}</groups>
                 </configuration>
             </plugin>
             <plugin>

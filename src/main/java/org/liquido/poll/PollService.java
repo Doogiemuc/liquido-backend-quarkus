@@ -46,6 +46,26 @@ public class PollService {
 	CastVoteService castVoteService;
 
 	/**
+	 * Look up a poll and verify it belongs to the currently logged-in team.
+	 * A missing poll and a poll that exists but belongs to another team both throw the same
+	 * "not found" error, so this cannot be used as a cross-tenant enumeration oracle.
+	 * Combining lookup and the team check into one call means every call site is a one-line
+	 * substitution for the old bare {@code findByIdOptional} -- so it can't be done and the guard forgotten.
+	 * @param pollId ID of the poll to look up
+	 * @return the poll, guaranteed to belong to the current team
+	 * @throws LiquidoException when not logged into a team, or the poll doesn't exist in that team
+	 */
+	public PollEntity getPollInCurrentTeam(@NonNull Long pollId) throws LiquidoException {
+		TeamEntity currentTeam = jwtTokenUtils.getCurrentTeam()
+				.orElseThrow(LiquidoException.unauthorized("Must be logged into a team!"));
+		PollEntity poll = PollEntity.<PollEntity>findByIdOptional(pollId)
+				.orElseThrow(LiquidoException.notFound("Poll(id=" + pollId + ") not found."));
+		if (!poll.getTeam().id.equals(currentTeam.id))
+			throw LiquidoException.notFound("Poll(id=" + pollId + ") not found.").get();
+		return poll;
+	}
+
+	/**
 	 * Create a new poll inside a team. Only the admin is allowed to create a poll in a team
 	 * @param title Title of the new poll
 	 * @param team The admin's team.
