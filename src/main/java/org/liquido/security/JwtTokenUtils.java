@@ -9,6 +9,7 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.liquido.team.TeamDataResponse;
 import org.liquido.team.TeamEntity;
 import org.liquido.team.TeamMemberEntity;
+import org.liquido.team.TeamSummary;
 import org.liquido.user.UserEntity;
 import org.liquido.util.DoogiesUtil;
 import org.liquido.util.LiquidoConfig;
@@ -113,20 +114,34 @@ public class JwtTokenUtils {
 	 * Login a user into his team and generate a JWT token.
 	 * If team is not given and user is member of multiple teams, then he will be logged into the last one he was using,
 	 * or otherwise the first team in his list.
+	 *
+	 * <p>A team that no longer exists simply is not among the user's memberships any more, so the
+	 * "last team was deleted" case needs no special handling: the {@code lastTeamId} filter finds
+	 * nothing and the fallback picks the first remaining team. That fallback is only well defined
+	 * because {@link TeamMemberEntity#findTeamsByMember} sorts - see the note there.
+	 *
+	 * <p>Callers should pass {@code team == null} unless they specifically mean to pin one team
+	 * (as {@code switchTeam} and {@code devLogin} do). Resolving the team at the call site instead
+	 * skips the membership fallback below and turns "user was removed from their last team" into a
+	 * failed login rather than a login into one of their other teams.
+	 *
 	 * @param user a user that wants to log in
 	 * @param team (optional) the team to log in. A user can be member in several teams.
 	 *             If team is not provided, then user will be logged into his last team.
-	 * @return CreateOrJoinTeamResponse
+	 * @return CreateOrJoinTeamResponse, with {@code teams} listing every team of this user
 	 * @throws LiquidoException when user has no teams (which should never happen)
 	 *   or when user with that email is not member of this team
 	 */
 	public TeamDataResponse doLoginInternal(UserEntity user, TeamEntity team) throws LiquidoException {
+		// Fetched unconditionally, because the response carries the full list for the team switcher,
+		// not just the one team we log into.
+		List<TeamEntity> teams = TeamMemberEntity.findTeamsByMember(user);
+		if (teams.isEmpty()) {
+			log.warn("User ist not member of any team. Maybe his team was deleted? {}", user);
+			throw new LiquidoException(LiquidoException.Errors.CANNOT_LOGIN_USER_NOT_MEMBER_OF_TEAM, "Cannot login. User is not member of any team " + user);
+		}
 		if (team == null) {
-			List<TeamEntity> teams = TeamMemberEntity.findTeamsByMember(user);
-			if (teams.isEmpty()) {
-				log.warn("User ist not member of any team. Maybe his team was deleted? {}", user);
-				throw new LiquidoException(LiquidoException.Errors.CANNOT_LOGIN_USER_NOT_MEMBER_OF_TEAM, "Cannot login. User is not member of any team " + user);
-			} else if (teams.size() == 1) {
+			if (teams.size() == 1) {
 				team = teams.get(0);
 			} else {
 				team = teams.stream().filter(t -> t.id == user.lastTeamId).findFirst().orElse(teams.get(0));
@@ -143,7 +158,9 @@ public class JwtTokenUtils {
 		// MUST programmatically log in the user, because we already need it to create TeamDataResponse.poll.proposal.isCreatedByCurrentUser
 		setCurrentUserAndTeam(user, team);
 		//TODO: authenticateInSecurityContext(user.getId(), team.getId(), jwt);
-		return new TeamDataResponse(team, user, jwt);
+		TeamDataResponse res = new TeamDataResponse(team, user, jwt);
+		res.teams = teams.stream().map(TeamSummary::of).toList();
+		return res;
 	}
 
 

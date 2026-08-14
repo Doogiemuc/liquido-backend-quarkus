@@ -73,6 +73,7 @@ public class TestFixtures {
 			"{ " +
 					" team " + JQL_TEAM +
 					" user " + JQL_USER +
+					" teams { id teamName }" +   // ALL teams of this user, for the team switcher
 					" jwt" +
 					"}";
 	public static final String JQL_BALLOT =

@@ -90,6 +90,45 @@ public class TeamGraphQL {
 	}
 
 	/**
+	 * <h1>Switch into another team</h1>
+	 *
+	 * One user can be a member of several teams, but a session is always scoped to exactly one of
+	 * them - the {@code teamId} JWT claim is what every team-scoped lookup compares against. This
+	 * mutation issues a new JWT for a different team of the same user.
+	 *
+	 * <p>Only an <b>already logged-in</b> user may switch, which is what {@code @RolesAllowed} here
+	 * enforces. Note that a {@code LIQUIDO_POLLY} token deliberately does not carry
+	 * {@code LIQUIDO_USER_ROLE}, so a polly session cannot reach this - there is no UserEntity behind
+	 * one anyway.
+	 *
+	 * <p>There is intentionally <b>no</b> separate ownership check here.
+	 * {@link JwtTokenUtils#doLoginInternal} already refuses a team the user is not a member of with
+	 * {@code CANNOT_LOGIN_USER_NOT_MEMBER_OF_TEAM} - the very same guarantee that lets {@code devLogin}
+	 * accept a caller-supplied teamId. Keeping that decision in one place is the point; a second,
+	 * parallel check here would be one more thing that can drift.
+	 *
+	 * <p>{@code doLoginInternal} also writes {@code lastTeamId}, so the choice survives to the next login.
+	 *
+	 * @param teamId id of a team that the current user is a member (or admin) of
+	 * @return the same login payload as any other login, now scoped to the new team
+	 * @throws LiquidoException when the team does not exist, or the user is not a member of it
+	 */
+	@Mutation
+	@Description("Switch into another team. The currently logged in user must be a member of that team.")
+	@Transactional
+	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
+	public TeamDataResponse switchTeam(
+			@Name("teamId") @NonNull Long teamId
+	) throws LiquidoException {
+		UserEntity currentUser = jwtTokenUtils.getCurrentUser()
+				.orElseThrow(LiquidoException.supply(Errors.UNAUTHORIZED, "You must be logged in to switch teams."));
+		TeamEntity team = TeamEntity.<TeamEntity>findByIdOptional(teamId)
+				.orElseThrow(LiquidoException.supply(Errors.CANNOT_LOGIN_TEAM_NOT_FOUND, "Cannot switch team. Team(id=" + teamId + ") not found."));
+		log.info("SWITCH TEAM: {} into team '{}'", currentUser.toStringShort(), team.getTeamName());
+		return jwtTokenUtils.doLoginInternal(currentUser, team);
+	}
+
+	/**
 	 * <h1>Join an existing team as a member</h1>
 	 *
 	 * This should be called anonymously. Then the new member <b>must</b> register with a an email and mobilephone that does not exit in LIQUIDO yet.

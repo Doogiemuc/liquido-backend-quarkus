@@ -139,9 +139,12 @@ public class UserGraphQL {
 				.orElseThrow(() -> new LiquidoException(Errors.CANNOT_LOGIN_EMAIL_NOT_FOUND, "Cannot login. There is no register user with that email."));
 		boolean verified = PasswordServiceBcrypt.verifyPassword(plainPassword, user.getPasswordHash());
 		if (verified) {
-			TeamEntity team = TeamEntity.findById(user.getLastTeamId());  // team maybe null!
 			log.info("loginWithEmailPassword(): {}", user.toStringShort());
-			return jwtTokenUtils.doLoginInternal(user, team);
+			// Pass null and let doLoginInternal resolve the team, exactly like every other login path.
+			// This used to look up lastTeamId itself, which broke when the user was REMOVED from that
+			// team while the team still existed: a real-but-foreign team got passed in, the membership
+			// check rejected it, and the login failed outright - even though the user had other teams.
+			return jwtTokenUtils.doLoginInternal(user, null);
 		} else {
 			throw new LiquidoException(Errors.UNAUTHORIZED, "Cannot login. Password is invalid");
 		}

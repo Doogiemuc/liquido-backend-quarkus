@@ -2,6 +2,7 @@ package org.liquido.team;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.quarkus.panache.common.Sort;
 import jakarta.persistence.Entity;
 import jakarta.persistence.ManyToOne;
 import lombok.Data;
@@ -58,11 +59,21 @@ public class TeamMemberEntity extends PanacheEntity {
 
 	/**
 	 * Find all teams that a user is member (or admin) of.
+	 *
+	 * <p>The sort is <b>not</b> cosmetic. Callers treat the first element as a fallback
+	 * ("log the user into their first team when the last one is gone", see
+	 * {@code JwtTokenUtils.doLoginInternal}), and without an ORDER BY that would be "the first row
+	 * of an unordered scan", which Postgres is free to reorder whenever a row is UPDATEd - and every
+	 * single login UPDATEs a user row. See the note about {@code getRandomTeam()} in AGENTS.md for
+	 * what that class of bug looks like when it bites. It also keeps the team switcher's dropdown in
+	 * a stable order between renders.
+	 *
 	 * @param user a user (team member or admin)
-	 * @return List of teams that this user is a member of
+	 * @return List of teams that this user is a member of, ordered by team id
 	 */
 	public static List<TeamEntity> findTeamsByMember(UserEntity user) {
-		return TeamMemberEntity.<TeamMemberEntity>find("user", user).stream().map(tm -> tm.getTeam()).toList();
+		return TeamMemberEntity.<TeamMemberEntity>find("user", Sort.by("team.id"), user)
+				.stream().map(tm -> tm.getTeam()).toList();
 	}
 
 }
