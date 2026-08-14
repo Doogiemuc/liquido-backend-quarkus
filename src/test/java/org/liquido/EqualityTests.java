@@ -123,7 +123,7 @@ public class EqualityTests {
 	})
 	public void testCollectionBehaviour() throws LiquidoException {
 		// Dummy login
-		UserEntity user = util.getRandomUser();
+		UserEntity user = util.getAnyUser();
 		jwtTokenUtils.setCurrentUserAndTeam(user, null);
 
 		ProposalEntity p1 = new ProposalEntity("Prop1 Title", "Prop1 Description");

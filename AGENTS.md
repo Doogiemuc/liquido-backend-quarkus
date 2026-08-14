@@ -143,13 +143,20 @@ The voting process in this system is designed to support liquid democracy princi
 - **IntelliJ** — the Lombok plugin has been bundled since IDEA 2020.3, so nothing needs installing. `.idea/externalDependencies.xml` and `.idea/compiler.xml` are committed so a fresh clone gets the plugin prompt and annotation processing already enabled.
 
 ### Local database
-- PostgreSQL on `localhost:5432`, database **`LIQUIDO-DEV`**.
-- Create it with the name quoted — unquoted, Postgres folds it to lowercase and the hyphen is a syntax error:
+- PostgreSQL on `localhost:5432`. **Two** databases, one per profile:
+  - **`LIQUIDO-DEV`** — what `./mvnw quarkus:dev` serves, i.e. what you browse and demo from.
+  - **`LIQUIDO-TEST`** — what `./mvnw test` uses. All test residue lands here.
+- Create them with the name quoted — unquoted, Postgres folds it to lowercase and the hyphen is a syntax error:
   ```sql
   CREATE DATABASE "LIQUIDO-DEV" OWNER postgres;
+  CREATE DATABASE "LIQUIDO-TEST" OWNER postgres;
   ```
 - Datasource settings live in `config/application-{dev,test}.properties`. These are **gitignored** because they contain secrets, so a fresh clone must supply them.
-- Note that the `dev` and `test` profiles currently point at the **same** database. Enabling `drop-and-create` for the test profile therefore destroys dev data on every `mvn test`.
+- These two used to be the **same** database (until 2026-08-14), which meant `mvn test` wrote into the data you demo from, every run left residue there, and enabling `drop-and-create` for the test profile destroyed dev data outright. If you ever point them back at one database, all three problems return.
+- Keep `liquido.hash-secret` **identical** across the two profiles. It keys `RightToVoteEntity` (`sha3_256(email + serverSalt)`), so a mismatch means ballots created under one profile cannot be found under the other — see the "two different salts" story in `docs/liquido-vibe-coding-stories.md`.
+- **Seeding is now per database:**
+  - `LIQUIDO-TEST` — run the generator (it uses the test profile); see "Schema and seed data" below.
+  - `LIQUIDO-DEV` — restore the dump as superuser: `psql -h localhost -U postgres -d "LIQUIDO-DEV" -f liquido-testData.sql` against a freshly drop-and-created schema.
 
 ### Schema and seed data
 - Schema generation is deliberately **off** (`quarkus.hibernate-orm.database.generation=none` and `quarkus.hibernate-orm.schema-management.strategy=none`). Both the legacy and the newer key are set.
@@ -158,12 +165,14 @@ The voting process in this system is designed to support liquid democracy princi
   QUARKUS_HIBERNATE_ORM_SCHEMA_MANAGEMENT_STRATEGY=drop-and-create
   ```
 - Seed data comes from `TestDataCreator.createTestData()`, which is `@Disabled` **on purpose** — it is meant to be run by hand, never as part of a normal build. Do not enable it in the build.
-- Run the E2E generator rarely (when the happy-path itself changes) to refresh `liquido-testData.sql`, then just `psql < liquido-testData.sql` against a freshly drop-and-created schema for everyday reseeding — no JVM/Quarkus boot, no HTTP round-trips.
+- Run the E2E generator rarely (when the happy-path itself changes) to refresh `liquido-testData.sql`, then just `psql < liquido-testData.sql` against a freshly drop-and-created schema for everyday reseeding — no JVM/Quarkus boot, no HTTP round-trips. Restoring needs a **superuser** (`postgres`), because the dump disables triggers — see below.
+- **The dump must be produced with `--disable-triggers`, and that is not cosmetic.** This schema has circular foreign keys: `polls.winner_id → proposals` while `proposals.poll_id → polls`, the same shape between `polly` and `polly_proposal`, plus self-referencing `righttovote`. A `--data-only` dump writes tables in one flat order and no order can satisfy a cycle, so a dump taken without the flag is **silently unrestorable** — `pg_dump` succeeds, warns on stderr, and the failure only appears later as `insert or update on table "polls" violates foreign key constraint`. `TestDataCreator.extractPostgresData()` passes the flag; don't remove it.
+- `liquido-testData.sql` is **gitignored** (`.gitignore:67`), so it does not travel between machines or reach CI. Regenerate it locally after any schema or seed change.
 
 ### Commands
 ```bash
 ./mvnw quarkus:dev          # dev mode
-./mvnw clean test           # unit + integration tests (needs a seeded LIQUIDO-DEV)
+./mvnw clean test           # unit + integration tests (needs a seeded LIQUIDO-TEST)
 ./mvnw clean package        # build target/quarkus-app/
 ```
 
@@ -176,7 +185,7 @@ The voting process in this system is designed to support liquid democracy princi
     - Voting algorithms
     - Authentication
     - Use cases and integration flows
-- Integration tests need a running, seeded `LIQUIDO-DEV`. Without it Quarkus cannot boot and the tests error rather than fail.
+- Integration tests need a running, seeded `LIQUIDO-TEST`. Without it Quarkus cannot boot and the tests error rather than fail.
 - A handful of tests are `@Disabled` by design (`TestDataCreator`, and two in `AuthenticationTests` that only work in manual debug runs). Leave them disabled.
 - `skipITs` defaults to `true`, so failsafe integration tests do not run in a normal build.
 
@@ -191,11 +200,39 @@ Consequences, all deliberate trade-offs for speed over textbook test hygiene:
 - **`@TestTransaction` does not roll back HTTP-triggered mutations.** Tests call the running server over real HTTP (RestAssured against `localhost:8081`), which runs on its own thread/transaction and commits independently of the test method's own `@TestTransaction` wrapper. That annotation only rolls back the test method's *own direct* Panache calls. Practical fallout: (a) any test that adds members/polls/delegations to the **shared seeded team** via an HTTP call leaves that data behind permanently for every later test in the same run — prefer an isolated fresh team instead; (b) if a test needs to directly persist something via JPA (e.g. `RightToVoteEntity.setPublicProxy(...)`) *and then* make an HTTP call that must see that change, the direct write must be committed in its own transaction first (`io.quarkus.narayana.jta.QuarkusTransaction.requiringNew().run(...)`), since it would otherwise still be uncommitted and invisible to the separate HTTP-request transaction.
 - **Precondition changes must be documented and kept in sync.** Since so much depends on this one method's exact output, any change to `createTestData()` (new poll, changed proposal count, etc.) can silently break unrelated tests elsewhere that count on the old shape. Grep for the specific IDs/emails/titles it creates before changing them.
 
+#### The seed contract (added 2026-08-14)
+
+The point of the shared seed is that **extending it must be harmless**. Two rules make that true, and `SeedContractTests` asserts them:
+
+1. **APPEND freely.** A test may add polls, proposals, likes, ballots and its own voter tokens to the seed team. Nothing may depend on the seed team's exact counts.
+2. **Never change the identity or relationships of seed rows** — delegations, team membership, passwords, `lastTeamId`. Those alter other tests' *preconditions* rather than adding to them, and `@TestTransaction` won't undo them (see above). Use `createFreshTeam(prefix)`; `UseCaseTests.proxyCastsVoteForVoter` is the worked example — it used to delegate inside the seed team, permanently making the seed admin a proxy.
+
+And on the reading side: **ask for the row you mean, by name.** `util.getSeedTeam()` / `getSeedAdmin()` / `getSeedMember()` / `getSeedTeamMember()`, plus `getAnyUser()` for tests that need *a* user and assert nothing about which. These replaced `getRandomTeam/Admin/User()`, which were `findAll().firstResultOptional()` with no `ORDER BY` — not random, just "first row of an unordered scan", which Postgres is free to change whenever a row is UPDATEd (and every login updates one). That is what made leftover throwaway teams able to break unrelated tests. Anchoring by name is *why* nothing cleans the database up: nothing reads the garbage.
+
+Two traps worth knowing before you extend the seed:
+
+- **`devLogin` logs a user into their `lastTeamId`**, which `joinTeam` rewrites. So a user in two teams logs into whichever they joined last, and every team-scoped call afterwards fails with `Poll(id=…) not found` — intermittently, since `seedRandomProposals` picks authors positionally. Use `devLoginInto(email, teamId)` to pin the team. `seedRandomProposals` pins, and additionally asserts the session came back scoped to the right team.
+- **Assert only over your own data.** `UseCaseTests` used to assert the *whole* `voting_tokens` table was empty; one abandoned token anywhere broke it permanently and blamed the wrong test.
+
 Manual reseed procedure (never done automatically, never in a normal build):
-1. Temporarily remove `@Disabled` from `createTestData()`.
-2. `QUARKUS_HIBERNATE_ORM_SCHEMA_MANAGEMENT_STRATEGY=drop-and-create QUARKUS_HIBERNATE_ORM_DATABASE_GENERATION=drop-and-create ./mvnw -B -o test -Dtest=TestDataCreator#createTestData` — **both** env vars are needed; the legacy `database.generation` key in `application.properties` otherwise silently wins over the newer `schema-management.strategy` key and no schema gets created.
-3. Restore `@Disabled` immediately afterward.
-4. Run the full suite normally (`./mvnw -B clean test`, no env vars) to confirm a clean baseline.
+1. Stop `quarkus:dev` first — it holds the old schema, and `clean` pulls `target/` out from under it.
+2. ```
+   QUARKUS_HIBERNATE_ORM_SCHEMA_MANAGEMENT_STRATEGY=drop-and-create \
+   QUARKUS_HIBERNATE_ORM_DATABASE_GENERATION=drop-and-create \
+   ./mvnw -B test -Dmaven.surefire.includedGroups=testDataCreator -Dmaven.surefire.excludedGroups=""
+   ```
+   **Both** env vars are needed; the legacy `database.generation` key in `application.properties`
+   otherwise silently wins over the newer `schema-management.strategy` key and no schema gets created.
+3. Run the full suite normally (`./mvnw -B clean test`, no env vars) to confirm a clean baseline.
+
+No source edit is needed to enable or re-disable the generator. `createTestData()` is **not** `@Disabled`
+any more — `TestDataCreator` carries `@Tag("testDataCreator")` and `pom.xml` sets
+`maven.surefire.excludedGroups=testDataCreator`, so it is skipped by every normal build and opted into
+with the two `-D` flags above. The class documents this on its own `@Tag` line.
+
+A fresh seed is small — roughly 7 users / 1 team (`testTeam4711`) / 5 polls / 20 proposals / 2 ballots.
+If a long-lived dev DB shows far more than that, it is accumulated test residue, not the seed: the
+happy-path e2e and every `createFreshTeam(prefix)` call leave their teams behind on purpose.
 
 ---
 
@@ -219,6 +256,7 @@ Manual reseed procedure (never done automatically, never in a normal build):
 - **Team is the tenant boundary, and it's not automatic.** Every poll/proposal/ballot belongs to exactly one team, but `@RolesAllowed(LIQUIDO_ADMIN_ROLE)` only checks that the caller is *an* admin of *some* team — never that they own the specific resource being touched. Ownership has to be checked explicitly and separately from the role check. `JwtTokenUtils.getCurrentTeam()` (backed by the `teamId` JWT claim) is the one canonical way to get "the caller's team" for that comparison; `PollService.getPollInCurrentTeam(pollId)` is the pattern to follow for any new poll-scoped lookup — one combined lookup+ownership-check call, so a call site can't do the lookup and forget the guard.
 - **Ballot anonymity is a two-hop indirection, and both hops are load-bearing.** `UserEntity` → `RightToVoteEntity` (keyed by `sha3_256(email + serverSalt)`, deliberately excluding anything that can change, like `passwordHash`) → `BallotEntity` (FK'd only to that hash, never to the user). Breaking either link breaks anonymity or breaks voting: hashing in something mutable orphans ballots on e.g. a password change; logging `hashedVoterInfo` anywhere lets a log reader join a named user to their ballot.
 - **Delegation's cardinality is asymmetric, and the mapping annotations must say so.** A voter has at most one proxy (`DelegationEntity.fromUser` is correctly unique), but a proxy can have unlimited delegees (`toProxy` must be `@ManyToOne`, not `@OneToOne` — the latter silently caps every proxy in the whole system to one delegee via an auto-generated unique constraint on the FK column, and nothing fails loudly when that cap is hit for the first user, only for the second).
+- **The same `@OneToOne` bug bit a second time, in `TeamMemberEntity.user` (fixed 2026-08-13).** A user has one `TeamMemberEntity` row *per team*, so it must be `@ManyToOne`. As `@OneToOne` it generated `UNIQUE(user_id)` on `team_members`, capping every user at exactly one team membership system-wide. Joining a *first* team worked, so nothing looked broken; joining a *second* one failed at commit with a raw `ConstraintViolationException` surfaced as an opaque `INTERNAL_ERROR` — pointing at neither the mapping nor the real cause. `findTeamsByMember()` returning `List<TeamEntity>` had always shown the intent; only the annotation disagreed. **When you see `@OneToOne` on a join entity in this codebase, treat it as suspect until proven otherwise** — both known instances were wrong, and both stayed invisible until the second row was inserted.
 - **The GraphQL layer is meant to be a thin adapter.** `PollsGraphQL`, `DelegationGraphQL` etc. should just parse input and delegate to the matching `*Service` class, which owns all the actual invariants. Nearly every security bug found this session was a GraphQL resolver doing its own ad hoc entity lookup instead of calling an already-correct service helper that sat a few lines away.
 - **No migration tool yet.** Schema is whatever the current entity annotations produce via `drop-and-create`; there's no Flyway baseline. This means an entity-mapping bug (like the `@OneToOne`/`@ManyToOne` one above) can lurk indefinitely in a long-lived database that was never regenerated, and won't surface until someone does a fresh `drop-and-create` or until enough concurrent users hit the hidden constraint.
 - **HQL/JPQL gotcha:** comparing an entity-valued (association) field to `null` with `!=` (e.g. `requestedDelegationFrom != null`) silently matched zero rows in this Hibernate version, even though the same rows are found fine with `is not null`. Prefer `is not null` / `is null` for association fields, not `!=`/`=`.

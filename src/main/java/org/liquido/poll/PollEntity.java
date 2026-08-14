@@ -10,7 +10,6 @@ import lombok.RequiredArgsConstructor;
 import org.liquido.model.LiquidoBaseEntity;
 import org.liquido.poll.converter.MatrixConverter;
 import org.liquido.team.TeamEntity;
-import org.liquido.vote.BallotEntity;
 import org.liquido.vote.Matrix;
 
 import java.time.LocalDateTime;
@@ -98,11 +97,14 @@ public class PollEntity extends LiquidoBaseEntity {
 	Matrix duelMatrix = null;
 
 
-	// Implementation note: A poll does not contain a link to its BallotModels. We do not want to expose the ballots while the voting phase is still running.
-	// But clients are allowed to get the number of already cast ballots.
-	public long getNumBallots() {
-		return BallotEntity.count("poll", this);
-	}
+	// Implementation note: A poll deliberately has NO link to its ballots. We do not want to expose the
+	// ballots while the voting phase is still running. Clients that need the number of cast ballots get
+	// it from the GraphQL field `numBallots`, which is resolved by PollsGraphQL.numBallots(@Source ...).
+	//
+	// Do NOT reintroduce a getNumBallots() getter here. SmallRye resolves plain entity getters on the
+	// IO/event-loop thread, so a getter that queries the DB throws BlockingOperationNotAllowedException
+	// on every request. A @Source resolver in a @GraphQLApi bean runs on a worker thread instead, and is
+	// only invoked when the client actually selects the field.
 
 	/** return the number of competing proposals */
 	public int getNumCompetingProposals() {

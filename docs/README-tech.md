@@ -52,14 +52,27 @@ future tests can then rely on this set of fixed test data.
 ### TSL (SSL)
 
 Create a self-signed SSL certificate:
-    
+
     brew install mkcert
-    mkcert -install            # run once
-    #TODO:  How to set better common name with mkcert? 
-    #TODO:  On Mac: Add this cert to your local keystore and mark it as "always trust"
-    mkcert liquido.local localhost 127.0.0.1 192.168.178.134  
+    mkcert -install            # run ONCE PER MACHINE - needs your password, installs the local CA
+
+    # SANs must cover every name the app is reached by. The dev host name must match
+    # quarkus.webauthn.origins / relying-party.id in config/application-dev.properties exactly.
+    mkcert -cert-file liquido-local-cert.pem -key-file liquido-local-key.pem \
+           shadow.fritz.box liquido.local localhost 127.0.0.1 ::1 192.168.178.10
+
       or by hand
     openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout liquido-vote-key.pem -out liquido-vote-cert.pem
+
+> **When you move to a new machine** the old certs stop working in two independent ways, and both
+> must be fixed or the browser silently refuses every request:
+> 1. **Wrong SANs** — the cert doesn't list the new host name, so TLS fails on a name mismatch.
+> 2. **Untrusted CA** — mkcert's root CA lives in the machine that created it (`mkcert -CAROOT`).
+>    A cert copied from the old laptop is signed by a CA this machine has never heard of.
+>
+> So: regenerate with the new SANs **and** run `mkcert -install` on the new machine. The same
+> cert/key pair goes in two places - `src/main/resources/liquido-local-{cert,key}.pem` here, and
+> `tls-certs/liquido-local-{cert,key}.pem` in the frontend.
 
 Or you can also create a keystore that contains both keys:
 

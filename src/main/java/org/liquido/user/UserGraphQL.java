@@ -244,18 +244,30 @@ public class UserGraphQL {
 	/**
 	 * Login used during development and in tests.
 	 * You MUST pass a valid devLoginToken, then this query will return a valid TeamDataResponse including a JWT for login.
+	 *
+	 * <p>By default the user is logged into their <b>last</b> team, which is whichever team they most
+	 * recently joined ({@code TeamGraphQL.joinTeam} writes {@code lastTeamId}). For a user who belongs
+	 * to several teams that is ambiguous, and it silently sends every follow-up call to the wrong team:
+	 * poll lookups are team-scoped, so they answer {@code Poll(id=…) not found} rather than anything
+	 * pointing at the login. Pass {@code teamId} to pin the session to one specific team instead.
+	 *
+	 * <p>Pinning cannot be used to forge access: {@code doLoginInternal} verifies the user really is a
+	 * member of the requested team and otherwise throws {@code CANNOT_LOGIN_USER_NOT_MEMBER_OF_TEAM}.
+	 *
 	 * @param devLoginToken the secret devLoginToken
 	 * @param email a registered email
-	 * @return TeamDataResponse logged into user's last team
-	 * @throws LiquidoException when email is not found in DB
+	 * @param teamId (optional) log into this specific team. When null, the user's last team is used,
+	 *               exactly as before.
+	 * @return TeamDataResponse logged into the requested team, or the user's last team
+	 * @throws LiquidoException when email is not found in DB, or the user is not a member of teamId
 	 */
 	@Query
 	@PermitAll
 	@Description("This is only used for development purposes.")
 	public TeamDataResponse devLogin(
 			@Name("devLoginToken") @NonNull String devLoginToken,
-			@Name("email") @NonNull String email
-			//TODO:  @Name("team") Optional<Long> teamId   // optional
+			@Name("email") @NonNull String email,
+			@Name("teamId") @Description("Optional: log into this specific team instead of the user's last one") Long teamId
 	) throws LiquidoException {
 		if (LaunchMode.current() == LaunchMode.NORMAL || ConfigUtils.isProfileActive("prod"))
 			throw new LiquidoException(Errors.CANNOT_LOGIN_TOKEN_INVALID, "DevLogin is not allowed in PROD!");
@@ -265,8 +277,13 @@ public class UserGraphQL {
 			throw new LiquidoException(Errors.CANNOT_LOGIN_TOKEN_INVALID, "Invalid devLoginToken passed.");
 		UserEntity user = UserEntity.findByEmail(email)
 				.orElseThrow(LiquidoException.supply(Errors.CANNOT_LOGIN_EMAIL_NOT_FOUND, "Cannot do devLogin. User with email not found: "+email));
-		log.info("DevLogin: {}", user.toStringShort());
-		return jwtTokenUtils.doLoginInternal(user, null);
+		TeamEntity team = null;
+		if (teamId != null) {
+			team = TeamEntity.<TeamEntity>findByIdOptional(teamId)
+					.orElseThrow(LiquidoException.supply(Errors.CANNOT_LOGIN_TEAM_NOT_FOUND, "Cannot do devLogin. Team(id=" + teamId + ") not found."));
+		}
+		log.info("DevLogin: {}{}", user.toStringShort(), team != null ? " into team '" + team.getTeamName() + "'" : "");
+		return jwtTokenUtils.doLoginInternal(user, team);
 	}
 
 	//================== Password reset =====================

@@ -50,23 +50,31 @@ public class UseCaseTests {
 	 * That can then be used to vote anonymously. And that can also be used to become a public proxy.
 	 * But this had several disadvantages:
 	 *  -
+	 *
+	 * <p>Runs in its OWN fresh team. Nothing here needs the shared seed: the test builds its two polls
+	 * and their proposals over HTTP anyway, so a two-member throwaway team serves it exactly as well.
+	 * Keeping it out of the seed team means a full suite run leaves {@code testTeam4711} byte-for-byte
+	 * as the generator produced it, which makes "did anything change the seed?" a question with a
+	 * yes/no answer instead of a diff to interpret.
 	 */
 	@Test
 	@TestTransaction
 	public void castVoteInTwoPolls() {
-		UserEntity admin = util.getRandomAdmin();
-
-		TeamDataResponse adminRes = util.devLogin(admin.email);
+		// A fresh team with two members: its admin, plus one joiner. Two is what
+		// seedRandomProposals(poll, team, 2) needs, since each proposal needs its own author.
+		TeamDataResponse adminRes = util.createFreshTeam("CastVoteTwoPolls");
+		util.joinTeam(adminRes.team.getInviteCode(), null);
+		TeamEntity team = util.loadOwnTeam(adminRes.jwt);   // reload so the new member is in the set
 
 		// GIVEN two polls in voting
 		PollEntity poll1;
 		poll1 = util.createPoll("Poll1 to test voting in two polls", adminRes.jwt);
-		poll1 = util.seedRandomProposals(poll1, adminRes.team, 2);
+		poll1 = util.seedRandomProposals(poll1, team, 2);
 		poll1 = util.startVotingPhase(poll1.getId(), adminRes.jwt);
 
 		PollEntity poll2;
 		poll2 = util.createPoll("Poll2 to test voting in two polls", adminRes.jwt);
-		poll2 = util.seedRandomProposals(poll2, adminRes.team, 2);
+		poll2 = util.seedRandomProposals(poll2, team, 2);
 		poll2 = util.startVotingPhase(poll2.getId(), adminRes.jwt);
 
 		// WHEN cast vote in poll1
@@ -92,17 +100,38 @@ public class UseCaseTests {
 		BallotEntity ballot2 = util.verifyBallot(poll2.id, castVoteResponse2.getBallot().checksum);
 		assertNotNull(ballot2);
 
-		// AND all voterTokens have been consumed
-		assertEquals(0, OneTimeVotingToken.findAll().stream().count(), "All one time voterTokens should have been consumed.");
+		// AND this test's own voterTokens have been consumed.
+		// Deliberately scoped per poll. This used to assert the WHOLE voting_tokens table was empty,
+		// which is a global invariant that a local test has no business claiming: one abandoned token
+		// anywhere - a crashed run, or any future test that fetches a token to check an error path -
+		// broke this permanently, and pointed the blame at this test.
+		assertEquals(0, OneTimeVotingToken.count("poll.id = ?1", poll1.getId()),
+				"voterToken for poll1 should have been consumed by casting the vote");
+		assertEquals(0, OneTimeVotingToken.count("poll.id = ?1", poll2.getId()),
+				"voterToken for poll2 should have been consumed by casting the vote");
 	}
 
+	/**
+	 * Deliberately runs in its OWN fresh team, not in the shared seed team.
+	 *
+	 * Delegating is not "appending data" -- it rewrites a relationship between two seed users, and
+	 * {@code @TestTransaction} does not roll back mutations made over HTTP, so the delegation would
+	 * survive the run. Two things then go wrong for everybody else: the seed admin permanently becomes
+	 * the seed member's proxy, so any later test in which the admin votes silently also creates a
+	 * level-1 ballot for the member; and this test's own {@code delegationCount == voteCount} assertion
+	 * only holds while no delegee has already voted, which the accumulated delegations make less true
+	 * every run.
+	 *
+	 * A fresh team with one joined member is exactly the two-member team {@code seedRandomProposals(…, 2)}
+	 * needs, and this test builds its own poll and proposals over HTTP anyway -- so isolation costs two
+	 * extra calls and nothing else.
+	 */
 	@Test
 	@TestTransaction
 	public void proxyCastsVoteForVoter() {
-		TeamEntity team = util.getRandomTeam();
-		UserEntity admin = team.getFirstAdmin();
-		UserEntity member = team.getMembers().stream().filter(m -> m.getRole().equals(TeamMemberEntity.Role.MEMBER)).findFirst()
-				.orElseThrow(() -> new RuntimeException("Need a member in team "+team)).getUser();
+		TeamDataResponse teamRes = util.createFreshTeam("ProxyVote");
+		UserEntity admin = teamRes.user;
+		UserEntity member = util.joinTeam(teamRes.team.getInviteCode(), null).user;
 
 		// GIVEN a poll in voting (created by admin)
 		TeamDataResponse adminRes = util.devLogin(admin.email);

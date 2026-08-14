@@ -93,7 +93,13 @@ public class UserService {
 		// [TEST/DEV] shortcut: reset by email with a fixed test token. Only ever active off LaunchMode.NORMAL,
 		// i.e. never in a packaged production run. This is the one legitimate case where we resolve the
 		// user from the client-supplied email instead of from a token.
-		if (LaunchMode.current() != LaunchMode.NORMAL && DoogiesUtil.isEqual(config.testPasswordResetTokenOpt(), resetPasswordToken)) {
+		//
+		// Must be isEqualString on the UNWRAPPED value: this used to call isEqual(Optional<String>, String),
+		// and an Optional never equals a bare String - so the shortcut silently never fired, for any token.
+		// isEqualString's null handling is exactly what we want here: when the token is not configured,
+		// orElse(null) makes the comparison false, so an unconfigured deployment can never take this branch.
+		if (LaunchMode.current() != LaunchMode.NORMAL &&
+				DoogiesUtil.isEqualString(config.testPasswordResetTokenOpt().orElse(null), resetPasswordToken)) {
 			UserEntity user = UserEntity.findByEmail(emailLowerCase).orElseThrow(
 					LiquidoException.supply(LiquidoException.Errors.WONT_RESET_PASSWORD, "Won't reset password for <" + emailLowerCase + ">: User is not registered.")
 			);

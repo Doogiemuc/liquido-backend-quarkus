@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Entity;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToOne;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
@@ -29,7 +28,20 @@ public class TeamMemberEntity extends PanacheEntity {
 	@JsonBackReference
 	TeamEntity team;
 
-	@OneToOne
+	/**
+	 * The member. MUST be @ManyToOne, never @OneToOne.
+	 *
+	 * A user can be a member of many teams, so a user has many TeamMemberEntity rows - one per team.
+	 * @OneToOne makes Hibernate generate a UNIQUE constraint on the user_id column, which silently caps
+	 * every user in the whole system at exactly one team membership. Nothing fails when a user joins
+	 * their first team; the constraint only bites when they try to join a second one, and it surfaces
+	 * as an opaque "Cannot join team" 500 rather than anything pointing at the mapping.
+	 *
+	 * This is the same bug as DelegationEntity.toProxy - see the "cardinality is asymmetric" note in
+	 * AGENTS.md. Note that findTeamsByMember() below returns a List<TeamEntity>: this class always
+	 * intended one user to be in many teams, only the annotation disagreed.
+	 */
+	@ManyToOne
 	@lombok.NonNull
 	UserEntity user;
 

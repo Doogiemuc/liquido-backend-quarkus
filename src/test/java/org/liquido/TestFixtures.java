@@ -28,6 +28,24 @@ public class TestFixtures {
 	public static String pollTitle    = "TestPoll " + now;
 	public static final String PASSWORD_SUFFIX = "_PWD"; // must be same as in cypress.config.js
 
+	// A self-contained TWO-TEAM scenario: one user who is a member of both teams (see TestDataCreator).
+	//
+	// Deliberately kept OUT of the shared testTeam4711 above. joinTeam() sets the user's lastTeamId, and
+	// devLogin() logs a user into their last team -- so a multi-team member of the shared seed team would
+	// log in to the *other* team, and every later test that makes them act in the seed team would fail
+	// with "Poll(id=...) not found" from the team-scoping guard. Keeping this scenario in its own two
+	// teams means it can never disturb the shared fixtures.
+	//
+	// Each admin needs a distinct mobilephone or createNewTeam is rejected with USER_MOBILEPHONE_EXISTS.
+	public static String multiTeamAName          = "multiTeamA" + now;
+	public static String multiTeamAAdminEmail    = "multiteamadmina" + now + "@liquido.vote";
+	public static String multiTeamAAdminMobile   = "0151 666 " + now % 1000000;
+	public static String multiTeamBName          = "multiTeamB" + now;
+	public static String multiTeamBAdminEmail    = "multiteamadminb" + now + "@liquido.vote";
+	public static String multiTeamBAdminMobile   = "0151 777 " + now % 1000000;
+	/** The user who is a member of BOTH multiTeamA and multiTeamB, and who votes in the second one. */
+	public static String multiTeamMemberEmail    = "multiteammember" + now + "@liquido.vote";
+
 	public static final String staticDummyEmail = "staticDummyEmail@liquido.vote";
 
 	// GraphQL   This is port 8081 during testing, but 8443 in prod!

@@ -118,11 +118,9 @@ public class TeamGraphQL {
 
 		Optional<UserEntity> currentUserOpt = jwtTokenUtils.getCurrentUser();
 		if (currentUserOpt.isPresent()) {
-			// IF user is already logged in, then he CAN join another team, but he MUST provide his already registered email, mobilephone
-			if (!DoogiesUtil.isEqual(currentUserOpt.get().email, member.email) ||
-					!DoogiesUtil.isEqual(currentUserOpt.get().mobilephone, member.mobilephone)) {
-				throw new LiquidoException(Errors.USER_EMAIL_EXISTS, "Your are already registered. You must provide your email and mobilephone to join another team!");
-			}
+			// IF user is already logged in, then he CAN join another team, but he MUST prove it is really
+			// him by presenting exactly the identity he is already registered with.
+			assertProvidedIdentityMatches(currentUserOpt.get(), member);
 			member = currentUserOpt.get();  // with db ID!
 			//TODO: sanity check RightToVoteEntity.findByVoter(member).orElseThrow(...)   -> Or create a separate RightToVote per team?
 		} else {
@@ -146,6 +144,49 @@ public class TeamGraphQL {
 			return jwtTokenUtils.doLoginInternal(member, team);
 		} catch (Exception e) {
 			throw new LiquidoException(Errors.INTERNAL_ERROR, "Error: Cannot join team.", e);
+		}
+	}
+
+	/**
+	 * A logged-in user may join a FURTHER team, but only by presenting exactly the identity they are
+	 * already registered with. Joining a team is a trust decision in LIQUIDO - it grants a right to vote
+	 * in that team - so this check is deliberately strict: anything we cannot positively confirm as a
+	 * match is rejected. We never silently fall back to "close enough".
+	 *
+	 * <ol>
+	 *   <li><b>Email</b> MUST be present on both sides AND be equal. A missing email on either side is
+	 *       always a rejection - absence is never treated as a match.</li>
+	 *   <li><b>Mobilephone</b> MUST either be absent on BOTH sides, or present on both AND equal.
+	 *       Present on only one side is a rejection.</li>
+	 * </ol>
+	 *
+	 * "Absent" means null or blank, via {@link DoogiesUtil#isEmpty}. Blank has to count as absent: the
+	 * mobilephone column is nullable, and {@code cleanMobilephone("")} returns {@code ""}, so a client
+	 * that sends an empty field means the same thing as one that omits it. Comparing those two forms
+	 * directly would reject a user who supplied everything they actually have.
+	 *
+	 * Both entities are already normalised by the caller (cleanEmail lowercases, cleanMobilephone strips
+	 * formatting), so this compares like with like.
+	 *
+	 * @param registered the user as stored in the DB, resolved from the JWT
+	 * @param provided the user data sent with this joinTeam request
+	 * @throws LiquidoException when the provided identity does not match the registered one
+	 */
+	private static void assertProvidedIdentityMatches(UserEntity registered, UserEntity provided) throws LiquidoException {
+		// (1) Email: must exist on both sides and match.
+		if (DoogiesUtil.isEmpty(registered.email) || DoogiesUtil.isEmpty(provided.email) ||
+				!DoogiesUtil.isEqualString(registered.email, provided.email)) {
+			throw new LiquidoException(Errors.USER_EMAIL_EXISTS,
+					"You are already registered. You must provide your registered email to join another team!");
+		}
+
+		// (2) Mobilephone: either absent on both sides, or present on both and equal.
+		boolean registeredHasMobilephone = !DoogiesUtil.isEmpty(registered.mobilephone);
+		boolean providedHasMobilephone = !DoogiesUtil.isEmpty(provided.mobilephone);
+		if (registeredHasMobilephone != providedHasMobilephone ||
+				(registeredHasMobilephone && !DoogiesUtil.isEqualString(registered.mobilephone, provided.mobilephone))) {
+			throw new LiquidoException(Errors.USER_EMAIL_EXISTS,
+					"You are already registered. You must provide your registered mobilephone to join another team!");
 		}
 	}
 

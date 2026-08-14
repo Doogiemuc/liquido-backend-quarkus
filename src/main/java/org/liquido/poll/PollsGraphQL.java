@@ -141,10 +141,12 @@ public class PollsGraphQL {
 	/**
 	 * Is a proposal already liked by the currently logged in user?
 	 *
+	 * Deliberately no @Query -- see the note on numBallots below. @Source alone makes this a FIELD on
+	 * ProposalEntity, which is the only way it is meant to be used.
+	 *
 	 * @param proposal GraphQL context: the ProposalEntity
 	 * @return true, if currently logged in user is already a supporter of this proposal
 	 */
-	@Query
 	@Description("Is a proposal already liked by the currently logged in user?")
 	public boolean isLikedByCurrentUser(@Source(name = "isLikedByCurrentUser")
 																				@Description("Is a proposal already liked by the currently logged in user?")
@@ -158,10 +160,11 @@ public class PollsGraphQL {
 	 * Is a proposal created by the currently logged-in user
 	 * This of course assumes that there is a currently logged-in user. But polls and proposals can only be fetched by authenticated users.
 	 *
+	 * Deliberately no @Query -- see the note on numBallots below.
+	 *
 	 * @param proposal A proposal in a poll.
 	 * @return true if proposal was created by the currently logged-in user.
 	 */
-	@Query
 	@Description("Is a proposal created by the currently logged in user?")
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
 	public boolean isCreatedByCurrentUser(@Source ProposalEntity proposal) {
@@ -173,10 +176,11 @@ public class PollsGraphQL {
 	 * Has the current user already voted in this poll?
 	 * Only computed when the GraphQL client requests this field.
 	 *
+	 * Deliberately no @Query -- see the note on numBallots below.
+	 *
 	 * @param poll GraphQL context: the PollEntity
 	 * @return true if the current user has a ballot in this poll
 	 */
-	@Query
 	@Description("Has the current user already voted in this poll?")
 	public boolean userAlreadyVoted(@Source PollEntity poll) {
 		try {
@@ -184,6 +188,35 @@ public class PollsGraphQL {
 		} catch (LiquidoException e) {
 			return false; // poll in ELABORATION has no ballots — not an error
 		}
+	}
+
+	/**
+	 * How many ballots have been cast in this poll so far?
+	 * Only computed when the GraphQL client requests this field.
+	 *
+	 * This lives here rather than as a getter on PollEntity on purpose: SmallRye resolves plain entity
+	 * getters on the IO/event-loop thread, so a getter that queries the DB fails with
+	 * BlockingOperationNotAllowedException on every request. A @Source resolver in a @GraphQLApi bean
+	 * runs on a worker thread, same as userAlreadyVoted() above. PollEntity carries a comment saying
+	 * not to reintroduce such a getter.
+	 *
+	 * <h3>Why there is no @Query here</h3>
+	 *
+	 * {@code @Source} alone is what makes this a <b>field on PollEntity</b> - {@code poll { numBallots }} -
+	 * computed only when a client actually selects it. Adding {@code @Query} on top would <i>additionally</i>
+	 * publish it as a <b>root query</b>, {@code numBallots(poll: PollEntityInput)}, letting a caller pass a
+	 * hand-assembled poll object that never came from the database. That is API surface nobody wants and
+	 * nobody uses. All four @Source resolvers in this class deliberately omit @Query for the same reason.
+	 *
+	 * (Careful when reading the schema: SmallRye strips an {@code is} prefix, so
+	 * {@code isLikedByCurrentUser} appears as the field {@code likedByCurrentUser}.)
+	 *
+	 * @param poll GraphQL context: the PollEntity
+	 * @return number of ballots cast in this poll
+	 */
+	@Description("Number of ballots that have been cast in this poll so far")
+	public long numBallots(@Source PollEntity poll) {
+		return BallotEntity.count("poll", poll);
 	}
 
 	/**
@@ -222,8 +255,10 @@ public class PollsGraphQL {
 
 	/**
 	 * Cast a vote in a poll
-	 * A user may overwrite his previous ballot as long as the poll is still in its VOTING phase.
-	 * <b>This request can be sent anonymously!</b>
+	 *
+	 * <p>Voting in liquido is completely <b>anonymous</b>. This GraphQL mutatin can be called anonymously.
+	 * The voter is only authenticated via his voterToken that he received previously.
+	 * The poll.id and the team.id are backed into this token.</p>
 	 *
 	 * @param pollId poll id that must exist
 	 * @param voteOrderIds list of proposals IDs as sorted by the voter in his ballot

@@ -34,6 +34,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.*;
 
+import static org.junit.jupiter.api.Assertions.*;
 import static org.liquido.TestFixtures.*;
 
 /**
@@ -132,8 +133,12 @@ public class TestDataCreator {
 		// Let another user join that team
 		TeamDataResponse memberRes = util.joinTeam(adminRes.team.inviteCode, memberEmail);
 
-		// Make sure that the team has enough members to create more polls & proposals
-		adminRes.team = util.ensureNumMembers(adminRes.team.id, 10);
+		// Make sure that the team has enough members to create more polls & proposals.
+		// 7 is what createTeam(.., 5) + the joinTeam above already produce, so this is a no-op that
+		// states the invariant rather than changing the seed. The number must stay >= the largest
+		// seedRandomProposals(..., n) below (currently 5), since each proposal needs its own author.
+		// SeedContractTests asserts this too.
+		adminRes.team = util.ensureNumMembers(adminRes.team.id, 7);
 
 		// Create some polls in ELABORATION
 		PollEntity poll;
@@ -183,6 +188,8 @@ public class TestDataCreator {
 		// Print winner
 		log.info("Winner: {}", winner.toString());
 
+		createMultiTeamMemberWhoVotesInSecondTeam();
+
 		try {
 			extractSql();          // no-op unless dbKind=h2 (old Spring+H2+Quartz era, kept for reference)
 			extractPostgresData(); // the one that actually does something today
@@ -191,6 +198,82 @@ public class TestDataCreator {
 		}
 
 		log.info("========== CreateTestData SUCCESSFULLY for team {} =============", teamName);
+	}
+
+	/**
+	 * <h1>Use case: a user joins a SECOND team, and votes in it</h1>
+	 *
+	 * Both halves of this were structurally impossible until 2026-08-13:
+	 * <ul>
+	 *   <li>{@code TeamMemberEntity.user} was {@code @OneToOne}, which generated {@code UNIQUE(user_id)}
+	 *       on {@code team_members} and capped every user at exactly ONE team membership system-wide.
+	 *       Joining a first team worked, so nothing looked broken - the second join failed at commit
+	 *       with a constraint violation surfaced as an opaque INTERNAL_ERROR.</li>
+	 *   <li>A voter's {@code RightToVote} is keyed by their email, NOT by team. Casting the vote below
+	 *       therefore exercises one single RightToVote across two teams - the case that would break if
+	 *       RightToVote ever became team-scoped (see the TODO in {@code TeamGraphQL.joinTeam}).</li>
+	 * </ul>
+	 *
+	 * <h2>Why this scenario gets its own two teams</h2>
+	 *
+	 * It would be tempting to just let the existing {@code testmember4711} join a second team. Don't.
+	 * {@code joinTeam} sets the user's {@code lastTeamId}, and {@code devLogin} logs a user into their
+	 * last team - so that member would afterwards log in to the *second* team, and every later test that
+	 * makes them act in the shared seed team fails with {@code Poll(id=...) not found} from the
+	 * team-scoping guard. Worse, it would be intermittent: {@code seedRandomProposals} picks its authors
+	 * out of a {@code HashSet}, so whether a run touches the multi-team user is luck.
+	 *
+	 * Keeping the whole scenario in its own two teams means it cannot disturb the shared fixtures, while
+	 * still leaving a real multi-team user in the seed for the frontend and for manual testing.
+	 *
+	 * <p>Note on ordering: this used to have to run LAST, because tests reached for the seed via
+	 * {@code getRandomTeam() / getRandomAdmin() / getRandomUser()} - unordered "first row found"
+	 * lookups that anything appended could perturb. Those are gone; tests now ask for the seed
+	 * <i>by name</i> ({@code getSeedTeam()} and friends), so position no longer carries meaning.
+	 * The quarantine itself is now defence-in-depth rather than structurally required.
+	 */
+	private void createMultiTeamMemberWhoVotesInSecondTeam() {
+		log.info("--- A registered user joins a second team and votes there ---");
+
+		// Team A: the user's first team.
+		TeamDataResponse teamA = util.createTeam(multiTeamAName, multiTeamAAdminEmail, multiTeamAAdminMobile, 0);
+		TeamDataResponse memberInTeamA = util.joinTeam(teamA.team.inviteCode, multiTeamMemberEmail);
+
+		// Team B: the SECOND team, which that same user now joins.
+		TeamDataResponse teamB = util.createTeam(multiTeamBName, multiTeamBAdminEmail, multiTeamBAdminMobile, 0);
+
+		// The join must present exactly the email AND mobilephone the user is already registered with -
+		// see TeamGraphQL.assertProvidedIdentityMatches().
+		TeamDataResponse memberInTeamB =
+				util.joinTeamAsRegisteredUser(teamB.team.inviteCode, memberInTeamA.user, memberInTeamA.jwt);
+
+		// Same human being, second team.
+		assertEquals(memberInTeamA.user.id, memberInTeamB.user.id,
+				"The user who joined the second team must be the very same user, not a newly created one");
+		assertNotEquals(teamA.team.id, memberInTeamB.team.id,
+				"The second team must really be a different team than the first one");
+
+		// A poll in the SECOND team. Its admin may add more than one proposal; the newly joined member
+		// adds one of their own, which also proves they are a fully fledged member here.
+		PollEntity pollB = util.createPoll(pollTitle + " in second team", teamB.jwt);
+		pollB = util.addProposal(pollB.getId(), "Second team proposal A " + now,
+				"First alternative in the second team, added by its admin.", "hand-peace", teamB.jwt);
+		pollB = util.addProposal(pollB.getId(), "Second team proposal B " + now,
+				"Second alternative in the second team, added by its admin.", "hand-rock", teamB.jwt);
+		pollB = util.addProposal(pollB.getId(), "Second team proposal C " + now,
+				"Added by the member who joined this team as their second one.", "hand-scissors", memberInTeamB.jwt);
+		pollB = util.startVotingPhase(pollB.getId(), teamB.jwt);
+
+		// ... and the multi-team member casts a vote in that SECOND team.
+		String voterTokenB = util.getVoterToken(pollB.getId(), memberInTeamB.jwt);
+		List<Long> voteOrderIdsB = pollB.getProposals().stream().map(LiquidoBaseEntity::getId).toList();
+		CastVoteResponse castVoteResB = util.castVote(pollB.getId(), voteOrderIdsB, voterTokenB);
+		log.info("Vote cast in second team: {}", castVoteResB);
+
+		// The ballot in the second team verifies just like any other.
+		BallotEntity ballotB = util.verifyBallot(pollB.getId(), castVoteResB.getBallot().getChecksum());
+		assertNotNull(ballotB, "Ballot cast in the second team must be verifiable by its checksum");
+		log.info("Ballot in second team successfully verified: {}", ballotB);
 	}
 
 
@@ -245,6 +328,14 @@ public class TestDataCreator {
 	 * so the dump should only ever replay data into an already-drop-and-created schema.
 	 * {@code --column-inserts}: each INSERT lists its column names explicitly, so replaying the dump
 	 * doesn't silently break if a column is reordered later.
+	 * {@code --disable-triggers}: <b>required, not optional.</b> This schema has circular foreign keys
+	 * -- {@code polls.winner_id -> proposals} while {@code proposals.poll_id -> polls}, the same shape
+	 * between {@code polly} and {@code polly_proposal}, plus self-referencing {@code righttovote}. A
+	 * {@code --data-only} dump writes tables in one flat order, and no order satisfies a cycle, so
+	 * without this flag the dump is <b>unrestorable</b>: replaying it dies on the first {@code polls}
+	 * row with "violates foreign key constraint". pg_dump warns about this at dump time; the warning
+	 * is easy to miss because dumping still succeeds. The flag wraps the data in trigger-disabling
+	 * statements, which is why restoring the dump requires a superuser (the {@code postgres} role).
 	 */
 	public void extractPostgresData() throws IOException, InterruptedException {
 		if (!"postgresql".equals(dbKind)) return;
@@ -258,6 +349,7 @@ public class TestDataCreator {
 				"pg_dump",
 				"--data-only",
 				"--column-inserts",
+				"--disable-triggers",   // circular FKs -- see javadoc. Without this the dump cannot be restored.
 				"--no-owner",
 				"--no-privileges",
 				"-h", host,

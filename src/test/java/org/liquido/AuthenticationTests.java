@@ -44,7 +44,10 @@ import static org.liquido.security.JwtTokenUtils.LIQUIDO_ISSUER;
  */
 @Slf4j
 @QuarkusTest
-@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+// No @TestMethodOrder here on purpose. It used to carry MethodOrderer.OrderAnnotation, but not a
+// single method declared @Order -- so every method tied on rank and the real order was JUnit's
+// arbitrary fallback. That reads like a guarantee of ordering while providing none. These tests must
+// not depend on each other's order; the two token tests below mint their own identities to make sure.
 public class AuthenticationTests {
 
 	@Inject
@@ -63,7 +66,10 @@ public class AuthenticationTests {
 	@BeforeEach
 	public void beforeEachTest(TestInfo testInfo) {
 		log.info("==========> Starting: " + testInfo.getDisplayName());
-		//mailbox.clear();
+		// MockMailbox is an application-scoped singleton shared by every test in this JVM, so without
+		// this any mail-counting assertion also counts mails sent by earlier tests. (This line existed
+		// but was commented out AND named a field that doesn't exist -- it is `mockMailbox`, not `mailbox`.)
+		mockMailbox.clear();
 	}
 
 	@AfterEach
@@ -112,7 +118,7 @@ public class AuthenticationTests {
 	@Test
 	public void testLoginWithJwt() {
 		String query = "{ loginWithJwt " + CREATE_OR_JOIN_TEAM_RESULT + "}";
-		UserEntity user = util.getRandomUser();
+		UserEntity user = util.getAnyUser();
 		String jwt = Jwt
 				.subject(user.email)
 				//.upn("upn@liquido.vote")  // if upn is set, this will be used instead of subject   see JWTCallerPrincipal.getName()
@@ -133,7 +139,7 @@ public class AuthenticationTests {
 		// https://quarkus.io/guides/security-customization#registering-security-providers
 		// https://quarkus.io/guides/security-jwt#dealing-with-the-verification-keys
 
-		UserEntity user = util.getRandomUser();
+		UserEntity user = util.getAnyUser();
 		// sign() with no argument uses the configured smallrye.jwt.sign.key, i.e. exactly the same
 		// key the application itself signs with. We deliberately no longer load a key file here:
 		// the old src/main/resources/liquidoJwtKey.json was a committed secret and has been removed.
@@ -158,7 +164,7 @@ public class AuthenticationTests {
 	@Test
 	public void testDevLogin() {
 		// GIVEN a random user
-		UserEntity user = util.getRandomUser();
+		UserEntity user = util.getAnyUser();
 		String query = "query devLogin($devLoginToken: String!, $email: String!) {" +
 				" devLogin(devLoginToken: $devLoginToken, email: $email)" + CREATE_OR_JOIN_TEAM_RESULT + "}";
 		Lson vars = Lson.builder()
@@ -183,7 +189,14 @@ public class AuthenticationTests {
 	@Test
 	@Transactional
 	public void loginViaEmailLink_Mocked() {
-		UserEntity user = util.getRandomUser();
+		// Mint a throwaway identity rather than reusing a seed user, exactly like the two token tests
+		// further down. This test asserts it received EXACTLY ONE mail, and MockMailbox is a JVM-wide
+		// singleton keyed by address -- so on a shared address the count is only 1 by luck, depending on
+		// what else in the run happened to mail that person. With its own fresh address it is 1 by
+		// construction. (@BeforeEach also clears the mailbox now, but this makes the test independent of
+		// that too.)
+		String inviteCode = util.createFreshTeam("EmailLinkTest").team.getInviteCode();
+		UserEntity user = util.joinTeam(inviteCode, "emaillink" + new Date().getTime() + "@liquido.vote").user;
 
 		//  WHEN requesting and email token for this user
 		RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
