@@ -14,9 +14,12 @@ If you change anything, no matter how little, then always run regression tests.
 Whuuhuu once again my famous `TestDataCreator.java`. It's two things at the same time. It's one large test case that runs through my full end-2-end use case flow. 
 And admin creates a Team. Then a second team member joins that team. Admin creates a new poll with two proposals. Then both vote. etc. 
 
+# Clicking the invisible button
 
-
-
+AI was testing ... "My first create-team attempt failed because I clicked "Team gründen" without filling the nickname the chat asks for first"
+BUT i told it: "How could you click "Team gründen" without filling the nickname. That welcome chat doesn't allow that. The nickname field is required before continuing."
+It actually got mad at me: "Let me check rather than argue from memory."
+And the digged really really deep to find an obscue edge case "clicking an invisible button", that actually proved its initial statement.
 
 
 
