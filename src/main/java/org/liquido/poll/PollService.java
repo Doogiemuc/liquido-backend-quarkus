@@ -69,11 +69,14 @@ public class PollService {
 	 * Create a new poll inside a team. Only the admin is allowed to create a poll in a team
 	 * @param title Title of the new poll
 	 * @param team The admin's team.
+	 * @param membersCanAddProposals may ordinary members add proposals to this poll? null means false,
+	 *                               i.e. admin-only, which is the deliberate default.
 	 * @return the new poll
 	 */
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_ADMIN_ROLE)
-	public PollEntity createPoll(@NonNull String title, TeamEntity team) throws LiquidoException {
+	public PollEntity createPoll(@NonNull String title, TeamEntity team, Boolean membersCanAddProposals) throws LiquidoException {
 		PollEntity poll = new PollEntity(title);
+		poll.setMembersCanAddProposals(Boolean.TRUE.equals(membersCanAddProposals));
 		team.getPolls().add(poll);
 		poll.setTeam(team);
 
@@ -102,13 +105,14 @@ public class PollService {
 	 *   <li>Proposal must not already be part of another poll.</li>
 	 *   <li>Poll must not yet contain this proposal.</li>
 	 *   <li>Poll must not yet contain a proposal with the same title.</li>
-	 *   <li>User must not yet have a proposal in this poll.</li>
+	 *   <li>An ordinary member may only add a proposal when the poll allows it
+	 *       ({@link PollEntity#isMembersCanAddProposals()}). The admin may always add.</li>
 	 * </ol>
 	 *
 	 * @param proposal a proposal (in status PROPOSAL)
 	 * @param poll a poll in status ELABORATION
 	 * @return the newly created poll
-	 * @throws LiquidoException if area or status of proposal or poll is wrong. And also when user already has a proposal in this poll.
+	 * @throws LiquidoException if area or status of proposal or poll is wrong, or when a member adds to a poll that does not allow it.
 	 */
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
 	public PollEntity addProposalToPoll(@NonNull ProposalEntity proposal, @NonNull PollEntity poll) throws LiquidoException {
@@ -126,12 +130,17 @@ public class PollService {
 		if(poll.getProposals().stream().anyMatch(p -> p.title.equals(proposal.title)))
 			throw new LiquidoException(LiquidoException.Errors.CANNOT_ADD_PROPOSAL, "Cannot addProposalToPoll: Poll(id="+poll.getId()+") already contains a proposal with that title: '" + proposal.title + "'");
 
-		// Current user must not already have a proposal in this poll. Expect the admin may add more proposals.
-		UserEntity currentUser = jwtTokenUtils.getCurrentUser()
+		// Keep the explicit guard: @RolesAllowed would answer with a Quarkus ForbiddenException, and
+		// clients branch on our own LiquidoException codes.
+		jwtTokenUtils.getCurrentUser()
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.UNAUTHORIZED, "Cannot add proposal. Must be logged in!"));
 
-		if (!jwtTokenUtils.isAdmin() && poll.getProposals().stream().anyMatch(prop -> currentUser.equals(prop.createdBy)))
-			throw new LiquidoException(LiquidoException.Errors.CANNOT_ADD_PROPOSAL, "Cannot addProposal: " + currentUser.toStringShort() + " already has a proposal in poll(id="+poll.getId()+")");
+		// Who may add a proposal is a per-poll setting the admin chose at creation time. The admin may
+		// always add. Ordinary members only when the poll allows it - and then as many as they like.
+		// (Until 2026-08-15 this was a hard-coded "one proposal per member per poll" rule.)
+		if (!jwtTokenUtils.isAdmin() && !poll.isMembersCanAddProposals())
+			throw new LiquidoException(LiquidoException.Errors.CANNOT_ADD_PROPOSAL,
+					"Cannot addProposal: only the admin may add proposals to poll(id=" + poll.getId() + ")");
 		// Admin could also be fetched this way: poll.getTeam().isAdmin(currentUser);   But who knows how old the passed poll is.
 		// Keep in mind that proposal.getCreatedBy() might not be filled yet!
 
@@ -140,6 +149,63 @@ public class PollService {
 		proposal.setPoll(poll); // also update the in-memory poll object
 		poll.persist();
 		log.debug("Added "+proposal+" to poll(id="+poll.getId()+")");
+		return poll;
+	}
+
+	/**
+	 * Edit <b>your own</b> proposal, as long as the poll has not started yet.
+	 *
+	 * Everything here is deliberately restrictive, because a proposal is what people later vote on:
+	 * <ol>
+	 *   <li>The poll must still be in ELABORATION. Once voting starts the ballot is frozen - nobody
+	 *       may change what others already voted on, or are about to.</li>
+	 *   <li>The proposal must belong to <i>this</i> poll. We search the poll's own proposals rather
+	 *       than doing a global findById, for the same reason {@link #getPollInCurrentTeam} exists:
+	 *       a bare lookup by id is a cross-poll enumeration oracle.</li>
+	 *   <li>The caller must be the proposal's author. <b>There is no admin override</b> - an admin
+	 *       rewriting a member's words would be a trust problem, not a convenience.</li>
+	 *   <li>The new title must stay unique within the poll, ignoring this proposal itself (otherwise
+	 *       saving a proposal unchanged would collide with itself).</li>
+	 * </ol>
+	 *
+	 * @param poll the poll, already resolved and team-checked by the caller
+	 * @param proposalId id of the proposal to edit. Must be part of that poll.
+	 * @param title new title
+	 * @param description new description
+	 * @param icon new icon name
+	 * @return the poll, with the updated proposal
+	 * @throws LiquidoException if the poll already started, the proposal is not in this poll, the
+	 *         caller is not its author, or the new title is already taken in this poll.
+	 */
+	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
+	public PollEntity updateProposalInPoll(@NonNull PollEntity poll, @NonNull Long proposalId,
+	                                       @NonNull String title, @NonNull String description, String icon) throws LiquidoException {
+		if (poll.getStatus() != PollEntity.PollStatus.ELABORATION)
+			throw new LiquidoException(LiquidoException.Errors.CANNOT_EDIT_PROPOSAL,
+					"Cannot edit proposal: poll(id=" + poll.getId() + ") has already started.");
+
+		ProposalEntity proposal = poll.getProposals().stream()
+				.filter(p -> proposalId.equals(p.getId()))
+				.findFirst()
+				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_EDIT_PROPOSAL,
+						"Cannot edit proposal: there is no proposal(id=" + proposalId + ") in poll(id=" + poll.getId() + ")"));
+
+		UserEntity currentUser = jwtTokenUtils.getCurrentUser()
+				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.UNAUTHORIZED, "Cannot edit proposal. Must be logged in!"));
+		if (!currentUser.equals(proposal.createdBy))
+			throw new LiquidoException(LiquidoException.Errors.CANNOT_EDIT_PROPOSAL,
+					"Cannot edit proposal: you may only edit your own proposals.");
+
+		// Unique title within the poll - but a proposal never collides with itself.
+		if (poll.getProposals().stream().anyMatch(p -> !proposalId.equals(p.getId()) && p.title.equals(title)))
+			throw new LiquidoException(LiquidoException.Errors.CANNOT_EDIT_PROPOSAL,
+					"Cannot edit proposal: poll(id=" + poll.getId() + ") already contains a proposal with that title: '" + title + "'");
+
+		proposal.setTitle(title);
+		proposal.setDescription(description);   // also refuses outside IDEA/PROPOSAL/ELABORATION
+		proposal.setIcon(icon);
+		proposal.persist();
+		log.info("Edited {} in poll(id={}) by {}", proposal.toStringShort(), poll.getId(), currentUser.toStringShort());
 		return poll;
 	}
 

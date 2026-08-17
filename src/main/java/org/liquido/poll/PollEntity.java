@@ -79,6 +79,22 @@ public class PollEntity extends LiquidoBaseEntity {
 	/** initially a poll is in its elaboration phase, where further proposals can be added */
 	PollStatus status = PollStatus.ELABORATION;
 
+	/**
+	 * May ordinary team members add proposals to this poll?
+	 *
+	 * When <b>false</b> (the default) only the team's admin may add proposals, i.e. the admin alone
+	 * decides what can be voted on. When <b>true</b> every team member may add proposals, as many as
+	 * they like.
+	 *
+	 * The admin chooses this when creating the poll. It is deliberately NOT changeable afterwards:
+	 * there is nothing to reason about half way through a poll.
+	 *
+	 * Closed by default on purpose - letting the whole team write on the ballot is a decision the
+	 * admin should make deliberately, not something they get by not noticing a checkbox.
+	 */
+	@NotNull
+	boolean membersCanAddProposals = false;
+
 	/** Date when the voting phase started. Will be set in PollService */
 	LocalDateTime votingStartAt = null;
 

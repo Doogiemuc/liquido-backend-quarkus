@@ -58,8 +58,8 @@ public class SeedContractTests {
 		// The tightest consumer is TestDataCreator's seedRandomProposals(poll, team, 5): it needs one
 		// distinct member per proposal. Keep this number and that call in sync.
 		assertTrue(members.size() >= 5,
-				"Seed team must have >= 5 members so seedRandomProposals(poll, team, 5) can give each " +
-				"proposal its own author, but has " + members.size());
+				"Seed team must have >= 5 members because seedRandomProposals(poll, team, 5) gives each " +
+				"proposal a different author, but has " + members.size());
 
 		long admins = members.stream().filter(m -> m.getRole() == TeamMemberEntity.Role.ADMIN).count();
 		assertEquals(1, admins, "Seed team must have exactly one ADMIN");

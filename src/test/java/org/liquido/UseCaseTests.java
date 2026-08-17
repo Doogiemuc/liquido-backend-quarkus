@@ -61,7 +61,7 @@ public class UseCaseTests {
 	@TestTransaction
 	public void castVoteInTwoPolls() {
 		// A fresh team with two members: its admin, plus one joiner. Two is what
-		// seedRandomProposals(poll, team, 2) needs, since each proposal needs its own author.
+		// seedRandomProposals(poll, team, 2) needs, because it gives each proposal a different author.
 		TeamDataResponse adminRes = util.createFreshTeam("CastVoteTwoPolls");
 		util.joinTeam(adminRes.team.getInviteCode(), null);
 		TeamEntity team = util.loadOwnTeam(adminRes.jwt);   // reload so the new member is in the set

@@ -146,13 +146,22 @@ public class LiquidoTestUtils {
 				.extract().jsonPath().getObject("data.createNewTeam", TeamDataResponse.class);
 	}
 
+	/**
+	 * A brand-new user registers anonymously and joins a team.
+	 *
+	 * Deliberately sends <b>no</b> mobilephone, because that is exactly what the real client does: a
+	 * mobilephone is optional in LIQUIDO and no UI collects one. This also removed a latent flake -- the
+	 * phone number used to be derived from {@code new Date().getTime()}, so two joins landing in the
+	 * same millisecond collided with USER_MOBILEPHONE_EXISTS (see e.g. the three back-to-back joins in
+	 * {@code UseCaseTests}). The optional-but-present path is still covered by
+	 * {@link #createTeam} and {@link #createFreshTeam}, which do send one.
+	 */
 	public TeamDataResponse joinTeam(String inviteCode, String memberEmail) {
 		long now = new Date().getTime();
 		if (memberEmail == null) memberEmail = "member" + now + "@liquido.vote";
 		Lson member = Lson.builder()
 				.put("name", "Member " + now)
 				.put("email", memberEmail)
-				.put("mobilephone", "0151 555 " + now)
 				.put("picture", "Avatar1.png");
 
 		// a new user joins an existing team
@@ -188,10 +197,14 @@ public class LiquidoTestUtils {
 	 * <ol>
 	 *   <li>The request is authenticated with the user's JWT, so the backend takes the
 	 *       "already logged in" branch of {@code TeamGraphQL.joinTeam} instead of creating a new user.</li>
-	 *   <li>It must present exactly the email AND mobilephone the user is already registered with.
-	 *       {@code TeamGraphQL.assertProvidedIdentityMatches()} rejects anything else - a different
-	 *       mobilephone, or a missing one when the user has one.</li>
+	 *   <li>It must present exactly the email the user is already registered with.
+	 *       {@code TeamGraphQL.assertProvidedIdentityMatches()} rejects anything else.</li>
 	 * </ol>
+	 *
+	 * Deliberately sends <b>no</b> mobilephone even though {@code registeredUser} may well have one --
+	 * that is what the real client does now, and it is the regression guard for the identity check:
+	 * it used to also require the mobilephone to match, which rejected every already-registered user
+	 * who had one stored (i.e. everyone created before mobilephone became optional).
 	 *
 	 * The returned JWT is scoped to the newly joined team, so use it for any follow-up call that is
 	 * meant to act inside that team (creating proposals, fetching a voterToken, casting a vote).
@@ -204,8 +217,7 @@ public class LiquidoTestUtils {
 	public TeamDataResponse joinTeamAsRegisteredUser(String inviteCode, UserEntity registeredUser, String jwt) {
 		Lson member = Lson.builder()
 				.put("name", registeredUser.getName())
-				.put("email", registeredUser.getEmail())
-				.put("mobilephone", registeredUser.getMobilephone());
+				.put("email", registeredUser.getEmail());
 
 		String query = "mutation joinTeam($inviteCode: String!, $member: UserEntityInput!, $password: String!) { " +
 				"joinTeam(inviteCode: $inviteCode, member: $member, password: $password) " + CREATE_OR_JOIN_TEAM_RESULT + "}";
@@ -229,16 +241,33 @@ public class LiquidoTestUtils {
 
 
 	/**
-	 * Create a new poll. MUST be logged in for this!
+	 * Create a new poll that team members may add proposals to. MUST be logged in for this!
+	 *
+	 * <b>Deliberately opts in</b> ({@code membersCanAddProposals = true}). The poll default is the
+	 * opposite - admin-only - but this helper exists so that {@link #seedRandomProposals} can add
+	 * member-authored proposals straight afterwards. Left at the default, every seedRandomProposals
+	 * call would fail from the second proposal onward and take the whole test seed with it.
+	 *
+	 * Use {@link #createPoll(String, String, Boolean)} when a test needs the admin-only default.
+	 *
 	 * @param title title for the poll
 	 * @param jwt JsonWebToken of an admin
 	 * @return the newly created poll
 	 */
 	public PollEntity createPoll(String title, String jwt) {
+		return createPoll(title, jwt, true);
+	}
+
+	/**
+	 * Create a new poll, choosing whether ordinary team members may add proposals to it.
+	 *
+	 * @param membersCanAddProposals pass null to exercise the server-side default (admin-only)
+	 */
+	public PollEntity createPoll(String title, String jwt, Boolean membersCanAddProposals) {
 		// WHEN creating a Poll
-		String query = "mutation createPoll($title: String!)" +
-				"{ createPoll(title: $title) " + JQL_POLL + " }";
-		Lson vars = new Lson("title", title);
+		String query = "mutation createPoll($title: String!, $membersCanAddProposals: Boolean)" +
+				"{ createPoll(title: $title, membersCanAddProposals: $membersCanAddProposals) " + JQL_POLL + " }";
+		Lson vars = new Lson("title", title).put("membersCanAddProposals", membersCanAddProposals);
 		return sendGraphQL(query, vars, jwt)
 				.body("data.createPoll.title", is(title))
 				.extract().jsonPath().getObject("data.createPoll", PollEntity.class);
@@ -296,8 +325,9 @@ public class LiquidoTestUtils {
 	 */
 	public PollEntity seedRandomProposals(PollEntity poll, TeamEntity team, int numProposals) {
 		//Test Precondition: Make sure that there are enough members in the poll's team.
-		// Each proposal needs its own author: PollService.addProposalToPoll allows a non-admin only ONE
-		// proposal per poll.
+		// This helper gives every proposal a different author (it indexes into the member list below),
+		// so it needs at least numProposals members. That is this helper's own design, not a rule of
+		// the domain: since 2026-08-15 a poll that allows member proposals allows any number per person.
 		int numMembers = team.getMembers().size();   // poll.getTeam()  is not filled here in the client!
 		if (numMembers < numProposals) {
 			// Deliberately NOT team.toString(): TeamEntity.toString() calls getFirstAdmin(), which
@@ -515,6 +545,16 @@ public class LiquidoTestUtils {
 				.body("data.devLogin.user.email", equalToIgnoringCase(email));
 		if (teamId != null) res.body("data.devLogin.team.id", is(teamId.intValue()));
 		return res.extract().jsonPath().getObject("data.devLogin", TeamDataResponse.class);
+	}
+
+	/**
+	 * Re-fetch one poll from the server. Use this to assert that a mutation actually persisted,
+	 * rather than trusting the object the mutation returned.
+	 */
+	public PollEntity getPoll(@NonNull Long pollId, @NonNull String jwt) {
+		String query = "query poll($pollId: BigInteger!) { poll(pollId: $pollId) " + JQL_POLL + " }";
+		return sendGraphQL(query, new Lson("pollId", pollId), jwt)
+				.extract().jsonPath().getObject("data.poll", PollEntity.class);
 	}
 
 	public TeamEntity loadOwnTeam(@NonNull String jwt) {

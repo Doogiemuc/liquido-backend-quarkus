@@ -265,12 +265,18 @@ public class DoogiesUtil {
 	 * Clean mobile phone number: Replace everything except plus('+') and number (0-9).
 	 * Specifically spaces will be removed.
 	 * This is a very simple thing. Have a look at google phone lib for sophisticated phone number parsing
+	 *
+	 * A mobilephone is optional in LIQUIDO, and "absent" has exactly ONE representation: null.
+	 * So anything that cleans away to nothing - null, "", "   ", "()-" - returns null rather than "".
+	 * This used to return "" for those, which is what let an empty string be *stored*, and a stored ""
+	 * is then a real value that the next registration can collide with. Keep null the only empty form.
 	 * @param mobile a non formatted phone numer
-	 * @return the cleaned up phone number
+	 * @return the cleaned up phone number, or null if there is nothing left after cleaning
 	 */
 	public static String cleanMobilephone(String mobile) {
 		if (mobile == null) return null;
-		return mobile.replaceAll("[^\\+0-9]", "");
+		String cleaned = mobile.replaceAll("[^\\+0-9]", "");
+		return cleaned.isEmpty() ? null : cleaned;
 	}
 
 	/**

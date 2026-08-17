@@ -136,7 +136,8 @@ public class TestDataCreator {
 		// Make sure that the team has enough members to create more polls & proposals.
 		// 7 is what createTeam(.., 5) + the joinTeam above already produce, so this is a no-op that
 		// states the invariant rather than changing the seed. The number must stay >= the largest
-		// seedRandomProposals(..., n) below (currently 5), since each proposal needs its own author.
+		// seedRandomProposals(..., n) below (currently 5), because that helper gives each proposal a
+		// different author.
 		// SeedContractTests asserts this too.
 		adminRes.team = util.ensureNumMembers(adminRes.team.id, 7);
 
@@ -150,6 +151,16 @@ public class TestDataCreator {
 
 		poll = util.createPoll(pollTitle+"_4 "+now+" with a very long title just for testing", adminRes.jwt);
 		poll = util.seedRandomProposals(poll, adminRes.team, 4);
+
+		// An ADMIN-ONLY poll: members may not add proposals here, so the admin writes all the options.
+		// Every other seeded poll allows member proposals (util.createPoll opts in, because
+		// seedRandomProposals needs member-authored proposals), so without this one the seed would only
+		// ever show one half of the setting - and the admin-only path would never be visible by hand.
+		PollEntity adminOnlyPoll = util.createPoll(pollTitle+"_5 "+now+" only the admin adds proposals", adminRes.jwt, false);
+		adminOnlyPoll = util.addProposal(adminOnlyPoll.getId(), "Admin option A "+now,
+				"The first option, written by the admin. Members cannot add their own here.", "crown", adminRes.jwt);
+		adminOnlyPoll = util.addProposal(adminOnlyPoll.getId(), "Admin option B "+now,
+				"The second option, also written by the admin. Members cannot add their own here.", "gavel", adminRes.jwt);
 
 		// Like a proposal
 		Optional<ProposalEntity> prop = poll.getProposals().stream().findFirst();

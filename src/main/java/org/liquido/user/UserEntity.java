@@ -204,9 +204,32 @@ public class UserEntity extends PanacheEntity {
 		return UserEntity.find("email", email.toLowerCase()).firstResultOptional();
 	}
 
+	/**
+	 * Find a user by mobilephone.
+	 *
+	 * A mobilephone is OPTIONAL in LIQUIDO, so most users have none. Looking one up by an absent
+	 * number is therefore a bug in the caller, not a query that can legitimately return "not found" -
+	 * and it must fail loudly instead of returning an Optional.empty() that reads like a real answer.
+	 *
+	 * This is deliberately stricter than {@link #findByEmail(String)}, which returns empty for blank
+	 * input. The reason is that a blank mobilephone used to be *matchable*: cleanMobilephone("")
+	 * returned "", so this method ran `where mobilephone = ''` and found whoever had been stored with
+	 * an empty string - making the first such user's "" a global unique key that rejected everyone
+	 * after them with USER_MOBILEPHONE_EXISTS. Throwing here means no future caller can reopen that
+	 * by passing a maybe-null through.
+	 *
+	 * Callers that only want to check a mobilephone *if the user supplied one* must guard the call,
+	 * e.g. `if (!DoogiesUtil.isEmpty(user.mobilephone) && findByMobilephone(...).isPresent())`.
+	 *
+	 * @param mobilephone a non-blank mobilephone number
+	 * @return the found user or Optional.empty()
+	 * @throws IllegalArgumentException when mobilephone is null, empty, or cleans away to nothing
+	 */
 	public static Optional<UserEntity> findByMobilephone(String mobilephone) {
-		mobilephone = DoogiesUtil.cleanMobilephone(mobilephone);
-		return UserEntity.find("mobilephone", mobilephone).firstResultOptional();
+		String cleaned = DoogiesUtil.cleanMobilephone(mobilephone);
+		if (DoogiesUtil.isEmpty(cleaned))
+			throw new IllegalArgumentException("findByMobilephone needs a mobilephone number, but got: " + mobilephone);
+		return UserEntity.find("mobilephone", cleaned).firstResultOptional();
 	}
 
 	/**

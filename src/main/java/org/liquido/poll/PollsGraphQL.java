@@ -61,7 +61,11 @@ public class PollsGraphQL {
 	/**
 	 * Admin of a team creates a new poll.
 	 * The VOTING phase of this poll will be started manually by the admin later.
+	 *
 	 * @param title title of poll
+	 * @param membersCanAddProposals optional. When true, every team member may add proposals to this
+	 *                               poll. When omitted or false, only the admin may - the default.
+	 *                               Deliberately nullable so existing callers keep working.
 	 * @return the newly created poll
 	 */
 	@Mutation
@@ -69,11 +73,12 @@ public class PollsGraphQL {
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_ADMIN_ROLE)
 	@Transactional
 	public PollEntity createPoll(
-			@NonNull String title
+			@NonNull String title,
+			@Name("membersCanAddProposals") @Description("Optional: let team members add proposals to this poll. Default: only the admin may.") Boolean membersCanAddProposals
 	) throws LiquidoException {
 		TeamEntity team = jwtTokenUtils.getCurrentTeam()
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.UNAUTHORIZED, "Cannot create poll: Must be logged into a team!"));
-		return pollService.createPoll(title, team);
+		return pollService.createPoll(title, team, membersCanAddProposals);
 	}
 
 	/**
@@ -101,6 +106,35 @@ public class PollsGraphQL {
 		proposal.setIcon(icon);
 		proposal.setStatus(ProposalEntity.LawStatus.PROPOSAL);
 		return pollService.addProposalToPoll(proposal, poll);
+	}
+
+	/**
+	 * Edit your <b>own</b> proposal, as long as the poll has not started yet.
+	 *
+	 * All the rules live in {@link PollService#updateProposalInPoll} - notably that you may only edit
+	 * a proposal you created yourself, and only while the poll is still in ELABORATION.
+	 *
+	 * @param pollId the poll containing the proposal
+	 * @param proposalId the proposal to edit. MUST be part of that poll, and created by the caller.
+	 * @param title new title. MUST be unique within the poll.
+	 * @param description new description
+	 * @param icon new fontawesome icon name
+	 * @return The updated poll
+	 * @throws LiquidoException when the poll has started, the proposal is not yours, or the title is taken
+	 */
+	@Mutation
+	@Description("Edit your own proposal, as long as the poll has not started yet")
+	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
+	@Transactional
+	public PollEntity updateProposal(
+			@NonNull long pollId,
+			@NonNull long proposalId,
+			@NonNull String title,
+			@NonNull String description,
+			@NonNull String icon
+	) throws LiquidoException {
+		PollEntity poll = pollService.getPollInCurrentTeam(pollId);   // this is the team-scoping guard
+		return pollService.updateProposalInPoll(poll, proposalId, title, description, icon);
 	}
 
 	/**

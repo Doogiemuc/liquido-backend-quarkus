@@ -153,6 +153,12 @@ public class UserGraphQL {
 	//
 	//================== Login via SMS =====================
 	//  currently disabled, because sending SMS is expensive
+	//
+	//  BEFORE RE-ENABLING: UserEntity.findByMobilephone() now THROWS IllegalArgumentException on a
+	//  null/blank number instead of returning Optional.empty() (mobilephone became optional, so a
+	//  lookup by an absent one is a caller bug). Both methods below hand it client-supplied input
+	//  straight from the GraphQL layer, so they must reject a blank mobilephone themselves and
+	//  return CANNOT_LOGIN_MOBILE_NOT_FOUND - otherwise an empty string surfaces as a 500.
 
 	/*
 	 * Request an SMS token to login via a user's mobilephone

@@ -163,12 +163,12 @@ public class TeamGraphQL {
 			member = currentUserOpt.get();  // with db ID!
 			//TODO: sanity check RightToVoteEntity.findByVoter(member).orElseThrow(...)   -> Or create a separate RightToVote per team?
 		} else {
-			// Anonymous request. Must provide new email and mobilephone
+			// Anonymous request. Must provide a new email. A mobilephone is optional.
 			Optional<UserEntity> userByMail = UserEntity.findByEmail(member.email);
 			if (userByMail.isPresent()) throw new LiquidoException(Errors.USER_EMAIL_EXISTS, "Cannot JoinTeam: Another user with that email already exists: "+member.email);
-			Optional<UserEntity> userByMobilephone = UserEntity.findByMobilephone(member.mobilephone);
-			if (userByMobilephone.isPresent()) throw new LiquidoException(Errors.USER_MOBILEPHONE_EXISTS, "Cannot JoinTeam: Another user with that mobile phone number already exists: "+member.mobilephone);
 
+			// The mobilephone uniqueness check that used to sit here was a duplicate of the one inside
+			// createNewLiquidoUser() on the very next line. One place to get it right is enough.
 			createNewLiquidoUser(member, plainPassword);
 		}
 
@@ -192,40 +192,28 @@ public class TeamGraphQL {
 	 * in that team - so this check is deliberately strict: anything we cannot positively confirm as a
 	 * match is rejected. We never silently fall back to "close enough".
 	 *
-	 * <ol>
-	 *   <li><b>Email</b> MUST be present on both sides AND be equal. A missing email on either side is
-	 *       always a rejection - absence is never treated as a match.</li>
-	 *   <li><b>Mobilephone</b> MUST either be absent on BOTH sides, or present on both AND equal.
-	 *       Present on only one side is a rejection.</li>
-	 * </ol>
+	 * <b>Email is that identity.</b> It MUST be present on both sides AND be equal. A missing email on
+	 * either side is always a rejection - absence is never treated as a match. "Absent" means null or
+	 * blank, via {@link DoogiesUtil#isEmpty}.
 	 *
-	 * "Absent" means null or blank, via {@link DoogiesUtil#isEmpty}. Blank has to count as absent: the
-	 * mobilephone column is nullable, and {@code cleanMobilephone("")} returns {@code ""}, so a client
-	 * that sends an empty field means the same thing as one that omits it. Comparing those two forms
-	 * directly would reject a user who supplied everything they actually have.
+	 * This used to ALSO require the mobilephone to match (absent on both sides, or present on both and
+	 * equal). That rule was removed when mobilephone became optional and disappeared from the UI: no
+	 * client collects a phone number any more, so every already-registered user who happens to have one
+	 * stored - which is every user created before this change - would be rejected for "not providing"
+	 * it. An identity check may only be built on something the client can actually still present.
 	 *
-	 * Both entities are already normalised by the caller (cleanEmail lowercases, cleanMobilephone strips
-	 * formatting), so this compares like with like.
+	 * Both entities are already normalised by the caller (cleanEmail lowercases), so this compares like
+	 * with like.
 	 *
 	 * @param registered the user as stored in the DB, resolved from the JWT
 	 * @param provided the user data sent with this joinTeam request
 	 * @throws LiquidoException when the provided identity does not match the registered one
 	 */
 	private static void assertProvidedIdentityMatches(UserEntity registered, UserEntity provided) throws LiquidoException {
-		// (1) Email: must exist on both sides and match.
 		if (DoogiesUtil.isEmpty(registered.email) || DoogiesUtil.isEmpty(provided.email) ||
 				!DoogiesUtil.isEqualString(registered.email, provided.email)) {
 			throw new LiquidoException(Errors.USER_EMAIL_EXISTS,
 					"You are already registered. You must provide your registered email to join another team!");
-		}
-
-		// (2) Mobilephone: either absent on both sides, or present on both and equal.
-		boolean registeredHasMobilephone = !DoogiesUtil.isEmpty(registered.mobilephone);
-		boolean providedHasMobilephone = !DoogiesUtil.isEmpty(provided.mobilephone);
-		if (registeredHasMobilephone != providedHasMobilephone ||
-				(registeredHasMobilephone && !DoogiesUtil.isEqualString(registered.mobilephone, provided.mobilephone))) {
-			throw new LiquidoException(Errors.USER_EMAIL_EXISTS,
-					"You are already registered. You must provide your registered mobilephone to join another team!");
 		}
 	}
 
@@ -242,7 +230,10 @@ public class TeamGraphQL {
 		user.setEmail(DoogiesUtil.cleanEmail(user.email));
 		if (UserEntity.findByEmail(user.email).isPresent())
 			throw new LiquidoException(Errors.USER_EMAIL_EXISTS, "Sorry, a user with that email already exists.");
-		if (UserEntity.findByMobilephone(user.mobilephone).isPresent())
+		// A mobilephone is optional, so only check uniqueness when the user actually supplied one.
+		// This guard is load-bearing: findByMobilephone throws on a blank number, so without it every
+		// registration without a phone - which is now the normal case - would die here.
+		if (!DoogiesUtil.isEmpty(user.mobilephone) && UserEntity.findByMobilephone(user.mobilephone).isPresent())
 			throw new LiquidoException(Errors.USER_MOBILEPHONE_EXISTS, "Sorry, a user with that mobile phone number already exists.");
 
 		// Create new user

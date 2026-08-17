@@ -59,7 +59,7 @@ public class TestFixtures {
 	public static final String JQL_PROPOSAL =
 			"{ id title description icon status createdAt likedByCurrentUser numSupporters createdBy " + JQL_USER + "}";  //no "is" before likedByCurrentUser !
 	public static final String JQL_POLL =
-			"{ id title status proposals " + JQL_PROPOSAL +  // TODO: votingStartAt votingEndAt
+			"{ id title status membersCanAddProposals proposals " + JQL_PROPOSAL +  // TODO: votingStartAt votingEndAt
 					" winner " + JQL_PROPOSAL +
 					//TODO:" numBallots " +
 					//TODO:" duelMatrix { data } " +
