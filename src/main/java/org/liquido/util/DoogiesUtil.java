@@ -3,8 +3,8 @@ package org.liquido.util;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
@@ -40,13 +40,31 @@ public class DoogiesUtil {
 		}
 	}
 
-	/**
+	/*
+
+	One thing learned the hard way: NEVER EVER implement core functions yourself. You'll always do it wrong!
+
+	Use Objects.equals(a,b)
+
+	Or what do you think should these return?
+	  * isEqual(null, null)
+	  * isEqual(null, "")
+	  * isEqual("", " ")
+	  * isEqual(0, "0")
+	  * isEqual(array1, array2)
+	  * isEqual(json1, json2) => maybe with recursive cycles :-)
+
+	  Don't even try to implement this correctly!!!
+
+
+
+	*****
 	 * null safe equals that also compares array elements.
 	 * @param o1 object may be null
 	 * @param o2 object may be null
 	 * @return true if o1 equals o2 (also true, when o1 == o2 == null)
-	 */
-  public static boolean isEqual(Object o1, Object o2) {
+
+  	public static boolean isEqual(Object o1, Object o2) {
 		//copy of org.springframework.util.ObjectUtils.nullSafeEquals(o1, o2)
 		if (o1 == o2) {
 			return true;
@@ -61,10 +79,7 @@ public class DoogiesUtil {
 		}
 	}
 
-	public static boolean notEqual(Object o1, Object o2) {
-  	return !isEqual(o1, o2);
-	}
-
+	// was also copied
 	public static boolean arrayEquals(Object o1, Object o2) {
 		if (o1 instanceof Object[] && o2 instanceof Object[]) {
 			return Arrays.equals((Object[])((Object[])o1), (Object[])((Object[])o2));
@@ -87,16 +102,16 @@ public class DoogiesUtil {
 		}
 	}
 
+	*/
+
 	public static final String eMailRegEx = "\\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,64}\\b";
-  public static final Pattern p = Pattern.compile(eMailRegEx);
-
-
+  	public static final Pattern emailPattern = Pattern.compile(eMailRegEx);
 
 	/**
 	 * Check if s looks like an email adress.
 	 * The official specification for the format of an email adress
-	 * is alreay quite complex: https://tools.ietf.org/html/rfc2822#page-16
-	 * This method uses a simple regular expression to validate email adresses.
+	 * is already quite complex: https://tools.ietf.org/html/rfc2822#page-16
+	 * This method uses a simple regular expression to validate email addresses.
 	 * This method of course does not check if that email can actually receive mails.
 	 *
 	 * @param s an email adress to check for correct format.
@@ -104,7 +119,7 @@ public class DoogiesUtil {
 	 */
 	public static boolean isEmail(String s) {
 		if (s == null) return false;
-		Matcher m = p.matcher(s);
+		Matcher m = emailPattern.matcher(s);
 		return m.matches();
 	}
 
@@ -143,12 +158,7 @@ public class DoogiesUtil {
     while ((length = inputStream.read(buffer)) != -1) {
       result.write(buffer, 0, length);
     }
-    try {
-      return result.toString("UTF-8");
-    } catch (UnsupportedEncodingException e) {
-      //You should really know "UTF-8" :-)
-      return "";  // yeah ... i know
-    }
+      return result.toString(StandardCharsets.UTF_8);
   }
 
   /** @return a Data n days ago */
@@ -166,11 +176,11 @@ public class DoogiesUtil {
   }
 
   static final Random rand = new Random();
-  /** There is deliberately no number 0/O/o 1/I/i/j/l/L this array, because they can be confused so easily in many fonts. */
+  /** There is deliberately no number 0/O/o 1/I/i/j/l/L in this array, because they can visually be confused so easily in many fonts. */
   private static final char[] EASY_CHARS = "234567890ABCDEFGHKLMNPQRSTUVWXYZabcdefghkmnpqrstuvwxyz".toCharArray();
 
   /**
-   * Generate some random characters that can be used for human readable tokens.
+   * Generate some random characters that can be used for human-readable tokens.
    * @param len number of chars to generate
    * @return a String of length len with "easy" random characters and numbers
    */
