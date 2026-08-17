@@ -80,7 +80,11 @@ public class LiquidoException extends Exception {
 	public enum Errors {
 		// Register as a new user
 		CANNOT_REGISTER_NEED_EMAIL(1, Response.Status.BAD_REQUEST),
-		CANNOT_REGISTER_NEED_MOBILEPHONE(2, Response.Status.BAD_REQUEST),
+		// Code 2 was CANNOT_REGISTER_NEED_MOBILEPHONE. Removed: a mobilephone is optional in LIQUIDO,
+		// so registration can never fail for the want of one. Do not reuse the number 2 - an old client
+		// build could still map it to the old meaning. USER_MOBILEPHONE_EXISTS(17) is still thrown when
+		// someone supplies a number that is already taken, and the SMS-login codes 20/26 are kept for
+		// when login via SMS is built.
 
 		// Create New Team
 		TEAM_WITH_SAME_NAME_EXISTS(10, Response.Status.CONFLICT),
