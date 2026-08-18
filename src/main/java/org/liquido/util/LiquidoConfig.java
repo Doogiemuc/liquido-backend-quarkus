@@ -24,6 +24,27 @@ public interface LiquidoConfig {
 	@WithDefault("10")
 	int loginLinkExpirationMinutes();
 
+	/**
+	 * Path (including the query parameter name) that an invite link points at, appended to
+	 * {@link #frontendUrl()} and followed by the raw inviteCode.
+	 *
+	 * Configurable because LIQUIDO has two join flows: the welcome chat at "/welcome" and the
+	 * dedicated join form at "/join-v2". The default is the chat, which is what production has always
+	 * used; switch this property to "/join-v2?inviteCode=" to move invitees to the form instead.
+	 */
+	@WithDefault("/join-v2?inviteCode=")
+	String inviteLinkPath();
+
+	/**
+	 * From-address for mails LIQUIDO sends.
+	 *
+	 * Note: an explicit setFrom() on a Mail overrides quarkus.mailer.from, and the two older mails in
+	 * UserService hardcode this same address. Those are deliberately left alone; new mail reads it
+	 * from config so it can differ per environment.
+	 */
+	@WithDefault("info@liquido.vote")
+	String mailFrom();
+
 	/** How long do polls run by default (TODO: future bigger LIQUIDO) */
 	@NotNull
 	int durationOfVotingPhase();

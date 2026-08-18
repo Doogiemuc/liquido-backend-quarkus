@@ -1,0 +1,51 @@
+{@java.lang.String name}
+{@java.lang.String teamName}
+{@java.lang.String loginUrl}
+{@java.lang.String inviteUrl}
+LIQUIDO - Sicher und anonym abstimmen
+
+Willkommen, {name}!
+
+Du hast gerade das Team "{teamName}" gegründet. Ab jetzt könnt ihr gemeinsam
+Entscheidungen treffen - fair, nachvollziehbar und ohne dass jemand sehen kann,
+wer wie abgestimmt hat.
+
+
+WARUM LIQUIDO ANDERS ABSTIMMT
+
+In LIQUIDO stimmst du nicht nur für EINEN Vorschlag. Du bringst die Vorschläge,
+die du unterstützen möchtest, in eine Rangfolge - dein Favorit ganz oben.
+Vorschläge, die du nicht unterstützen möchtest, lässt du einfach weg.
+
+Ausgezählt wird dann nach "Ranked Pairs": LIQUIDO vergleicht jeden Vorschlag
+einzeln mit jedem anderen und schaut, welcher von beiden der Mehrheit lieber
+ist. Aus all diesen Duellen entsteht der Sieger. Das Ergebnis bildet den Willen
+eurer Gruppe deutlich besser ab als ein einfaches Kreuz - und der Vorschlag, mit
+dem die meisten leben können, gewinnt auch dann, wenn sich die lautesten Lager
+gegenseitig blockieren.
+
+Deine Stimme ist dabei sicher und anonym. Niemand kann zurückverfolgen, wie du
+abgestimmt hast.
+
+
+LADE DEIN TEAM EIN
+
+Ein Team mit nur einer Person stimmt schlecht ab. :-)
+Leite diesen Link an alle weiter, die mitmachen sollen:
+
+{inviteUrl}
+
+Wer darauf klickt, landet direkt bei "{teamName}" und muss sich nur noch einen
+Spitznamen geben.
+
+
+ZU DEINEM TEAM
+
+{loginUrl}
+
+Du meldest dich wie gewohnt mit deiner E-Mail und deinem Passwort an.
+
+
+--
+Du bekommst diese E-Mail, weil mit dieser Adresse ein Team bei LIQUIDO gegründet
+wurde. Wenn du das nicht warst, kannst du diese Nachricht einfach ignorieren.

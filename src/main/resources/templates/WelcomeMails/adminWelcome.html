@@ -1,0 +1,146 @@
+{@java.lang.String name}
+{@java.lang.String teamName}
+{@java.lang.String loginUrl}
+{@java.lang.String inviteUrl}
+<!DOCTYPE html>
+<html lang="de">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Willkommen bei LIQUIDO</title>
+</head>
+<!--
+	HTML email, not a web page. Hence the table layout and the fully inlined CSS: many mail clients
+	strip <style> blocks entirely and have no support for flexbox or grid.
+
+	The LIQUIDO wordmark is set as TEXT in a serif stack rather than as an image on purpose. The app
+	renders it the same way (see .liquido:after in liquido.css), so it matches - and a text wordmark
+	cannot be blocked the way remote images are blocked by default in most clients.
+-->
+<body style="margin:0; padding:0; background-color:#f4f6f9; -webkit-font-smoothing:antialiased;">
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#f4f6f9;">
+	<tr>
+		<td align="center" style="padding:24px 12px;">
+
+			<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600"
+			       style="max-width:600px; width:100%; background-color:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+
+				<!-- Wordmark -->
+				<tr>
+					<td align="center" style="padding:32px 32px 8px 32px;">
+						<span style="font-family:'Libre Baskerville', Georgia, 'Times New Roman', serif; font-weight:bold; font-size:28px; letter-spacing:0.5px; color:#1e3a5f;">LIQUIDO</span>
+					</td>
+				</tr>
+
+				<tr>
+					<td align="center" style="padding:0 32px 24px 32px;">
+						<span style="font-family:Helvetica, Arial, sans-serif; font-size:13px; color:#959cab;">Sicher und anonym abstimmen</span>
+					</td>
+				</tr>
+
+				<!-- Greeting -->
+				<tr>
+					<td style="padding:0 32px;">
+						<h1 style="margin:0 0 16px 0; font-family:'Libre Baskerville', Georgia, serif; font-size:22px; line-height:1.35; color:#1e3a5f; font-weight:bold;">
+							Willkommen, {name}!
+						</h1>
+						<p style="margin:0 0 16px 0; font-family:Helvetica, Arial, sans-serif; font-size:15px; line-height:1.6; color:#3d4451;">
+							Du hast gerade das Team <strong style="color:#1e3a5f;">{teamName}</strong> gegründet. Ab jetzt könnt ihr
+							gemeinsam Entscheidungen treffen &ndash; fair, nachvollziehbar und ohne dass jemand sehen kann, wer wie
+							abgestimmt hat.
+						</p>
+					</td>
+				</tr>
+
+				<!-- What makes LIQUIDO different -->
+				<tr>
+					<td style="padding:8px 32px 0 32px;">
+						<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
+						       style="background-color:#f7f9fc; border:1px solid #e3e8ef; border-radius:8px;">
+							<tr>
+								<td style="padding:20px 24px;">
+									<h2 style="margin:0 0 10px 0; font-family:'Libre Baskerville', Georgia, serif; font-size:16px; color:#1e3a5f; font-weight:bold;">
+										Warum LIQUIDO anders abstimmt
+									</h2>
+									<p style="margin:0 0 12px 0; font-family:Helvetica, Arial, sans-serif; font-size:14px; line-height:1.6; color:#3d4451;">
+										In LIQUIDO stimmst du nicht nur für <em>einen</em> Vorschlag. Du bringst die Vorschläge, die du
+										unterstützen möchtest, in eine <strong>Rangfolge</strong> &ndash; dein Favorit ganz oben.
+										Vorschläge, die du nicht unterstützen möchtest, lässt du einfach weg.
+									</p>
+									<p style="margin:0 0 12px 0; font-family:Helvetica, Arial, sans-serif; font-size:14px; line-height:1.6; color:#3d4451;">
+										Ausgezählt wird dann nach <strong>Ranked Pairs</strong>: LIQUIDO vergleicht jeden Vorschlag
+										einzeln mit jedem anderen und schaut, welcher von beiden der Mehrheit lieber ist. Aus all diesen
+										Duellen entsteht der Sieger. Das Ergebnis bildet den Willen eurer Gruppe deutlich besser ab als
+										ein einfaches Kreuz &ndash; und der Vorschlag, mit dem die meisten leben können, gewinnt auch dann,
+										wenn sich die lautesten Lager gegenseitig blockieren.
+									</p>
+									<p style="margin:0; font-family:Helvetica, Arial, sans-serif; font-size:14px; line-height:1.6; color:#3d4451;">
+										Deine Stimme ist dabei sicher und anonym. Niemand kann zurückverfolgen, wie du abgestimmt hast.
+									</p>
+								</td>
+							</tr>
+						</table>
+					</td>
+				</tr>
+
+				<!-- Invite link: admins distribute this -->
+				<tr>
+					<td style="padding:28px 32px 0 32px;">
+						<h2 style="margin:0 0 10px 0; font-family:'Libre Baskerville', Georgia, serif; font-size:16px; color:#1e3a5f; font-weight:bold;">
+							Lade dein Team ein
+						</h2>
+						<p style="margin:0 0 12px 0; font-family:Helvetica, Arial, sans-serif; font-size:14px; line-height:1.6; color:#3d4451;">
+							Ein Team mit nur einer Person stimmt schlecht ab. :-) Leite diesen Link an alle weiter, die
+							mitmachen sollen:
+						</p>
+						<p style="margin:0 0 8px 0; padding:12px 16px; background-color:#f7f9fc; border:1px dashed #c9d2e0; border-radius:6px; font-family:Helvetica, Arial, sans-serif; font-size:13px; line-height:1.5; word-break:break-all;">
+							<a href="{inviteUrl}" style="color:#1e3a5f; text-decoration:none;">{inviteUrl}</a>
+						</p>
+						<p style="margin:0; font-family:Helvetica, Arial, sans-serif; font-size:13px; line-height:1.5; color:#959cab;">
+							Wer darauf klickt, landet direkt bei <strong>{teamName}</strong> und muss sich nur noch einen Spitznamen geben.
+						</p>
+					</td>
+				</tr>
+
+				<!-- CTA -->
+				<tr>
+					<td align="center" style="padding:32px 32px 8px 32px;">
+						<table role="presentation" cellpadding="0" cellspacing="0" border="0">
+							<tr>
+								<td align="center" style="background-color:#1e3a5f; border-radius:6px;">
+									<a href="{loginUrl}"
+									   style="display:inline-block; padding:14px 32px; font-family:Helvetica, Arial, sans-serif; font-size:16px; font-weight:bold; color:#ffffff; text-decoration:none;">
+										Zu deinem Team
+									</a>
+								</td>
+							</tr>
+						</table>
+					</td>
+				</tr>
+
+				<tr>
+					<td align="center" style="padding:0 32px 32px 32px;">
+						<p style="margin:0; font-family:Helvetica, Arial, sans-serif; font-size:13px; line-height:1.5; color:#959cab;">
+							Du meldest dich wie gewohnt mit deiner E-Mail und deinem Passwort an.
+						</p>
+					</td>
+				</tr>
+
+				<!-- Footer -->
+				<tr>
+					<td style="padding:20px 32px 28px 32px; border-top:1px solid #e3e8ef;">
+						<p style="margin:0; font-family:Helvetica, Arial, sans-serif; font-size:12px; line-height:1.6; color:#959cab;">
+							Du bekommst diese E-Mail, weil mit dieser Adresse ein Team bei LIQUIDO gegründet wurde.
+							Wenn du das nicht warst, kannst du diese Nachricht einfach ignorieren.
+						</p>
+					</td>
+				</tr>
+
+			</table>
+		</td>
+	</tr>
+</table>
+
+</body>
+</html>

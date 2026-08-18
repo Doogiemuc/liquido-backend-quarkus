@@ -1,7 +1,10 @@
 package org.liquido.security;
 
 import io.quarkus.mailer.Mailer;
+import io.smallrye.common.annotation.Blocking;
+import io.smallrye.mutiny.Uni;
 import io.vertx.core.json.JsonObject;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
@@ -22,6 +25,7 @@ import org.hibernate.validator.constraints.Length;
 import org.jboss.resteasy.reactive.RestQuery;
 import org.liquido.team.TeamDataResponse;
 import org.liquido.user.UserService;
+import org.liquido.user.WelcomeMailService;
 import org.liquido.util.DoogiesUtil;
 import org.liquido.util.LiquidoException;
 import org.liquido.util.Lson;
@@ -40,6 +44,9 @@ public class LoginRestAPI {
 
 	@Inject
 	UserService userService;
+
+	@Inject
+	WelcomeMailService welcomeMailService;
 
 	@Inject
 	Mailer mailer;
@@ -174,6 +181,32 @@ public class LoginRestAPI {
 	@Produces(MediaType.APPLICATION_JSON)
 	public TeamDataResponse loginWithEmailToken(@NotNull @Valid LoginWithEmailTokenRequest req) throws LiquidoException {
 		return userService.loginWithEmailToken(req.email(), req.emailToken());
+	}
+
+	// =============== Welcome mail after registering ================
+
+	/**
+	 * Send the welcome mail to the user who just registered.
+	 *
+	 * Called by the frontend right after createNewTeam or joinTeam returns, using the JWT it received
+	 * from that very call. It takes no parameters on purpose: recipient, team and role all come from
+	 * the JWT, so a caller can only ever mail themselves.
+	 *
+	 * This lives in REST rather than in the GraphQL mutation because the mailer deadlocks inside a
+	 * blocking GraphQL resolver on this Quarkus version - see {@link WelcomeMailService} for the
+	 * details and the upstream fix.
+	 */
+	@POST
+	@Path("/welcomeMail")
+	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
+	@Produces(MediaType.APPLICATION_JSON)
+	// @Blocking is required, not decorative: returning a Uni makes Quarkus REST treat this as a
+	// reactive endpoint and run it on the IO thread, where resolving the user and team from the JWT
+	// blows up with BlockingOperationNotAllowedException on the first Hibernate query.
+	@Blocking
+	public Uni<Response> sendWelcomeMail() throws LiquidoException {
+		return welcomeMailService.sendWelcomeMailToCurrentUser()
+				.replaceWith(() -> Response.ok(Lson.builder("message", "Welcome mail sent.")).build());
 	}
 
 }
