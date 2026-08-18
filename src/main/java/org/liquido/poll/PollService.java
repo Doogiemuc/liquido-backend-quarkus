@@ -217,7 +217,19 @@ public class PollService {
 	 */
 	@Transactional
 	public PollEntity startVotingPhase(@NonNull PollEntity poll) throws LiquidoException {
-		log.info("startVotingPhase of " + poll);
+		return startVotingPhase(poll, null);
+	}
+
+	/**
+	 * Start the voting phase, running for a caller-chosen number of days.
+	 *
+	 * @param durationInDays how long voting stays open, or null for the configured default. The
+	 *        caller only chooses the DURATION - the start is always "now", server side. A client
+	 *        supplied start date would let a poll be backdated, and would make the poll's clock
+	 *        depend on whichever device happened to press the button.
+	 */
+	public PollEntity startVotingPhase(@NonNull PollEntity poll, Integer durationInDays) throws LiquidoException {
+		log.info("startVotingPhase of " + poll + " for " + (durationInDays != null ? durationInDays + " days" : "the configured default duration"));
 		if (poll.getStatus() != PollEntity.PollStatus.ELABORATION)
 			throw new LiquidoException(LiquidoException.Errors.CANNOT_START_VOTING_PHASE, "Poll(id="+poll.id+") must be in status ELABORATION");
 		if (poll.getProposals().size() < 2)
@@ -229,7 +241,10 @@ public class PollService {
 		poll.setStatus(PollEntity.PollStatus.VOTING);
 		LocalDateTime votingStart = LocalDateTime.now();			// LocalDateTime is without a timezone
 		poll.setVotingStartAt(votingStart);   //record the exact datetime when the voting phase started.
-		poll.setVotingEndAt(votingStart.truncatedTo(ChronoUnit.DAYS).plusDays(config.durationOfVotingPhase()));     //voting ends in n days at midnight
+		int days = durationInDays != null ? durationInDays : config.durationOfVotingPhase();
+		if (days < 1)
+			throw new LiquidoException(LiquidoException.Errors.CANNOT_START_VOTING_PHASE, "A poll must run for at least one day, but got durationInDays=" + days);
+		poll.setVotingEndAt(votingStart.truncatedTo(ChronoUnit.DAYS).plusDays(days));     //voting ends in n days at midnight
 		poll.persist();
 
 		//----- schedule a Job that will finish the voting phase at poll.votingEndAt() date

@@ -256,6 +256,8 @@ public class PollsGraphQL {
 	/**
 	 * Start the voting Phase of a poll
 	 * @param pollId poll.id
+	 * @param durationInDays (optional) how many days the voting phase shall run. Falls back to the
+	 *        configured default when not given, which is what every earlier client did.
 	 * @return the poll in VOTING
 	 * @throws LiquidoException when voting phase cannot yet be started
 	 */
@@ -263,9 +265,12 @@ public class PollsGraphQL {
 	@Description("Start voting phase of a poll")
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_ADMIN_ROLE)
 	@Transactional
-	public PollEntity startVotingPhase(@NonNull long pollId) throws LiquidoException {
+	public PollEntity startVotingPhase(
+			@NonNull long pollId,
+			@Name("durationInDays") @Description("Optional: how many days the voting phase runs. Default: the server's configured duration.") Integer durationInDays
+	) throws LiquidoException {
 		PollEntity poll = pollService.getPollInCurrentTeam(pollId);
-		return pollService.startVotingPhase(poll);
+		return pollService.startVotingPhase(poll, durationInDays);
 	}
 
 	/**

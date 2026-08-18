@@ -149,17 +149,41 @@ public class WelcomeMailTests {
 	}
 
 	@Test
-	@DisplayName("Anonymous callers are rejected")
+	@DisplayName("Anonymous callers are rejected and no mail goes out")
 	public void anonymousCallerIsRejected() {
+		// Deliberately NOT asserting an exact status code. quarkus-security-webauthn puts a form
+		// authentication mechanism on the classpath, and that answers a request carrying NO identity
+		// at all with a 302 challenge towards its login page rather than a bare 401. Which of the two
+		// comes back is a framework negotiation detail; the property this test exists to protect is
+		// that the request is not served and nobody gets mailed.
+		int status = given()
+				.contentType(ContentType.JSON)
+				.when()
+				.post(WELCOME_MAIL_URI)
+				.then()
+				.extract().statusCode();
+
+		assertNotEquals(200, status, "an unauthenticated call must not be served, but got HTTP " + status);
+		assertEquals(0, mockMailbox.getTotalMessagesSent(),
+				"an unauthenticated call must not send anything");
+	}
+
+	@Test
+	@DisplayName("A bad JWT is rejected with 401 - the token really is validated")
+	public void invalidJwtIsRejected() {
+		// The counterpart to the test above: here an identity IS presented, just not a valid one, and
+		// that path is unambiguously a 401. Without this, "rejected" above could pass even if the
+		// endpoint accepted any garbage token.
 		given()
 				.contentType(ContentType.JSON)
+				.header(HttpHeaders.AUTHORIZATION, "Bearer this-is-not-a-jwt")
 				.when()
 				.post(WELCOME_MAIL_URI)
 				.then()
 				.statusCode(401);
 
 		assertEquals(0, mockMailbox.getTotalMessagesSent(),
-				"an unauthenticated call must not send anything");
+				"a call with an invalid token must not send anything");
 	}
 
 	@Test
