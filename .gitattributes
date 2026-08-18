@@ -1,0 +1,14 @@
+# Line endings
+#
+# Normalise every text file to LF, both in the repository and in the working tree, so that a tool
+# which rewrites a whole file cannot silently flip its line endings and bury a small change in a
+# file-sized diff.
+#
+# `text=auto` still lets git detect binary content on its own, so the favicon, keystores and
+# certificates are left untouched.
+* text=auto eol=lf
+
+# ...except Windows scripts. mvnw.cmd is the Maven wrapper for Windows and ships with CRLF; batch
+# files are the one thing here that genuinely wants them.
+*.bat text eol=crlf
+*.cmd text eol=crlf
