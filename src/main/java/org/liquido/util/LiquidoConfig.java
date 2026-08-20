@@ -57,13 +57,53 @@ public interface LiquidoConfig {
 	@WithDefault("20")
 	int voterTokenExpirationMinutes();
 
-	/** Length of team invide codes. Must match frontend config!!! */
+	/**
+	 * Length of team invite codes.
+	 *
+	 * This used to say "Must match frontend config!!!" - and that was the whole problem: the value
+	 * lived in two places and nothing enforced the match. The frontend now fetches these through
+	 * {@code query liquidoConfig} at startup instead of hardcoding its own copy.
+	 */
 	@WithDefault("8")
 	int inviteCodeLength();
 
 	/** Keep passwords secure! */
 	@WithDefault("10")
 	int minPasswordLength();
+
+	// ============ Validation rules the FRONTEND must agree with ============
+	//
+	// Everything below is served to the frontend by ConfigGraphQL so the two cannot drift. Before
+	// this existed, config.common.js carried its own copies, and proposalDescriptionMinLength had
+	// already drifted to 10 against the entity's @Size(min=20) - so a user could fill in a form the
+	// client accepted and the server then rejected.
+
+	/** Minimum length of a user's nickname. */
+	@WithDefault("3")
+	int usernameMinLength();
+
+	/** May ordinary team members invite further members, or only the admin? */
+	@WithDefault("true")
+	boolean allowMembersToInvite();
+
+	/** Minimum length of a poll title. Short is fine, but not so short that it invites spam. */
+	@WithDefault("5")
+	int pollTitleMinLength();
+
+	/** Minimum length of a proposal title. */
+	@WithDefault("3")
+	int proposalTitleMinLength();
+
+	/**
+	 * Minimum length of a proposal description.
+	 *
+	 * MUST stay in sync with {@code @Size(min = ...)} on {@code ProposalEntity.description}, which is
+	 * what actually rejects a too short description. LiquidoConfigMatchesEntityTest asserts the two
+	 * agree, so a change to one without the other fails the build rather than surfacing as a
+	 * confusing server-side rejection of a form the client had accepted.
+	 */
+	@WithDefault("20")
+	int proposalDescriptionMinLength();
 
 
 	/** Used for login with google */
