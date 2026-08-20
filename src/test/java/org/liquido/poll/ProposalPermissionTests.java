@@ -75,6 +75,22 @@ public class ProposalPermissionTests {
 				.put("title", title).put("description", description).put("icon", "hammer");
 	}
 
+	private static final String DELETE_PROPOSAL_QUERY =
+			"mutation deleteProposal($pollId: BigInteger!, $proposalId: BigInteger!) { " +
+			"deleteProposal(pollId: $pollId, proposalId: $proposalId) " + JQL_POLL + "}";
+
+	private static final String UPDATE_POLL_QUERY =
+			"mutation updatePoll($pollId: BigInteger!, $title: String!) { " +
+			"updatePoll(pollId: $pollId, title: $title) " + JQL_POLL + "}";
+
+	private Lson deleteVars(Long pollId, Long proposalId) {
+		return Lson.builder().put("pollId", pollId).put("proposalId", proposalId);
+	}
+
+	private Lson renameVars(Long pollId, String title) {
+		return Lson.builder().put("pollId", pollId).put("title", title);
+	}
+
 	/** A fresh team plus one joined member. Returns {adminRes, memberRes}. */
 	private TeamDataResponse[] freshTeamWithMember(String prefix) {
 		TeamDataResponse admin = util.createFreshTeam(prefix);
@@ -224,5 +240,151 @@ public class ProposalPermissionTests {
 		assertEquals("A freshly edited description, long enough.",
 				reloaded.getProposals().iterator().next().getDescription(),
 				"re-saving with the same title must be allowed");
+	}
+
+	// ==================== who may DELETE ====================
+	//
+	// Deliberately asymmetric with editing: the admin may take any proposal OFF the ballot, but
+	// still may not rewrite one that is not theirs. See PollService.deleteProposalFromPoll.
+
+	@Test
+	@DisplayName("The admin may delete anybody's proposal while the poll has not started")
+	public void adminMayDeleteAnyProposal() {
+		TeamDataResponse[] t = freshTeamWithMember("DeleteByAdmin");
+		TeamDataResponse admin = t[0], member = t[1];
+
+		PollEntity poll = util.createPoll("Poll the admin will prune", admin.jwt, true);
+		util.addProposal(poll.getId(), "Keep me", "This proposal survives, described at length.", "atom", member.jwt);
+		PollEntity both = util.addProposal(poll.getId(), "Delete me", "This one is off topic, described at length.", "atom", member.jwt);
+		Long doomed = both.getProposals().stream()
+				.filter(p -> "Delete me".equals(p.getTitle())).findFirst().orElseThrow().getId();
+
+		TestFixtures.sendGraphQL(DELETE_PROPOSAL_QUERY, deleteVars(poll.getId(), doomed), admin.jwt);
+
+		PollEntity reloaded = util.getPoll(poll.getId(), admin.jwt);
+		assertEquals(1, reloaded.getProposals().size(), "the deleted proposal must be gone");
+		assertEquals("Keep me", reloaded.getProposals().iterator().next().getTitle(),
+				"the wrong proposal must not have been deleted");
+	}
+
+	@Test
+	@DisplayName("A member may NOT delete a proposal - not even their own")
+	public void memberMayNotDelete() {
+		TeamDataResponse[] t = freshTeamWithMember("DeleteByMember");
+		TeamDataResponse admin = t[0], member = t[1];
+
+		PollEntity poll = util.createPoll("Poll a member cannot prune", admin.jwt, true);
+		PollEntity withProposal = util.addProposal(poll.getId(), "The member's own idea", "Written by the member, at length.", "atom", member.jwt);
+		Long ownId = withProposal.getProposals().iterator().next().getId();
+
+		assertRejected(DELETE_PROPOSAL_QUERY, deleteVars(poll.getId(), ownId), member.jwt,
+				"CANNOT_DELETE_PROPOSAL", "deleting is the admin's call, even for your own proposal");
+	}
+
+	@Test
+	@DisplayName("Once voting has started, not even the admin may delete")
+	public void cannotDeleteAfterVotingStarted() {
+		TeamDataResponse[] t = freshTeamWithMember("DeleteAfterStart");
+		TeamDataResponse admin = t[0], member = t[1];
+
+		PollEntity poll = util.createPoll("Poll that will start before a delete", admin.jwt, true);
+		util.addProposal(poll.getId(), "Proposal one", "The first proposal, long enough.", "atom", member.jwt);
+		PollEntity twoProposals = util.addProposal(poll.getId(), "Proposal two", "The second proposal, long enough.", "atom", member.jwt);
+		Long proposalId = twoProposals.getProposals().stream()
+				.filter(p -> "Proposal one".equals(p.getTitle())).findFirst().orElseThrow().getId();
+
+		util.startVotingPhase(poll.getId(), admin.jwt);
+
+		assertRejected(DELETE_PROPOSAL_QUERY, deleteVars(poll.getId(), proposalId), admin.jwt,
+				"CANNOT_DELETE_PROPOSAL", "the ballot must be frozen once voting has started");
+	}
+
+	@Test
+	@DisplayName("A proposal can only be deleted through the poll it actually belongs to")
+	public void cannotDeleteProposalOfAnotherPoll() {
+		TeamDataResponse[] t = freshTeamWithMember("DeleteWrongPoll");
+		TeamDataResponse admin = t[0], member = t[1];
+
+		PollEntity pollA = util.createPoll("Poll A holding the proposal", admin.jwt, true);
+		PollEntity withProposal = util.addProposal(pollA.getId(), "Lives in poll A", "Belongs to poll A, described at length.", "atom", member.jwt);
+		Long proposalId = withProposal.getProposals().iterator().next().getId();
+
+		PollEntity pollB = util.createPoll("Poll B holding nothing", admin.jwt, true);
+
+		// Passing another poll's id must not reach the proposal - a bare findById would.
+		assertRejected(DELETE_PROPOSAL_QUERY, deleteVars(pollB.getId(), proposalId), admin.jwt,
+				"CANNOT_DELETE_PROPOSAL", "a proposal must not be reachable through a poll it is not in");
+
+		PollEntity reloaded = util.getPoll(pollA.getId(), admin.jwt);
+		assertEquals(1, reloaded.getProposals().size(), "the proposal must still be in its own poll");
+	}
+
+	// ==================== who may RENAME THE POLL ====================
+
+	@Test
+	@DisplayName("The admin may rename a poll while it has not started")
+	public void adminMayRenamePoll() {
+		TeamDataResponse admin = util.createFreshTeam("RenameByAdmin");
+
+		PollEntity poll = util.createPoll("Title with a typpo", admin.jwt, false);
+
+		TestFixtures.sendGraphQL(UPDATE_POLL_QUERY, renameVars(poll.getId(), "Title without a typo"), admin.jwt);
+
+		PollEntity reloaded = util.getPoll(poll.getId(), admin.jwt);
+		assertEquals("Title without a typo", reloaded.getTitle(), "the admin's rename must stick");
+	}
+
+	@Test
+	@DisplayName("A member may NOT rename a poll")
+	public void memberMayNotRenamePoll() {
+		TeamDataResponse[] t = freshTeamWithMember("RenameByMember");
+		TeamDataResponse admin = t[0], member = t[1];
+
+		PollEntity poll = util.createPoll("The admin's title", admin.jwt, true);
+
+		assertRejected(UPDATE_POLL_QUERY, renameVars(poll.getId(), "The member's title"), member.jwt,
+				"CANNOT_UPDATE_POLL", "a poll has no single author - only the admin may rename it");
+	}
+
+	@Test
+	@DisplayName("Once voting has started, the poll may not be renamed")
+	public void cannotRenameAfterVotingStarted() {
+		TeamDataResponse[] t = freshTeamWithMember("RenameAfterStart");
+		TeamDataResponse admin = t[0], member = t[1];
+
+		PollEntity poll = util.createPoll("Title before the start", admin.jwt, true);
+		util.addProposal(poll.getId(), "Proposal one", "The first proposal, long enough.", "atom", member.jwt);
+		util.addProposal(poll.getId(), "Proposal two", "The second proposal, long enough.", "atom", member.jwt);
+		util.startVotingPhase(poll.getId(), admin.jwt);
+
+		// Renaming a running poll would silently reinterpret the ballots already cast.
+		assertRejected(UPDATE_POLL_QUERY, renameVars(poll.getId(), "Title after the start"), admin.jwt,
+				"CANNOT_UPDATE_POLL", "the question must not change once people are answering it");
+	}
+
+	@Test
+	@DisplayName("Renaming onto another poll's title in the same team is refused")
+	public void cannotRenameOntoAnotherPollsTitle() {
+		TeamDataResponse admin = util.createFreshTeam("RenameDuplicate");
+
+		util.createPoll("Taken poll title", admin.jwt, false);
+		PollEntity second = util.createPoll("My own poll title", admin.jwt, false);
+
+		assertRejected(UPDATE_POLL_QUERY, renameVars(second.getId(), "Taken poll title"), admin.jwt,
+				"CANNOT_UPDATE_POLL", "two polls in one team must not share a title");
+	}
+
+	@Test
+	@DisplayName("Renaming a poll to its own title succeeds - it must not collide with itself")
+	public void renamingPollUnchangedSucceeds() {
+		TeamDataResponse admin = util.createFreshTeam("RenameUnchanged");
+
+		PollEntity poll = util.createPoll("A title that stays", admin.jwt, false);
+
+		// The uniqueness check must exclude the poll being renamed, or a no-op save collides.
+		TestFixtures.sendGraphQL(UPDATE_POLL_QUERY, renameVars(poll.getId(), "A title that stays"), admin.jwt);
+
+		PollEntity reloaded = util.getPoll(poll.getId(), admin.jwt);
+		assertEquals("A title that stays", reloaded.getTitle(), "re-saving the same title must be allowed");
 	}
 }

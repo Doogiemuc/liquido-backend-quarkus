@@ -138,6 +138,53 @@ public class PollsGraphQL {
 	}
 
 	/**
+	 * Rename a poll, as long as it has not started yet. Admin only.
+	 *
+	 * The rules live in {@link PollService#updatePollTitle} - notably that only the admin may rename,
+	 * and only while the poll is still in ELABORATION.
+	 *
+	 * @param pollId the poll to rename
+	 * @param title the new title. MUST be unique within the team.
+	 * @return The updated poll
+	 * @throws LiquidoException when the poll has already started, or the title is taken
+	 */
+	@Mutation
+	@Description("Admin renames a poll, as long as it has not started yet")
+	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)   // the admin check itself lives in PollService, so clients get a typed LiquidoException
+	@Transactional
+	public PollEntity updatePoll(
+			@NonNull long pollId,
+			@NonNull String title
+	) throws LiquidoException {
+		PollEntity poll = pollService.getPollInCurrentTeam(pollId);   // this is the team-scoping guard
+		return pollService.updatePollTitle(poll, title);
+	}
+
+	/**
+	 * Delete a proposal from a poll. Admin only, and only while the poll has not started.
+	 *
+	 * The rules live in {@link PollService#deleteProposalFromPoll}. Note the deliberate asymmetry with
+	 * {@link #updateProposal}: the admin may remove any proposal, but may not rewrite one that is not
+	 * theirs.
+	 *
+	 * @param pollId the poll containing the proposal
+	 * @param proposalId the proposal to delete. MUST be part of that poll.
+	 * @return The updated poll, without that proposal
+	 * @throws LiquidoException when the poll has already started, or the proposal is not in that poll
+	 */
+	@Mutation
+	@Description("Admin deletes a proposal from a poll, as long as the poll has not started yet")
+	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)   // the admin check itself lives in PollService, so clients get a typed LiquidoException
+	@Transactional
+	public PollEntity deleteProposal(
+			@NonNull long pollId,
+			@NonNull long proposalId
+	) throws LiquidoException {
+		PollEntity poll = pollService.getPollInCurrentTeam(pollId);   // this is the team-scoping guard
+		return pollService.deleteProposalFromPoll(poll, proposalId);
+	}
+
+	/**
 	 * Like a proposal in a poll.
 	 * Poll must be in status ELABORATION
 	 *

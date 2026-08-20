@@ -210,6 +210,107 @@ public class PollService {
 	}
 
 	/**
+	 * Rename a poll, as long as it has not started yet. <b>Admin only.</b>
+	 *
+	 * Renaming is the only poll-level edit there is. Everything else about a poll is either derived
+	 * (status, dates) or deliberately frozen at creation time - notably
+	 * {@link PollEntity#isMembersCanAddProposals()}.
+	 * <ol>
+	 *   <li>The poll must still be in ELABORATION. Once voting starts, the question people are
+	 *       answering must not change under them: a renamed poll would silently reinterpret the
+	 *       ballots that were already cast.</li>
+	 *   <li>Only the team's admin may rename. Unlike a proposal, a poll has no single author - it is
+	 *       the container everybody's proposals live in, so the admin owns it.</li>
+	 *   <li>The title stays unique within the team, ignoring this poll itself.</li>
+	 * </ol>
+	 *
+	 * @param poll the poll, already resolved and team-checked by the caller
+	 * @param title the new title
+	 * @return the renamed poll
+	 * @throws LiquidoException if the poll already started, or the title is taken in this team
+	 */
+	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
+	@Transactional
+	public PollEntity updatePollTitle(@NonNull PollEntity poll, @NonNull String title) throws LiquidoException {
+		if (poll.getStatus() != PollEntity.PollStatus.ELABORATION)
+			throw new LiquidoException(LiquidoException.Errors.CANNOT_UPDATE_POLL,
+					"Cannot rename poll: poll(id=" + poll.getId() + ") has already started.");
+
+		// Explicit guard rather than @RolesAllowed(LIQUIDO_ADMIN_ROLE): that would answer with a
+		// Quarkus ForbiddenException, and clients branch on our own LiquidoException codes.
+		// Same reasoning as in addProposalToPoll.
+		if (!jwtTokenUtils.isAdmin())
+			throw new LiquidoException(LiquidoException.Errors.CANNOT_UPDATE_POLL,
+					"Cannot rename poll(id=" + poll.getId() + "): only the admin may rename a poll.");
+
+		// Unique within the team - but a poll never collides with itself. PollEntity.title documents
+		// this invariant; createPoll does not enforce it, so at the very least a rename must not
+		// create a new collision.
+		if (poll.getTeam().getPolls().stream()
+				.anyMatch(p -> !poll.getId().equals(p.getId()) && title.equals(p.getTitle())))
+			throw new LiquidoException(LiquidoException.Errors.CANNOT_UPDATE_POLL,
+					"Cannot rename poll: team(id=" + poll.getTeam().id + ") already has a poll titled '" + title + "'");
+
+		poll.setTitle(title);
+		poll.persist();
+		log.info("Renamed poll(id={}) to '{}'", poll.getId(), title);
+		return poll;
+	}
+
+	/**
+	 * Delete a proposal from a poll. <b>Admin only</b>, and only while the poll has not started.
+	 *
+	 * This is the deliberate counterpart to {@link #updateProposalInPoll}'s author-only rule. The
+	 * admin may take an off-topic or duplicate proposal <i>off</i> the ballot, but still must not
+	 * rewrite what somebody else wrote: a removal is obvious to its author, a silent edit is not.
+	 * <ol>
+	 *   <li>The poll must still be in ELABORATION - which also means no ballot can reference this
+	 *       proposal yet, because voting has never been open.</li>
+	 *   <li>The proposal must belong to <i>this</i> poll. We search the poll's own proposals rather
+	 *       than doing a global findById, for the same reason {@link #getPollInCurrentTeam} exists:
+	 *       a bare lookup by id is a cross-poll enumeration oracle.</li>
+	 * </ol>
+	 *
+	 * There is deliberately no "must keep at least two proposals" guard. Dropping a bad proposal and
+	 * adding a better one is a normal thing to do, and {@link #startVotingPhase} already refuses to
+	 * start a poll with fewer than two - which is the right place for that rule.
+	 *
+	 * @param poll the poll, already resolved and team-checked by the caller
+	 * @param proposalId id of the proposal to delete. Must be part of that poll.
+	 * @return the poll, without that proposal
+	 * @throws LiquidoException if the poll already started, or the proposal is not in this poll
+	 */
+	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
+	@Transactional
+	public PollEntity deleteProposalFromPoll(@NonNull PollEntity poll, @NonNull Long proposalId) throws LiquidoException {
+		if (poll.getStatus() != PollEntity.PollStatus.ELABORATION)
+			throw new LiquidoException(LiquidoException.Errors.CANNOT_DELETE_PROPOSAL,
+					"Cannot delete proposal: poll(id=" + poll.getId() + ") has already started.");
+
+		// Explicit guard rather than @RolesAllowed(LIQUIDO_ADMIN_ROLE), for the same reason as in
+		// addProposalToPoll: clients branch on our LiquidoException codes, not on a Quarkus 403.
+		if (!jwtTokenUtils.isAdmin())
+			throw new LiquidoException(LiquidoException.Errors.CANNOT_DELETE_PROPOSAL,
+					"Cannot delete proposal from poll(id=" + poll.getId() + "): only the admin may delete proposals.");
+
+		ProposalEntity proposal = poll.getProposals().stream()
+				.filter(p -> proposalId.equals(p.getId()))
+				.findFirst()
+				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_DELETE_PROPOSAL,
+						"Cannot delete proposal: there is no proposal(id=" + proposalId + ") in poll(id=" + poll.getId() + ")"));
+
+		// Unlink first, exactly as deletePoll does. Match on the id rather than on the entity:
+		// ProposalEntity's equals() is id+title+status, and the id is all we actually mean here.
+		poll.getProposals().removeIf(p -> proposalId.equals(p.getId()));
+		proposal.setPoll(null);
+		proposal.getSupporters().clear();   // the ManyToMany join rows would otherwise block the delete
+		proposal.delete();
+		poll.persist();
+		log.info("Deleted proposal(id={}) from poll(id={})", proposalId, poll.getId());
+		return poll;
+	}
+
+	/**
 	 * Start the voting phase of the given poll.
 	 * Poll must be in elaboration phase and must have at least two proposals
 	 * @param poll a poll in elaboration phase with at least two proposals

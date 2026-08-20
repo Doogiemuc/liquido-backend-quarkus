@@ -30,7 +30,8 @@ public class PollEntity extends LiquidoBaseEntity {
 
 	/**
 	 * The title of a poll must be unique within the team.
-	 * It can be edited by anyone who has a proposal in this poll.
+	 * Only the team's admin may edit it, and only while the poll is still in ELABORATION.
+	 * See PollService.updatePollTitle.
 	 */
 	@NotNull
 	@lombok.NonNull

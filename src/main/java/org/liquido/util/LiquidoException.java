@@ -138,6 +138,8 @@ public class LiquidoException extends Exception {
 		PUBLIC_CHECKSUM_NOT_FOUND(64, Response.Status.NOT_FOUND),
 		CANNOT_ADD_SUPPORTER(65, Response.Status.BAD_REQUEST),              // e.g. when user tries to support his own proposal
 		CANNOT_EDIT_PROPOSAL(66, Response.Status.BAD_REQUEST),              // only your OWN proposal, and only while the poll has not started
+		CANNOT_UPDATE_POLL(67, Response.Status.BAD_REQUEST),                // only the admin may rename a poll, and only while it has not started
+		CANNOT_DELETE_PROPOSAL(68, Response.Status.BAD_REQUEST),            // only the admin may delete a proposal, and only while the poll has not started
 
 		CANNOT_CALCULATE_UNIQUE_RANKED_PAIR_WINNER(70, Response.Status.INTERNAL_SERVER_ERROR),    // this is only used in the exceptional situation, that no unique winner can be calculated in RankedPairVoting
 		CANNOT_VERIFY_CHECKSUM(80, Response.Status.NOT_FOUND),              // ballot's checksum could not be verified
