@@ -45,7 +45,6 @@ public class ConfigGraphQL {
 				config.usernameMinLength(),
 				config.inviteCodeLength(),
 				config.minPasswordLength(),
-				config.allowMembersToInvite(),
 				config.pollTitleMinLength(),
 				config.durationOfVotingPhase(),
 				config.proposalTitleMinLength(),

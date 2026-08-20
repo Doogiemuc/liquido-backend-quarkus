@@ -24,9 +24,6 @@ public record LiquidoConfigResponse(
 		@Description("Minimum length of a password")
 		int minPasswordLength,
 
-		@Description("May ordinary members invite further members, or only the admin?")
-		boolean allowMembersToInvite,
-
 		@Description("Minimum length of a poll title")
 		int pollTitleMinLength,
 
