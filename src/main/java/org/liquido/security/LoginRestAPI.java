@@ -1,6 +1,8 @@
 package org.liquido.security;
 
 import io.quarkus.mailer.Mailer;
+import org.liquido.user.UserEntity;
+import jakarta.annotation.security.PermitAll;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
 import io.vertx.core.json.JsonObject;
@@ -181,6 +183,48 @@ public class LoginRestAPI {
 	@Produces(MediaType.APPLICATION_JSON)
 	public TeamDataResponse loginWithEmailToken(@NotNull @Valid LoginWithEmailTokenRequest req) throws LiquidoException {
 		return userService.loginWithEmailToken(req.email(), req.emailToken());
+	}
+
+	// =============== Email verification ================
+
+	/**
+	 * Confirm an email address from the link in the welcome mail.
+	 *
+	 * Anonymous on purpose - the whole point is that the user clicks this from their mail client,
+	 * where they are not logged in. It grants nothing: it flips a flag and returns. The frontend then
+	 * shows a confirmation page from which the user signs in normally.
+	 *
+	 * POST, so the token does not land in this server's access log. The frontend page reads it from
+	 * its own query string and posts it here.
+	 */
+	@POST
+	@Path("/verifyEmail")
+	@PermitAll
+	@Consumes(MediaType.APPLICATION_JSON)
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response verifyEmail(@NotNull @Valid VerifyEmailRequest req) throws LiquidoException {
+		UserEntity user = userService.verifyEmail(req.verifyToken());
+		return Response.ok(Lson.builder("message", "Email verified.").put("email", user.getEmail())).build();
+	}
+
+	/**
+	 * Re-send the "confirm your address" mail to the caller.
+	 *
+	 * Authenticated and parameterless on purpose: recipient comes from the JWT, so this can only mail
+	 * the caller. There is deliberately NO anonymous variant that takes an email address - that would
+	 * be a way to make LIQUIDO mail strangers on request. It follows that the /verifyEmail page, where
+	 * nobody is logged in, does not offer a resend; it offers a login link instead.
+	 */
+	@POST
+	@Path("/resendEmailVerification")
+	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
+	@Produces(MediaType.APPLICATION_JSON)
+	// @Blocking for the same reason as sendWelcomeMail below: returning a Uni would otherwise put this
+	// on the IO thread, where resolving the user from the JWT hits Hibernate and throws.
+	@Blocking
+	public Uni<Response> resendEmailVerification() throws LiquidoException {
+		return welcomeMailService.sendVerificationMailToCurrentUser()
+				.replaceWith(() -> Response.ok(Lson.builder("message", "Verification mail sent.")).build());
 	}
 
 	// =============== Welcome mail after registering ================

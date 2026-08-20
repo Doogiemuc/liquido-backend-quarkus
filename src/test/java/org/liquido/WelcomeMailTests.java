@@ -226,4 +226,60 @@ public class WelcomeMailTests {
 		return TestFixtures.sendGraphQL(query, variables)
 				.extract().jsonPath().getObject("data.createNewTeam", TeamDataResponse.class);
 	}
+
+	// =============== Re-sending just the confirmation link ================
+
+	@Test
+	@DisplayName("Resend sends a short confirmation mail, not another welcome mail")
+	public void resendSendsTheVerificationMail() {
+		TeamDataResponse admin = util.createFreshTeam("ResendVerify");
+		mockMailbox.clear();   // drop the welcome mail, we only care about the resend
+
+		given()
+				.contentType(ContentType.JSON)
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + admin.jwt)
+				.when()
+				.post(TestFixtures.LIQUIDO_API + "/login/resendEmailVerification")
+				.then()
+				.statusCode(200);
+
+		Mail mail = theMailSentTo(admin.user.getEmail());
+		String html = mail.getHtml();
+		assertNotNull(html, "verification mail must have an HTML part");
+		assertNotNull(mail.getText(), "verification mail must have a plain-text alternative part");
+
+		// It is the confirmation link, and it points at the page that consumes it.
+		assertTrue(html.contains("/verifyEmail?verifyToken="),
+				"the resend must carry the confirmation link");
+
+		// It is NOT a second welcome mail: no onboarding, and for an admin no repeated invite link.
+		assertFalse(html.contains("inviteCode="),
+				"a resend must not repeat the team invite link");
+
+		// The same negative the welcome mails are held to: this must not log anybody in.
+		assertFalse(html.contains("emailToken"),
+				"the verification mail must NOT contain an emailToken - it is not a magic-login mail!");
+		assertFalse(html.contains("jwt"),
+				"the verification mail must NOT contain a JWT");
+	}
+
+	@Test
+	@DisplayName("Resend is refused without a JWT - it must never mail a stranger")
+	public void resendRequiresAuthentication() {
+		mockMailbox.clear();
+
+		// No Authorization header. There is deliberately no anonymous variant that takes an email
+		// address, because that would be a way to make LIQUIDO mail anybody on request.
+		int status = given()
+				.contentType(ContentType.JSON)
+				.when()
+				.post(TestFixtures.LIQUIDO_API + "/login/resendEmailVerification")
+				.then()
+				.extract().statusCode();
+
+		assertTrue(status == 401 || status == 302 || status == 403,
+				"an unauthenticated resend must be refused, but was HTTP " + status);
+		assertEquals(0, mockMailbox.getTotalMessagesSent(),
+				"an unauthenticated resend must not send ANY mail");
+	}
 }

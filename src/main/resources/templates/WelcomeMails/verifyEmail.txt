@@ -1,0 +1,22 @@
+{@java.lang.String name}
+{@java.lang.String verifyUrl}
+LIQUIDO - E-Mail-Adresse bestaetigen
+
+Hallo {name}!
+
+Du hattest darum gebeten, dir den Bestaetigungs-Link noch einmal zu schicken.
+Hier ist er:
+
+{verifyUrl}
+
+Klicke einmal darauf, dann wissen wir, dass diese Adresse wirklich dir gehoert.
+
+Das ist freiwillig - du kannst LIQUIDO auch ohne Bestaetigung ganz normal
+benutzen. Der Link meldet dich nicht an; du loggst dich wie gewohnt in der App
+ein.
+
+
+--
+Du bekommst diese E-Mail, weil in LIQUIDO um einen neuen Bestaetigungs-Link
+gebeten wurde. Wenn du das nicht warst, kannst du diese Nachricht einfach
+ignorieren.

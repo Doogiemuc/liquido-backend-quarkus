@@ -117,6 +117,28 @@ public class UserEntity extends PanacheEntity {
 	@JsonIgnore
 	public String passwordHash = null;
 
+	/**
+	 * Has this user confirmed that the email address is really theirs?
+	 *
+	 * Verification is deliberately OPTIONAL: it never blocks registration, joining a team or voting.
+	 * It is a signal, not a gate. The welcome mail carries a link, and clicking it flips this flag.
+	 */
+	@DefaultValue("false")
+	public boolean emailVerified = false;
+
+	/**
+	 * The nonce in this user's "verify your email" link, or null once it has been used.
+	 *
+	 * SECURITY IMPORTANT: @Ignore + @JsonIgnore, same as totpFactorSid. This must never be readable
+	 * through GraphQL or serialised into a response - anyone who could read it could mark somebody
+	 * else's address verified. Note that is the ONLY thing it grants: unlike the login token in
+	 * UserService's magic-link mail, this token never produces a session. That is why it does not
+	 * expire, and why sending it in a clickable link is acceptable at all.
+	 */
+	@Ignore  //SECURITY IMPORTANT: ignore in GraphQL and JSON
+	@JsonIgnore
+	public String emailVerificationNonce = null;
+
 	/** (optional) User's website or bio or social media profile link */
 	public String website = null;
 

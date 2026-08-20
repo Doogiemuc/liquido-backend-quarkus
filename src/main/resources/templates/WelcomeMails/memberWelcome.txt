@@ -1,6 +1,7 @@
 {@java.lang.String name}
 {@java.lang.String teamName}
 {@java.lang.String loginUrl}
+{@java.lang.String verifyUrl}
 LIQUIDO - Sicher und anonym abstimmen
 
 Willkommen, {name}!
@@ -32,6 +33,19 @@ ZU DEINEM TEAM
 
 Du meldest dich wie gewohnt mit deiner E-Mail und deinem Passwort an.
 
+
+{#if verifyUrl}
+
+BITTE BESTAETIGE DEINE E-MAIL-ADRESSE
+
+Klicke einmal auf diesen Link, damit wir wissen, dass diese Adresse wirklich
+dir gehoert:
+
+{verifyUrl}
+
+Das ist freiwillig - du kannst LIQUIDO auch ohne Bestaetigung ganz normal
+benutzen.
+{/if}
 
 --
 Du bekommst diese E-Mail, weil mit dieser Adresse ein LIQUIDO Team beigetreten

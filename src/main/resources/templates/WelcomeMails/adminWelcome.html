@@ -1,6 +1,7 @@
 {@java.lang.String name}
 {@java.lang.String teamName}
 {@java.lang.String loginUrl}
+{@java.lang.String verifyUrl}
 {@java.lang.String inviteUrl}
 <!DOCTYPE html>
 <html lang="de">
@@ -142,5 +143,15 @@
 	</tr>
 </table>
 
+{#if verifyUrl}
+		<h2>Bitte bestätige deine E-Mail-Adresse</h2>
+		<p>
+			Klicke einmal auf diesen Link, damit wir wissen, dass diese Adresse wirklich dir gehört:
+		</p>
+		<p><a href="{verifyUrl}">E-Mail-Adresse bestätigen</a></p>
+		<p>
+			Das ist freiwillig &ndash; du kannst LIQUIDO auch ohne Bestätigung ganz normal benutzen.
+		</p>
+{/if}
 </body>
 </html>

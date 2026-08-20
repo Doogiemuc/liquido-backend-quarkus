@@ -194,4 +194,60 @@ public class UserService {
 		ott.delete();
 		return jwtTokenUtils.doLoginInternal(user, null);
 	}
+
+	// =============== Email verification ================
+	//
+	// Deliberately separate from the login token above. That one produces a SESSION and therefore
+	// lives in PasswordResetToken with a short expiry. This one only flips a boolean, so it is a
+	// plain nonce on the user row that never expires - see UserEntity.emailVerificationNonce.
+
+	/**
+	 * Issue (or re-issue) this user's email verification nonce.
+	 *
+	 * Called when the welcome mail is built. Re-issuing replaces any previous nonce, so only the most
+	 * recent welcome mail's link works - which is what you want if the mail was resent.
+	 *
+	 * @param user the user whose address should be confirmed
+	 * @return the nonce to put into the link, or null if the address is already verified
+	 */
+	@Transactional
+	public String issueEmailVerificationNonce(@NonNull UserEntity user) {
+		// Re-load inside THIS transaction. The caller (WelcomeMailService) is not itself transactional,
+		// so the instance it hands us belongs to an already finished session: persisting it directly
+		// fails with "Detached entity passed to persist". Look the managed row up by id instead.
+		UserEntity managed = UserEntity.<UserEntity>findByIdOptional(user.id).orElse(null);
+		if (managed == null) return null;
+		if (managed.emailVerified) return null;   // nothing left to confirm
+		String nonce = UUID.randomUUID().toString();
+		managed.emailVerificationNonce = nonce;
+		// No persist() needed - `managed` is attached, so the change is flushed with the transaction.
+		return nonce;
+	}
+
+	/**
+	 * Confirm an email address from the nonce in a "verify your email" link.
+	 *
+	 * <b>This grants nothing.</b> It sets a flag and returns - no session, no JWT, no privileges. The
+	 * user still signs in through the app afterwards. That is the whole reason this token can be sent
+	 * as a clickable link and never has to expire: the worst a leaked one can do is mark an address
+	 * verified that its own owner already received mail at.
+	 *
+	 * Idempotent-ish: the nonce is cleared on use, so clicking the same link twice reports an invalid
+	 * token the second time rather than silently succeeding. The address stays verified either way.
+	 *
+	 * @param nonce the value from the link
+	 * @return the user whose address was just confirmed
+	 * @throws LiquidoException if no user has that nonce (unknown link, or already used)
+	 */
+	@Transactional
+	public UserEntity verifyEmail(@NonNull String nonce) throws LiquidoException {
+		UserEntity user = UserEntity.<UserEntity>find("emailVerificationNonce", nonce).firstResultOptional()
+				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.EMAIL_VERIFICATION_TOKEN_INVALID,
+						"Cannot verify email: this link is not valid (any more)."));
+		user.emailVerified = true;
+		user.emailVerificationNonce = null;   // one link, one use
+		// Attached (loaded in this transaction), so the flush persists it. No persist() call needed.
+		log.info("Email verified for {}", user.toStringShort());
+		return user;
+	}
 }

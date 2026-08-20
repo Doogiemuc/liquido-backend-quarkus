@@ -24,10 +24,18 @@ import java.nio.charset.StandardCharsets;
  *
  * <h2>These mails deliberately contain NO authentication</h2>
  *
- * The login link carries only {@code ?email=...} and never a token. The frontend's login page
+ * The login link carries only {@code ?email=...} and never a login token. The frontend's login page
  * auto-logs a visitor in when it receives <b>both</b> {@code email} and {@code emailToken} - that
  * is what the existing magic-link mail in {@link UserService} is for. A welcome mail is not a
- * login mail: the user must still sign in through the app. Do not add a token here.
+ * login mail: the user must still sign in through the app. Do not add a login token here.
+ *
+ * <h2>The one token this mail does carry, and why it is not a violation of the above</h2>
+ *
+ * The "verify your email" link carries {@code ?verifyToken=...}, deliberately NOT named
+ * {@code emailToken} so the login page can never mistake one for the other. It points at a different
+ * route, and confirming an address grants <b>nothing</b>: no session, no JWT, no privileges - it
+ * flips {@link UserEntity#emailVerified} and shows a confirmation page. The rule above is about not
+ * turning the welcome mail into a way to log in, and this does not.
  *
  * <h2>Why this is triggered over REST and not from the GraphQL mutation</h2>
  *
@@ -49,6 +57,9 @@ public class WelcomeMailService {
 	@Inject
 	JwtTokenUtils jwtTokenUtils;
 
+	@Inject
+	UserService userService;
+
 	/**
 	 * Qute mail templates. Each name resolves to BOTH templates/WelcomeMails/&lt;name&gt;.html and
 	 * .txt, which become the HTML and plain-text parts of a multipart mail.
@@ -58,9 +69,11 @@ public class WelcomeMailService {
 	 */
 	@CheckedTemplate(basePath = "WelcomeMails")
 	static class Templates {
-		static native MailTemplate.MailTemplateInstance adminWelcome(String name, String teamName, String loginUrl, String inviteUrl);
+		static native MailTemplate.MailTemplateInstance adminWelcome(String name, String teamName, String loginUrl, String inviteUrl, String verifyUrl);
 
-		static native MailTemplate.MailTemplateInstance memberWelcome(String name, String teamName, String loginUrl);
+		static native MailTemplate.MailTemplateInstance memberWelcome(String name, String teamName, String loginUrl, String verifyUrl);
+
+		static native MailTemplate.MailTemplateInstance verifyEmail(String name, String verifyUrl);
 	}
 
 	/**
@@ -93,9 +106,15 @@ public class WelcomeMailService {
 		String loginUrl = config.frontendUrl() + "/login?email=" + URLEncoder.encode(email, StandardCharsets.UTF_8);
 		String inviteUrl = config.frontendUrl() + config.inviteLinkPath() + inviteCode;
 
+		// Resolved here, with the rest, while the session is still open. Null when the address was
+		// already confirmed - the templates then simply leave the section out.
+		String nonce = userService.issueEmailVerificationNonce(user);
+		String verifyUrl = nonce == null ? null
+				: config.frontendUrl() + "/verifyEmail?verifyToken=" + URLEncoder.encode(nonce, StandardCharsets.UTF_8);
+
 		MailTemplate.MailTemplateInstance mail = isAdmin
-				? Templates.adminWelcome(name, teamName, loginUrl, inviteUrl)
-				: Templates.memberWelcome(name, teamName, loginUrl);
+				? Templates.adminWelcome(name, teamName, loginUrl, inviteUrl, verifyUrl)
+				: Templates.memberWelcome(name, teamName, loginUrl, verifyUrl);
 
 		String subject = isAdmin
 				? "Willkommen bei LIQUIDO - dein Team " + teamName + " ist da"
@@ -104,6 +123,54 @@ public class WelcomeMailService {
 		log.info("Sending welcome mail ({}) to {}", isAdmin ? "admin" : "member", email);
 		return mail.to(email)
 				.subject(subject)
+				.from(config.mailFrom())
+				.send();
+	}
+
+	/**
+	 * Re-send just the "confirm your address" link to the currently authenticated user.
+	 *
+	 * Deliberately NOT a resend of the whole welcome mail: that one greets a brand new member and
+	 * re-explains ranked pairs, and its admin variant also repeats the team invite link. Somebody who
+	 * only lost the confirmation link should get the confirmation link.
+	 *
+	 * <b>Authenticated, and takes no parameters.</b> Recipient and nonce both come from the JWT, so
+	 * this can only ever mail the caller themselves. That is deliberate: an anonymous "send a
+	 * verification mail to this address" endpoint would be a way to have LIQUIDO mail strangers on
+	 * request. Because of that, the only place this is reachable from is the reminder on the team
+	 * page, where the user is by definition logged in.
+	 *
+	 * Issuing a new nonce invalidates any previous link, which is what makes this a genuine re-send
+	 * rather than a second, parallel way in.
+	 *
+	 * @return a Uni that completes when the mail has been handed to the mailer, or immediately when
+	 *         the address was already confirmed and there is nothing to send
+	 */
+	public Uni<Void> sendVerificationMailToCurrentUser() throws LiquidoException {
+		UserEntity user = jwtTokenUtils.getCurrentUser()
+				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.UNAUTHORIZED,
+						"Must be logged in to receive a verification mail."));
+
+		// Resolve to plain values while this request's Hibernate session is still open - the send
+		// below is asynchronous. Same reasoning as sendWelcomeMailToCurrentUser above.
+		String name = user.getName();
+		String email = user.getEmail();
+		String nonce = userService.issueEmailVerificationNonce(user);
+
+		if (nonce == null) {
+			// Already confirmed. Not an error - the reminder that offers this is only shown to
+			// unverified users, so this can only happen if two tabs raced. Nothing to do.
+			log.info("Not sending verification mail to {}: address is already verified", email);
+			return Uni.createFrom().voidItem();
+		}
+
+		String verifyUrl = config.frontendUrl() + "/verifyEmail?verifyToken="
+				+ URLEncoder.encode(nonce, StandardCharsets.UTF_8);
+
+		log.info("Sending a fresh email verification link to {}", email);
+		return Templates.verifyEmail(name, verifyUrl)
+				.to(email)
+				.subject("LIQUIDO - bestätige deine E-Mail-Adresse")
 				.from(config.mailFrom())
 				.send();
 	}
