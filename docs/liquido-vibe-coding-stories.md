@@ -21,10 +21,10 @@ BUT i told it: "How could you click "Team gründen" without filling the nickname
 It actually got mad at me: "Let me check rather than argue from memory."
 And the digged really really deep to find an obscue edge case "clicking an invisible button", that actually proved its initial statement.
 
-
-
-
-
 # Nice AI bugfix: `!= null` is not the same as `is not null` in Panache
 
 Root cause found: DelegationEntity.findDelegationRequestsTo uses HQL requestedDelegationFrom != null, which apparently doesn't work for entity-valued fields in this Hibernate version — is not null returns all 8 rows correctly, != null returns 0.
+
+# Claudes naming of plan.md files
+
+> Created i-am-looking-for-graceful-hejlsberg.md  => Andreas Hejlsberg is the inventor of Turbo Pascal and Chief Engineer of Delphi
