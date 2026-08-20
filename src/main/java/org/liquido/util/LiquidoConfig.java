@@ -29,10 +29,10 @@ public interface LiquidoConfig {
 	 * {@link #frontendUrl()} and followed by the raw inviteCode.
 	 *
 	 * Configurable because LIQUIDO has two join flows: the welcome chat at "/welcome" and the
-	 * dedicated join form at "/join-v2". The default is the chat, which is what production has always
-	 * used; switch this property to "/join-v2?inviteCode=" to move invitees to the form instead.
+	 * dedicated join form at "/joinTeam". Switch this property to "/welcome?inviteCode=" to send
+	 * invitees to the chat instead.
 	 */
-	@WithDefault("/join-v2?inviteCode=")
+	@WithDefault("/joinTeam?inviteCode=")
 	String inviteLinkPath();
 
 	/**
