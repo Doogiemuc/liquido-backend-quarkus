@@ -82,10 +82,6 @@ public interface LiquidoConfig {
 	@WithDefault("3")
 	int usernameMinLength();
 
-	/** May ordinary team members invite further members, or only the admin? */
-	@WithDefault("true")
-	boolean allowMembersToInvite();
-
 	/** Minimum length of a poll title. Short is fine, but not so short that it invites spam. */
 	@WithDefault("5")
 	int pollTitleMinLength();
