@@ -189,6 +189,15 @@ public class CastVoteService {
 	 *    ELSE // a ballot already exists
 	 *      IF the level of the existing ballot is SMALLER than the passed newBallot.level
 	 *      THEN do NOT update the existing ballot, because it was cast by a lower proxy or the voter himself
+	 *      ELSE IF newBallot.level == 0 AND the existing ballot's level is ALSO 0
+	 *      THEN reject: a vote that was cast directly cannot be changed. Level 0 is only ever built at
+	 *           the top of {@link #castVote}, for whichever RightToVote's token was just consumed - so
+	 *           existingBallot.level == 0 here can only mean this exact voter already cast their own
+	 *           ballot before. This check must NOT fire for level &gt; 0: those ballots are only ever
+	 *           produced inside step 3 below, as a proxy's cast cascading to a delegee, and that path
+	 *           must keep updating even at an equal level - e.g. a delegee who switches proxies gets a
+	 *           new cascade that legitimately lands at the same numeric level as the old proxy's now
+	 *           stale one, and that is not the delegee "changing their own vote".
 	 *      ELSE update the existing ballot's level and vote order
 	 *
 	 *  3) FOR EACH directly delegated RightToVote
@@ -200,6 +209,7 @@ public class CastVoteService {
 	 * @param newBallot the ballot that shall be stored. The ballot will be checked very thoroughly. Especially if the ballot's right to vote is valid.
 	 * @return the newly created or updated existing ballot OR
 	 *         null if the ballot wasn't stored due to an already existing ballot with a smaller level.
+	 * @throws LiquidoException with {@link LiquidoException.Errors#ALREADY_VOTED} when this voter already cast a direct (level 0) vote in this poll.
 	 */
 	//@Transactional Do not open a transaction for each recursion!
 	private CastVoteResponse castVoteRec(BallotEntity newBallot) throws LiquidoException {
@@ -218,6 +228,19 @@ public class CastVoteService {
 			if (existingBallot.getLevel() < newBallot.getLevel()) {
 				log.debug("   Voter has already voted for himself {}", existingBallot);
 				return null;
+			}
+			// A vote that was cast directly cannot be changed. Level 0 is only ever built at the top of
+			// castVote(), for whichever RightToVote's token was just consumed - so if a level-0 ballot
+			// already exists here, this exact voter already cast their own vote in this poll before.
+			// Scoped to level 0 on BOTH sides deliberately: it must not fire when existingBallot.level
+			// is > 0 (that is a proxy's earlier cascade, and the voter's own first direct vote must
+			// still be allowed to override it - see the class-level algorithm doc), and it must not fire
+			// for a delegee's cascaded ballot inside the recursion below, where an equal level can
+			// legitimately recur (e.g. after the delegee switches to a different proxy).
+			if (newBallot.getLevel() == 0 && existingBallot.getLevel() == 0) {
+				log.debug("   Rejecting: RightToVote has already cast a direct vote in poll.id={}", newBallot.getPoll().id);
+				throw new LiquidoException(LiquidoException.Errors.ALREADY_VOTED,
+						"You have already voted in this poll. A cast vote cannot be changed.");
 			}
 			log.debug("  Update existing ballot {}", existingBallot.id);
 			existingBallot.setVoteOrder(newBallot.getVoteOrder());

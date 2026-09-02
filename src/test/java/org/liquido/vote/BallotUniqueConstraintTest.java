@@ -2,20 +2,27 @@ package org.liquido.vote;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
+import io.restassured.http.ContentType;
+import io.restassured.response.ValidatableResponse;
 import jakarta.inject.Inject;
 import jakarta.persistence.PersistenceException;
+import org.hamcrest.core.DescribedAs;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.liquido.LiquidoTestUtils;
+import org.liquido.TestFixtures;
 import org.liquido.model.LiquidoBaseEntity;
 import org.liquido.poll.PollEntity;
 import org.liquido.poll.ProposalEntity;
 import org.liquido.team.TeamDataResponse;
 import org.liquido.user.UserEntity;
 import org.liquido.util.LiquidoConfig;
+import org.liquido.util.Lson;
 
 import java.util.List;
 
+import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -94,17 +101,21 @@ public class BallotUniqueConstraintTest {
 	}
 
 	@Test
-	@DisplayName("A voter may still change their vote while the poll is open")
-	public void reVotingStillUpdatesTheSameBallot() {
+	@DisplayName("A direct vote, once cast, cannot be changed")
+	public void reVotingIsRejected() {
 		VotedPoll voted = aPollWithOneCastVote("BallotReVote");
 
-		// Casting again with a freshly issued token must UPDATE the existing ballot, not insert a
-		// second one. The constraint must not break the documented "you may change your vote" path.
+		// A second direct cast with a freshly issued token (a fresh token, because P0-3 already
+		// revoked the first one) must be REJECTED with ALREADY_VOTED, not silently accepted as an
+		// update. See CastVoteService.castVoteRec(): the reject is scoped to level 0 on both sides,
+		// so it fires here without touching the separate "voter's own vote overrides a proxy" path.
 		List<Long> reversed = voted.voteOrder().reversed();
-		util.castVote(voted.pollId(), reversed, util.getVoterToken(voted.pollId(), tokenJwtFor(voted)));
+		assertCastVoteRejectedAsAlreadyVoted(voted.pollId(), reversed, util.getVoterToken(voted.pollId(), tokenJwtFor(voted)));
 
 		assertEquals(1, ballotCount(voted.pollId()),
-				"re-voting must update the voter's ballot, never add a second one");
+				"a rejected re-vote must not add a second ballot");
+		assertEquals(voted.voteOrder(), storedVoteOrder(voted.pollId()),
+				"a rejected re-vote must not change the originally cast ballot either");
 	}
 
 	/**
@@ -113,6 +124,37 @@ public class BallotUniqueConstraintTest {
 	 */
 	private String tokenJwtFor(VotedPoll voted) {
 		return util.devLogin(voted.voter().email).jwt;
+	}
+
+	/** Casting a vote with this token must be refused as ALREADY_VOTED, not accepted. */
+	private void assertCastVoteRejectedAsAlreadyVoted(Long pollId, List<Long> voteOrder, String voterToken) {
+		String query = "mutation castVote($pollId: BigInteger!, $voteOrderIds: [BigInteger!]!, $voterToken: String!) { " +
+				"  castVote(pollId: $pollId, voteOrderIds: $voteOrderIds, voterToken: $voterToken) " +
+				"  { voteCount ballot { id checksum } } }";
+		Lson vars = Lson.builder()
+				.put("pollId", pollId)
+				.put("voteOrderIds", voteOrder)
+				.put("voterToken", voterToken);
+
+		ValidatableResponse res = given()
+				.contentType(ContentType.JSON)
+				.body(String.format("{ \"query\": \"%s\", \"variables\": %s }", query, vars))
+				.when()
+				.post(TestFixtures.GRAPHQL_URI)
+				.then()
+				.statusCode(200);
+
+		res.body("errors[0].extensions.liquidoException.liquidoErrorName", DescribedAs.describedAs(
+				"A second direct cast for the same voter and poll must be rejected as ALREADY_VOTED",
+				is("ALREADY_VOTED")));
+	}
+
+	private List<Long> storedVoteOrder(Long pollId) {
+		return QuarkusTransaction.requiringNew().call(() -> {
+			PollEntity poll = PollEntity.findById(pollId);
+			return BallotEntity.<BallotEntity>find("poll", poll).firstResult()
+					.getVoteOrder().stream().map(LiquidoBaseEntity::getId).toList();
+		});
 	}
 
 	private long ballotCount(Long pollId) {

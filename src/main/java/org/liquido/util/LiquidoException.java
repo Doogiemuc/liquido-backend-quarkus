@@ -143,6 +143,7 @@ public class LiquidoException extends Exception {
 		EMAIL_VERIFICATION_TOKEN_INVALID(69, Response.Status.BAD_REQUEST),  // the token in a "verify your email" link is unknown or already used
 
 		CANNOT_CALCULATE_UNIQUE_RANKED_PAIR_WINNER(70, Response.Status.INTERNAL_SERVER_ERROR),    // this is only used in the exceptional situation, that no unique winner can be calculated in RankedPairVoting
+		ALREADY_VOTED(71, Response.Status.CONFLICT),                        // a ballot already exists at this exact level -- a cast vote cannot be changed, see CastVoteService.castVoteRec()
 		CANNOT_VERIFY_CHECKSUM(80, Response.Status.NOT_FOUND),              // ballot's checksum could not be verified
 
 		// general errors

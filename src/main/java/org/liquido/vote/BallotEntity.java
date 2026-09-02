@@ -23,7 +23,11 @@ import org.eclipse.microprofile.graphql.Ignore;
  * Instead, each ballot contains a checksum which is the hashed value of the user's voterToken.
  *
  * Only the voter knows his own voterToken. So only he can check that this actually is his ballot.
- * This way a voter can even update his ballot as long as the voting phase is still open.
+ *
+ * A voter's own direct (level 0) vote, once cast, cannot be changed - see
+ * {@link org.liquido.vote.CastVoteService#castVoteRec}. A proxy's ballot MAY still be overridden by
+ * a closer proxy or by the delegee's own direct vote; that is a different mechanism (delegation
+ * resolution), not the voter changing their mind.
  */
 @Data
 @Entity(name = "ballots")
