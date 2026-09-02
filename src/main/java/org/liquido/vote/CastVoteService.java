@@ -55,6 +55,11 @@ public class CastVoteService {
 		// The hash input must exactly be the same as in castVote(). It CANNOT contain voter.id, because that is not known in castVote()
 		// I thought about adding an additional voterSecret, that a user passes in here and in castVote.
 		// But plainVoterToken is already random. This would only add little security.
+		// At most ONE live token per voter per poll: revoke anything still outstanding for this
+		// (voter, poll) before minting the replacement. See OneTimeVotingToken.revokeTokensOf().
+		long revoked = OneTimeVotingToken.revokeTokensOf(rightToVote, poll);
+		if (revoked > 0) log.debug("createOneTimeVoterToken: revoked {} outstanding token(s) for poll.id={}", revoked, poll.id);
+
 		String plainVoterToken  =  UUID.randomUUID().toString();
 		String hashedVoterToken =  calcHashedVoterToken(plainVoterToken, poll.id);
 		int validMinutes = config.voterTokenExpirationMinutes();

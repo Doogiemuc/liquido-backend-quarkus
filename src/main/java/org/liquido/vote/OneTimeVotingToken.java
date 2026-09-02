@@ -70,6 +70,26 @@ public class OneTimeVotingToken extends PanacheEntityBase {
 	}
 
 	/**
+	 * Delete every one-time token this voter still holds for this poll.
+	 *
+	 * <p>A voter may hold at most ONE live token per poll. {@code voterToken(pollId)} can be called
+	 * any number of times, and without this each call minted another 20-minute token that was never
+	 * invalidated: a voter could accumulate unboundedly many live tokens for one poll, which is both
+	 * an unbounded write primitive for any authenticated user and the fuel for the double-vote race
+	 * (two valid tokens, two concurrent castVote calls, two ballots).
+	 *
+	 * <p>Note this must <b>delete</b> rather than re-issue: only the HASH of a token is stored, and
+	 * the plain token was returned to the voter and kept nowhere, so an existing token cannot be
+	 * handed out a second time. Asking for a new token therefore invalidates the previous one, which
+	 * is the correct reading of "the token is the credential".
+	 *
+	 * @return how many live tokens were revoked
+	 */
+	public static long revokeTokensOf(@NonNull RightToVoteEntity rightToVote, @NonNull PollEntity poll) {
+		return OneTimeVotingToken.delete("rightToVote = ?1 and poll = ?2", rightToVote, poll);
+	}
+
+	/**
 	 * The one time voter token must not be expired. And it must be linked to a valid RightToVote
 	 * @return true if this is a valid OTT
 	 */
