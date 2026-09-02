@@ -110,15 +110,37 @@ public class BallotEntity extends PanacheEntity {
 
 	/**
 	 * This automatically calculates the checksum when the ballot is saved.
+	 *
+	 * <p><b>Must run on @PrePersist / @PreUpdate, not @PostUpdate.</b> A @PostUpdate callback fires
+	 * AFTER the flush, so a checksum computed there is not guaranteed to land in the same
+	 * transaction as the change that triggered it: after a voter changed their ranking, the stored
+	 * checksum could silently stop matching the stored voteOrder.
+	 *
+	 * <p><b>Built from database IDs, never from hashCode().</b> {@link ProposalEntity} is
+	 * {@code @EqualsAndHashCode(of={"title","status"})}, and {@code PollService.finishVotingPhase()}
+	 * sets every proposal's status to LOST or LAW. From that moment on, the inputs that produced the
+	 * ORIGINAL checksum no longer exist in the form they had at signing time -- so neither the voter
+	 * nor an auditor could ever recompute it again, which defeats the whole point of a checksum.
+	 * Database IDs are immutable for the life of the row, unlike a proposal's status.
+	 *
+	 * <p><b>Explicit separators, not arithmetic string-plus-int concatenation.</b> The previous
+	 * version built {@code voteOrder.hashCode() + poll.hashCode() + rightToVote.hashedVoterInfo}.
+	 * Java evaluates {@code int + int} arithmetically before the result is concatenated with the
+	 * following String, so two independent 32-bit values collapsed into one sum with no separation
+	 * from what came after -- there was no domain separation between "which ranking" and "which
+	 * poll" at all. The "v2|"-prefixed, "|"-joined form below fixes that and, since it is versioned,
+	 * lets a future change to this canonical form coexist with this one without ambiguity.
 	 */
-	@PostUpdate
 	@PrePersist
+	@PreUpdate
 	public void calcSha256Checksum() {
-		this.checksum = DigestUtils.sha3_256Hex(
-				// Cannot include this.ID in checksum. It's not present when saving a new Ballot!
-				this.getVoteOrder().hashCode() +
-						this.getPoll().hashCode() +
-						this.getRightToVote().hashedVoterInfo);
+		String voteOrderIds = this.voteOrder.stream()
+				.map(proposal -> String.valueOf(proposal.id))
+				.collect(Collectors.joining(","));
+		// TODO(P2-2 in the security backlog): once a ballot stops storing a direct RightToVote
+		// reference, this becomes the poll-scoped ballotPseudonym instead of hashedVoterInfo.
+		String canonical = "v2|" + this.poll.id + "|" + voteOrderIds + "|" + this.rightToVote.hashedVoterInfo;
+		this.checksum = DigestUtils.sha3_256Hex(canonical);
 	}
 
 
