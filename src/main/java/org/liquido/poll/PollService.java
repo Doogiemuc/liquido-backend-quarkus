@@ -340,7 +340,10 @@ public class PollService {
 			proposal.setStatus(ProposalEntity.LawStatus.VOTING);
 		}
 		poll.setStatus(PollEntity.PollStatus.VOTING);
-		LocalDateTime votingStart = LocalDateTime.now();			// LocalDateTime is without a timezone
+		// Truncated to SECONDS, like every other voting timestamp: nanosecond precision does not
+		// survive a round trip through a Postgres "timestamp" (microseconds), so an untruncated value
+		// read back differs from the one that was written. See PollyService.finishPolly().
+		LocalDateTime votingStart = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);			// LocalDateTime is without a timezone
 		poll.setVotingStartAt(votingStart);   //record the exact datetime when the voting phase started.
 		int days = durationInDays != null ? durationInDays : config.durationOfVotingPhase();
 		if (days < 1)
@@ -429,7 +432,7 @@ public class PollService {
 			throw new LiquidoException(LiquidoException.Errors.CANNOT_FINISH_POLL, "Cannot finishVotingPhase: Poll must be in status VOTING.");
 
 		poll.setStatus(PollEntity.PollStatus.FINISHED);
-		poll.setVotingEndAt(LocalDateTime.now());
+		poll.setVotingEndAt(LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS));   // SECONDS: see startVotingPhase()
 		poll.getProposals().forEach(p -> p.setStatus(ProposalEntity.LawStatus.LOST));
 
 		//----- calc winner of poll
