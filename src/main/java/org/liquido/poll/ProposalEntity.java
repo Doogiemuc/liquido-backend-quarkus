@@ -14,6 +14,7 @@ import org.liquido.user.UserEntity;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
+import org.eclipse.microprofile.graphql.Ignore;
 
 @Data
 @EqualsAndHashCode(of={"title", "status"}, callSuper = true)  // Two proposals are equal when their ID, their title and status match
@@ -93,6 +94,8 @@ public class ProposalEntity extends LiquidoBaseEntity {
 	@ManyToOne(fetch = FetchType.LAZY)
 	//@JoinColumn(name="poll_id")  this column name is already the default
 	@JsonBackReference      // necessary to prevent endless cycle when (de)serializing to/from JSON: http://stackoverflow.com/questions/20218568/direct-self-reference-leading-to-cycle-exception
+	@Ignore  //SECURITY IMPORTANT: ignore in GraphQL and JSON. See BallotEntity.poll - without this the
+	         // ballot's voteOrder was a second route to proposal->poll->team->inviteCode.
 	public PollEntity poll = null;
 
 	/** Comments and suggestions for improvement for this proposal

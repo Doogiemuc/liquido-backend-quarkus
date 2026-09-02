@@ -14,6 +14,7 @@ import org.liquido.user.UserEntity;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import org.eclipse.microprofile.graphql.Ignore;
 
 /**
  * Link between a Team and its members and admins.
@@ -27,6 +28,7 @@ public class TeamMemberEntity extends PanacheEntity {
 	@ManyToOne
 	@lombok.NonNull
 	@JsonBackReference
+	@Ignore  //SECURITY IMPORTANT: ignore in GraphQL and JSON. See BallotEntity.poll.
 	TeamEntity team;
 
 	/**

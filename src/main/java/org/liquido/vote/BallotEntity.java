@@ -13,6 +13,7 @@ import org.liquido.poll.ProposalEntity;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.eclipse.microprofile.graphql.Ignore;
 
 /**
  * POJO Entity that represents an anonymous vote that a user has casted for one given poll.
@@ -44,6 +45,9 @@ public class BallotEntity extends PanacheEntity {
 	@NonNull
 	@ManyToOne(fetch = FetchType.LAZY) // Changed from LAZY to EAGER
 	@JsonBackReference
+	@Ignore  //SECURITY IMPORTANT: ignore in GraphQL and JSON. @JsonBackReference alone does NOT hide a field
+	         // from the GraphQL schema (unlike @JsonIgnore, which SmallRye GraphQL does honour). Without
+	         // this, the unauthenticated verifyBallot() reached ballot->poll->team->inviteCode/members.
 	public PollEntity poll;
 
 	/**
