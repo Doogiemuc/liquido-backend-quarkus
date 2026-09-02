@@ -15,6 +15,7 @@ import org.liquido.vote.Matrix;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
+import org.eclipse.microprofile.graphql.Ignore;
 
 /**
  * This Team entity is the data model of a team in the backend database.
@@ -39,6 +40,8 @@ public class PollEntity extends LiquidoBaseEntity {
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JsonBackReference
+	@Ignore  //SECURITY IMPORTANT: ignore in GraphQL and JSON. See BallotEntity.poll - a back reference
+	         // must carry @Ignore too, or it stays traversable in the GraphQL schema.
 	TeamEntity team;
 
 	/**

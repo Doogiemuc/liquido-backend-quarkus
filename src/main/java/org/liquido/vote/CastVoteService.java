@@ -2,6 +2,7 @@ package org.liquido.vote;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -55,6 +56,11 @@ public class CastVoteService {
 		// The hash input must exactly be the same as in castVote(). It CANNOT contain voter.id, because that is not known in castVote()
 		// I thought about adding an additional voterSecret, that a user passes in here and in castVote.
 		// But plainVoterToken is already random. This would only add little security.
+		// At most ONE live token per voter per poll: revoke anything still outstanding for this
+		// (voter, poll) before minting the replacement. See OneTimeVotingToken.revokeTokensOf().
+		long revoked = OneTimeVotingToken.revokeTokensOf(rightToVote, poll);
+		if (revoked > 0) log.debug("createOneTimeVoterToken: revoked {} outstanding token(s) for poll.id={}", revoked, poll.id);
+
 		String plainVoterToken  =  UUID.randomUUID().toString();
 		String hashedVoterToken =  calcHashedVoterToken(plainVoterToken, poll.id);
 		int validMinutes = config.voterTokenExpirationMinutes();
@@ -221,7 +227,18 @@ public class CastVoteService {
 		} else {
 			//----- If there is no existing ballot yet with that rightToVote, then builder a completely new one.
 			log.debug("   Saving new ballot");
-			newBallot.persist();
+			try {
+				newBallot.persist();
+				BallotEntity.flush();   // surface uq_ballot_poll_voter HERE, not at commit
+			} catch (PersistenceException e) {
+				// The lookup above said there was no ballot, the database says there is. That is exactly
+				// the read-then-insert race the constraint exists for: another request for this same
+				// RightToVote inserted a ballot in between. One vote per voter per poll stands, and the
+				// caller gets a real error rather than an opaque INTERNAL_ERROR at commit time.
+				log.debug("   Duplicate ballot rejected by uq_ballot_poll_voter in poll.id={}", newBallot.getPoll().id);
+				throw new LiquidoException(LiquidoException.Errors.CANNOT_CAST_VOTE,
+						"Cannot cast vote: a vote for this poll has already been counted.");
+			}
 			savedBallot = newBallot;
 		}
 

@@ -13,6 +13,7 @@ import org.liquido.vote.Matrix;
 import org.liquido.vote.RankedPairVoting;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -151,7 +152,11 @@ public class PollyService {
 		if (polly.isFinished()) return view(polly);
 
 		polly.status = PollyStatus.FINISHED;
-		polly.votingEndAt = LocalDateTime.now();
+		// Truncated to SECONDS so the value we RETURN is the value we STORED. LocalDateTime.now() has
+		// nanosecond resolution on Linux, but a Postgres "timestamp" holds only microseconds - so an
+		// untruncated value came back from the DB different from the one this call had just returned,
+		// and finishing twice appeared to move the end time. Seconds is ample for a poll.
+		polly.votingEndAt = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
 		polly.winner = determineWinner(polly);
 		polly.persist();
 

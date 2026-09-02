@@ -13,6 +13,7 @@ import org.liquido.poll.ProposalEntity;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.eclipse.microprofile.graphql.Ignore;
 
 /**
  * POJO Entity that represents an anonymous vote that a user has casted for one given poll.
@@ -29,9 +30,16 @@ import java.util.stream.Collectors;
 @NoArgsConstructor(force = true)
 @RequiredArgsConstructor                      //BUGFIX: https://jira.spring.io/browse/DATAREST-884
 @EqualsAndHashCode(callSuper = true)
-//@Table(uniqueConstraints = {
-//		@UniqueConstraint(columnNames = {"poll_id", "hashedVoterInfo"})   // a voter is only allowed to vote once per poll with his hashedVoterToken!
-//})
+@Table(uniqueConstraints = {
+		// ONE ballot per voter per poll, enforced by the DATABASE. The application check in
+		// CastVoteService.castVoteRec() exists for a readable error message; this constraint is the
+		// authority, because a read-then-insert has a race window between the read and the insert and
+		// a constraint does not. Same reasoning (and same naming) as uq_polly_ballot_voter.
+		//
+		// This does NOT restrict a proxy: a proxy writes one ballot per delegee, and each delegee has
+		// their own RightToVote, so every row differs in hashedVoterInfo.
+		@UniqueConstraint(name = "uq_ballot_poll_voter", columnNames = {"poll_id", "hashedVoterInfo"})
+})
 public class BallotEntity extends PanacheEntity {
 	//BallotModel deliberately does NOT extend BaseEntity!
 	//No @CreatedDate, No @LastModifiedDate! This could lead to timing attacks.  <=== maybe reconsider? Should I have a CreatedDate on Ballots?
@@ -44,6 +52,9 @@ public class BallotEntity extends PanacheEntity {
 	@NonNull
 	@ManyToOne(fetch = FetchType.LAZY) // Changed from LAZY to EAGER
 	@JsonBackReference
+	@Ignore  //SECURITY IMPORTANT: ignore in GraphQL and JSON. @JsonBackReference alone does NOT hide a field
+	         // from the GraphQL schema (unlike @JsonIgnore, which SmallRye GraphQL does honour). Without
+	         // this, the unauthenticated verifyBallot() reached ballot->poll->team->inviteCode/members.
 	public PollEntity poll;
 
 	/**
