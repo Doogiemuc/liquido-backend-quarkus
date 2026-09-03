@@ -2,7 +2,7 @@
 
 ## A Whitepaper on Secure, Anonymous and Liquid Voting
 
-**Version 3.0 — 2026**
+**Version 4.0 — 2026**
 
 ---
 
@@ -28,13 +28,24 @@ Chapters 6 and 7 describe systems that are running. Chapter 8 describes a system
 - **[Designed]** — specified and settled; some or all of it not yet built.
 - **[Envisioned]** — the direction of travel, with open research or engineering problems named honestly.
 
+As of this version **[Designed]** no longer appears in Chapters 6 and 7: everything those chapters describe is running. The marker is kept because it is the vocabulary the rest of the document argues in, and because Chapter 8 will need it again.
+
 A reader who wants to know only what exists today should read Chapters 6 and 7, and take Chapter 8 as a statement of intent.
 
-### What changed since version 2.0
+### What changed since version 3.0
 
-Version 2.0 documented a set of known weaknesses. Several are now closed, and this version says precisely which — and, more importantly, which are not. The ballot checksum is now a genuine cryptographic commitment rather than an opaque server-issued identifier; the one-ballot-per-voter rule is enforced by the database rather than by application code; the API surface has been verified field by field against the schema it actually publishes; and a cast vote can no longer be changed.
+Version 3.0 described a two-layer anonymity architecture as a settled design that the code did not yet implement. It now does, and this version is the first in which Chapter 7's unlinkability claims are claims about a running system rather than about a specification.
 
-The larger change is to Chapter 8 and to Part III. Version 2.0 ruled out governmental elections. This version does not. It states them as the goal, and sets out exactly what must be true before that goal is legitimate.
+Four things that version 3.0 listed as open are closed:
+
+- **Rights to vote are scoped per team and ballot pseudonyms per poll**, both derived with HMAC. An attacker holding a full database dump and no secret can no longer group one anonymous voter's ballots across polls, or correlate one person across two teams.
+- **The server secret is versioned.** A leak is now recoverable by rotation rather than terminal.
+- **The tally is publishable.** A finished poll's ballots and duel matrix can be read back and the Ranked Pairs computation reproduced independently, so the announced winner can be checked rather than merely trusted. This closes the gap between individual and universal verifiability, and it carries a cost that Section 7.6 states rather than hides.
+- **Polly ballots no longer carry timestamps or sequential identifiers**, removing the one place where the newer tier was the less careful one.
+
+What has not changed is the boundary. Both derivations still use one server secret, and an operator holding it can still reconstruct every link. Scoping defeats an attacker with the database; it does not defeat an attacker with the key. Section 4.3 sets out why that boundary is where it is, and Section 8.7 sets out what it would take to move it.
+
+Version 2.0 ruled out governmental elections. From version 3.0 onward this document does not: it states them as the goal, and sets out exactly what must be true before that goal is legitimate.
 
 ---
 
@@ -270,9 +281,9 @@ What Polly deliberately does **not** offer:
 - **Coercion resistance.** Out of scope entirely.
 - **Sybil resistance.** Nothing prevents one human from registering several passkeys and voting several times. A Polly assumes good faith among people who know each other.
 
-Two residual leaks are known and documented rather than hidden:
+Two residual leaks were known and documented rather than hidden. One is now closed:
 
-- Polly ballots carry a **creation timestamp** and a sequential primary key. Both reveal the order and approximate time in which votes were cast, which in a small group can be correlated with who was online. The team poll deliberately omits both (Section 7.5); Polly does not. **This remains open.** It is the one place where the newer design is the less careful one, and the fix — a random ballot identifier and no creation timestamp — is on the roadmap in Section 10. It has not been made yet, and until it is, a Polly in a group of six leaks more about *when* someone voted than the team poll does.
+- Polly ballots used to carry a **creation timestamp** and a sequential primary key. Both revealed the order and approximate time in which votes were cast, which in a small group can be correlated with who was online — so a Polly among six people leaked more about *when* someone voted than a team poll did. Both are now gone: ballots carry a random identifier and no creation time, matching the team poll's deliberate omission (Section 7.5). **[Implemented]** This was the one place where the newer design was the less careful one.
 - Voter keys are never written to logs — the ballot's string representation deliberately omits them — because a log reader holding the server secret could otherwise link passkeys to ballots. **[Implemented]**
 
 ---
@@ -304,23 +315,23 @@ Two permission rules in this phase are worth stating because their asymmetry is 
 
 This is the core of the system. It is best understood as three derived values with three different lifetimes: one scoped to a team, one scoped to a single vote-casting session, and one scoped to a single poll.
 
-The three layers below are the **target architecture**. Layer 2 is implemented as described. Layers 1 and 3 are implemented in structure but not yet in scope — the derivations exist and carry the traffic, but the team scoping of Layer 1 and the per-poll derivation of Layer 3 are not yet built. Section 7.6 states the consequences precisely, and this is deliberately not glossed over: the unlinkability claims that follow from full scoping are claims this tier does not yet make.
+All three layers below are implemented as described. Earlier versions of this document described Layers 1 and 3 as a target architecture that the code did not yet reach; that gap is closed, and the unlinkability claims in this section are now claims about a running system. Section 7.6 states what remains open, which is a different and smaller list.
 
 **Layer 1 — the Right to Vote, scoped to a team.** When a voter joins a team they are granted a pseudonymous right to vote *in that team*:
 
 ```
-hashedVoterInfo = HMAC-SHA256(serverSecret, email ‖ teamId)          [Designed]
+hashedVoterInfo = HMAC-SHA256(serverSecret, email ‖ teamId)          [Implemented]
 ```
 
 The scope is the important part. A person who belongs to three teams holds three unrelated rights to vote, and no two of them can be shown to belong to the same person without the server secret. A book club and an employer running separate LIQUIDO teams cannot correlate their members' behaviour even with full database access to both.
 
 This scope is not an arbitrary choice. It is the boundary the rest of the system already enforces: poll lookups are team-isolated, membership is team-isolated, and a poll in one team has no bearing on a poll in another. Extending that same boundary to the anonymity layer makes the security model consistent with the domain model rather than cutting across it.
 
-This value is the primary key of the right-to-vote record. It carries eligibility, an expiry after a year of disuse — renewed whenever the voter votes — and, in Tier 3, the delegation graph.
+This value is the primary key of the right-to-vote record. It carries eligibility, an expiry after a year of disuse, and, in Tier 3, the delegation graph.
+
+Expiry prunes dormant entries from the delegation graph; it is not a withdrawal of the franchise. The entitlement to vote is team *membership*, and the right to vote is a value derived from it — so a lapsed right to vote is revived whenever a current member next uses it, and only for a current member. A person who has left the team leaves behind a derived row that stays dead. Getting this wrong in the other direction is worse than it sounds: a version of this system made expiry a one-way door, which silently disenfranchised exactly the least engaged members and could only be undone by editing the database. **[Implemented]**
 
 Note what it deliberately does *not* include: the user's password hash. Including it would mean that changing a password silently destroyed the user's right to vote. **[Implemented]**
-
-*Today, this value is derived from the email address and the server secret alone, without the team identifier and using a plain keyed hash rather than HMAC. One person therefore holds one right to vote across all their teams.*
 
 **Layer 2 — the one-time voter token.** To vote in a specific poll, the voter requests a token over an authenticated channel. The server stores only the **hash** of that token, linked to the voter's right to vote. The plain token is returned to the voter and to nobody else. It is valid for twenty minutes, is bound to one poll, and is **deleted the moment it is consumed**. **[Implemented]**
 
@@ -329,14 +340,12 @@ A voter holds **at most one live token per poll**: requesting a new one revokes 
 **Layer 3 — the ballot pseudonym, scoped to a poll.** When the token is consumed, the server derives one further value:
 
 ```
-ballotPseudonym = HMAC-SHA256(serverSecret, hashedVoterInfo ‖ pollId)   [Designed]
+ballotPseudonym = HMAC-SHA256(serverSecret, hashedVoterInfo ‖ pollId)   [Implemented]
 ```
 
 **This is what the ballot stores.** The right to vote itself is never written to a ballot row. The derivation happens inside the vote-casting transaction and the mapping is never persisted anywhere — the server re-derives it on demand when a voter asks about their own ballot, because it holds the secret.
 
 The consequence is that ballots are unlinkable across polls. A single voter's ballots in ten different polls of the same team carry ten unrelated pseudonyms. An attacker with a complete database dump and no secret cannot group them, cannot count how many polls a given pseudonym participated in, and cannot build a voting history.
-
-*Today, a ballot references the right to vote directly. An attacker with a database dump and no secret therefore cannot name the voter, but can see that the same anonymous voter participated in a given set of polls. Closing this is the single highest-value change remaining in this tier.*
 
 **Casting the vote.** The voter submits their ranked order together with the plain token, over a call that carries **no authentication and no identity whatsoever**. The server hashes the presented token, looks up the stored hash, follows it to the right to vote, derives the ballot pseudonym for this poll, deletes the token, and records the ballot.
 
@@ -375,23 +384,27 @@ The one exception is not a voter changing their mind but the delegation hierarch
 
 ### 7.6 Known weaknesses
 
-The design above is the target architecture. The following limitations remain, and are documented here because a whitepaper that lists only strengths is advertising. Version 2.0 listed six; one is closed, one is narrowed, and the rest stand.
+The following limitations are documented here because a whitepaper that lists only strengths is advertising. Version 3.0 listed seven: four are now closed, one is narrowed, and two stand — one of them permanently, by design. One new item joins the list, because closing the verifiability gap bought a fresh exposure rather than a free improvement, and a list that only ever shrinks is not being kept honestly.
 
-**A single secret is the ceiling on every claim in this section.** *Open.* One server secret protects both derivations. An attacker holding it, together with a team's membership list — which is visible to every team member — needs two keyed-hash computations per member to determine who cast which ballot. For a team of twenty that is forty operations, not a brute-force search. Per-team and per-poll scoping close the *linkage* threat completely; they do not and cannot close the *operator* threat. Only distributed trust does that.
-
-**The secret is not versioned.** *Open.* Because the right-to-vote identifier is derived from it and is the primary key of that record, rotating the secret invalidates every right to vote. A leak is therefore currently unrecoverable rather than merely serious. Introducing a key version stored alongside each right to vote makes rotation possible and is a prerequisite for treating the secret as a rotatable credential rather than a permanent one. Polly's secret is already separate and rotatable by design.
-
-**Rights to vote are not yet team-scoped, and ballots are not yet poll-scoped.** *Open.* This is the gap named in Section 7.3. Until it closes, an attacker with a database dump and no secret cannot identify any voter, but can group one anonymous voter's ballots across polls, and across teams. The design that resolves it is settled (Section 8.5); the work is not done.
-
-**Verification requires trusting the server.** *Open.* A voter can now genuinely confirm their own ballot via its checksum — Section 7.4 makes that claim true where version 2.0 did not — but nobody can confirm that the announced winner follows from the recorded ballots. Universal verifiability requires publishing the anonymised ballot set alongside the duel matrix so that the Ranked Pairs computation can be reproduced independently. This is planned, not built, and it is a hard requirement for Tier 3 rather than a nicety.
+**A single secret is the ceiling on every claim in this section.** *Open, and structural.* One server secret protects both derivations. An attacker holding it, together with a team's membership list — which is visible to every team member — needs two keyed-hash computations per member to determine who cast which ballot. For a team of twenty that is forty operations, not a brute-force search. Per-team and per-poll scoping close the *linkage* threat completely; they do not and cannot close the *operator* threat. Only distributed trust does that, and no amount of work inside the current architecture substitutes for it. This is the single most important sentence in the chapter.
 
 **The token window is a correlation window.** *Narrowed.* For the twenty minutes a one-time voter token is live, a database row links a right to vote to a poll. During that window an observer with database access can see *that* a particular right to vote is about to vote in a particular poll — not how. Bounding issuance to one live token per voter per poll (Section 7.3) removes the ability to accumulate such rows, but not the window itself. The row is deleted on consumption, so this remains transient rather than permanent, and it is the one place where the otherwise clean separation between identity and ballot is briefly visible.
 
-**Anonymity is bounded by the API surface.** *Closed.* See Section 7.5.
-
 **The system is not receipt-free.** *Unchanged, by design.* This is a decision rather than a defect, argued in Section 4.2, but it belongs on any list of limitations — and, per that same section, it is a decision that Tier 3 cannot inherit.
 
-None of these defeat the design. All of them are reasons the honest claim in Section 4.3 is "pseudonymous against the operator" rather than something stronger.
+**Publishing the tally has a cost, and it is the receipt problem again.** *Accepted, deliberately.* Universal verifiability (below) is achieved by publishing every counted ballot's ranking. With enough proposals, a distinctive ranking is effectively a signature: a coercer can demand an unusual ordering in advance and then look for it in the published set. This is the **Italian attack**, and the exposure grows with the number of proposals — it is negligible for three, real for ten. LIQUIDO is already not receipt-free, so this introduces no class of attack the system claimed to resist; a coercer had a simpler route already. But it is a trade that was made, not one that was avoided, and in a setting where coercion is the dominant threat the right configuration is to leave the tally unpublished.
+
+Closed since version 3.0:
+
+**Rights to vote were not team-scoped, and ballots were not poll-scoped.** *Closed.* Both derivations are now HMAC-based and scoped as Section 7.3 describes. A person in three teams holds three unrelated rights to vote; one voter's ballots in ten polls of one team carry ten unrelated pseudonyms. A ballot holds no reference to a right to vote at all.
+
+**The secret was not versioned.** *Closed.* Each right to vote records the key version it was derived under, and retired secrets are retained for lookup, so rotation re-derives records lazily instead of invalidating them. A leak is now recoverable rather than terminal. Rotation is a procedure, not merely a possibility — but the procedure now exists.
+
+**Verification required trusting the server.** *Closed.* A finished poll's tally can be published: the proposal ids that index the duel matrix, every counted ballot's ranking with its checksum, the matrix, and the announced winner. Ranked Pairs is deterministic, so an auditor recomputes the result from the published ballots alone and compares. A voter additionally finds their own checksum in the set, which turns "my ballot was counted" into a spot check on the whole count. The pseudonym and the delegation level are deliberately withheld: the first leads back to a voter given the secret, the second would expose how much of a poll proxies decided. What this does *not* provide is proof that the published set is the set that was cast — a server that never recorded a ballot publishes a consistent tally without it. Closing that gap requires a public bulletin board with voter-side confirmation, which is Section 8.7's territory.
+
+**Anonymity was bounded by the API surface.** *Closed.* See Section 7.5.
+
+None of the open items defeat the design. All of them are reasons the honest claim in Section 4.3 is "pseudonymous against the operator" rather than something stronger.
 
 ---
 
@@ -457,7 +470,7 @@ Delegation walks the persistent graph; ballots record only the ephemeral derivat
 
 The general lesson generalises past this system: when two requirements appear to contradict, it is worth checking whether they have been forced onto a single value that is serving two roles. Splitting the value is often cheaper than weakening either requirement.
 
-**Status.** *The design problem is solved; the implementation is not.* The two-layer split above is settled and is the specification this tier is built to. It is not yet the code: today one right to vote covers all of a person's teams, and ballots reference it directly rather than through a per-poll derivation (Section 7.6). Until that changes, Tier 3's unlinkability properties are properties of the design and not of any running system, and this chapter's claims should be read accordingly.
+**Status.** *Solved, and now built.* The two-layer split above is no longer only the specification this tier is written to — it is the code. Rights to vote are scoped per team and hold the delegation graph; ballot pseudonyms are derived per poll at casting time and are the only voter-derived value a ballot stores, with no foreign key back to the right to vote. Tier 3 remains unreleased, but its unlinkability foundations are properties of a running system rather than of a design document, and the rest of this chapter can be read on that footing.
 
 **What this still does not solve.** Both derivations use the same server secret. An operator holding it can reconstruct every link at any layer. Per-team and per-poll scoping defeat an attacker with the database; they do not defeat an attacker with the key. That is the boundary set out in Section 4.3, and splitting the value does not move it. Moving it is the subject of Section 8.7.
 
@@ -531,13 +544,14 @@ Bounded groups that trust the operator of their instance and need to make ranked
 
 ### 9.3 Who can learn what
 
-The table describes the system **as it runs today**, not the target architecture. Where full scoping would change an answer, the row says so.
+The table describes the system **as it runs today**. Since version 3.0 the scoping rows have moved from "not yet built" to built, so this is no longer a description of a target architecture.
 
 | Adversary | Can they link a voter to a ballot? |
 |---|---|
 | Another team member | No |
 | The team admin | No |
-| An attacker with a database dump, without the secret | No — but they can currently group one anonymous voter's ballots across polls and teams. Team- and poll-scoping (Section 7.3) closes this; it is not yet built |
+| An attacker with a database dump, without the secret | No — and, since team- and poll-scoping shipped (Section 7.3), they can no longer group one anonymous voter's ballots across polls, or correlate one person across two teams |
+| A reader of the published tally of a finished poll | No — ballots are published with their rankings and checksums but no pseudonym. But a *coercer* who demanded a distinctive ranking in advance can recognise it (Section 7.6) |
 | An observer of the database during the 20-minute token window | They learn *that* an anonymous right to vote is about to vote in a named poll — never how |
 | The server operator, or anyone holding the server secret | **Yes**, for every ballot, retroactively. Only threshold key sharing changes this |
 | A delegee, learning how their own proxy voted (Tier 3) | Yes, by design — see Section 8.4 |
@@ -546,15 +560,18 @@ The table describes the system **as it runs today**, not the target architecture
 ## 10. Roadmap
 
 **Completed in this version.**
-The one-ballot-per-voter rule is enforced by a database constraint. One-time token issuance is bounded to a single live token per voter per poll. The ballot checksum is a canonical, versioned, independently reproducible commitment over immutable identifiers. A cast vote is final. The published API schema has been verified field by field against what the source intends to expose, and is now guarded by a test that fails the build on regression.
+Rights to vote are scoped per team and ballot pseudonyms per poll, both derived with HMAC, and a ballot holds no reference to a right to vote. The server secret is versioned, so a leak is recoverable by rotation rather than terminal. A finished poll's tally can be published and its Ranked Pairs result recomputed independently. Polly ballots no longer carry timestamps or sequential identifiers. Delegation cycles are refused at the point where an accepted request would close a loop, rather than only at request time when there is nothing yet to find. An expired right to vote is revived for a current member instead of disenfranchising them permanently.
 
-**Near term — unlinkability.** Implement the two-level scoping of Section 7.3: rights to vote per team, ballot pseudonyms per poll, both derived with HMAC. Because the schema is not yet in public use, this is a design change rather than a migration — a temporary advantage that disappears the moment real data exists. Remove the residual timing metadata from Polly ballots (Section 6.5).
+**Completed in version 3.0.**
+The one-ballot-per-voter rule is enforced by a database constraint. One-time token issuance is bounded to a single live token per voter per poll. The ballot checksum is a canonical, versioned, independently reproducible commitment over immutable identifiers. A cast vote is final. The published API schema has been verified field by field against what the source intends to expose, and is guarded by a test that fails the build on regression.
 
-**Near term — key management.** Version the server secret so that a leak is recoverable rather than terminal, and move it into a managed secret store. This is a prerequisite for treating the secret as a credential rather than a permanent fact, and it becomes far more expensive once rights to vote exist in production.
+**Near term — key management as an operation.** Versioning made rotation possible; it did not make it routine. Move the secret into a managed store, and exercise rotation end to end so that it is a rehearsed procedure rather than a capability nobody has used. An untested recovery path is not a recovery path.
 
-**Medium term — universal verifiability.** Publish the anonymised ballot set alongside the duel matrix so that the tally becomes independently reproducible. This carries a known cost: publishing full rankings enables the "Italian attack", in which a distinctive ranking becomes a signature a coercer can demand in advance. The cost is more serious the more proposals a poll contains. Given that LIQUIDO is already not receipt-free, this may be an acceptable additional exposure — but it must be a stated decision, not a side effect.
+**Near term — publish the tally by choice, not by default.** Section 7.6 states the Italian-attack cost of publishing full rankings. That cost depends on the poll — negligible for three proposals, real for ten — so the decision belongs to whoever runs the instance, as a per-poll or per-team setting with the trade explained where it is made, rather than as a global constant chosen here.
 
-**Medium term — release Tier 3.** Expose delegation, with cycle prevention as a correctness prerequisite and the proxy-privacy consequences of Section 8.4 surfaced in the interface rather than in this document alone.
+**Medium term — from verifiable arithmetic to a verifiable record.** Publishing the tally proves the announced winner follows from the published ballots. It does not prove the published ballots are the ballots that were cast. Closing that gap needs a public bulletin board on which voters confirm their own ballot is present, so that omission is detectable by the person who was omitted. This is the step that turns individual and universal verifiability into end-to-end verifiability, and it is a prerequisite for anything binding.
+
+**Medium term — release Tier 3.** Expose delegation, with the proxy-privacy consequences of Section 8.4 surfaced in the interface rather than in this document alone. The correctness prerequisite named in earlier versions — cycle prevention — is now in place. A related capability belongs here too: allowing a team admin to revoke a right to vote, which the current model grants at membership and never withdraws before expiry.
 
 **The long road — governmental elections.** The six prerequisites of Section 8.7, in roughly that order of difficulty, with coercion-resistance last because it is hardest and because the other five are worth having regardless of whether the last one is ever achieved. This is a multi-year research and engineering programme, not a backlog. It is also the reason the rest of the system is built the way it is.
 
