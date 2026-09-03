@@ -20,8 +20,10 @@ import org.liquido.vote.*;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -568,8 +570,21 @@ public class PollService {
 	}
 
 	private RightToVoteEntity findTopChecksumRec(RightToVoteEntity rightToVote) {
+		return findTopChecksumRec(rightToVote, new HashSet<>());
+	}
+
+	/**
+	 * Walk up the delegation chain to its root.
+	 *
+	 * <p>The visited set is not optional. Cycle prevention lives on the write side
+	 * (DelegationService), but a read path that recurses over data it did not write must not turn a
+	 * malformed graph into a hung request or a StackOverflowError -- so on revisiting a node this
+	 * stops and treats it as the top rather than looping forever.
+	 */
+	private RightToVoteEntity findTopChecksumRec(RightToVoteEntity rightToVote, Set<String> visited) {
+		if (!visited.add(rightToVote.getHashedVoterInfo())) return rightToVote;   // cycle: stop here
 		if (rightToVote.getDelegatedTo() == null) return rightToVote;
-		return findTopChecksumRec(rightToVote.getDelegatedTo());
+		return findTopChecksumRec(rightToVote.getDelegatedTo(), visited);
 	}
 
 	/**
@@ -594,7 +609,7 @@ public class PollService {
 			throw new LiquidoException(LiquidoException.Errors.CANNOT_FIND_ENTITY, "Cannot find effective proxy, because poll is not in voting phase or finished");
 		RightToVoteEntity rightToVote = RightToVoteEntity.findByVoterAndTeam(voter, poll.getTeam(), config)
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_FIND_ENTITY, "Cannot find effective Proxy, you have no RightTotVote"));
-		return findEffectiveProxyRec(poll, voter, rightToVote);
+		return findEffectiveProxyRec(poll, voter, rightToVote, new HashSet<>());
 	}
 
 	/**
@@ -602,7 +617,10 @@ public class PollService {
 	 * the proxy that actually cast the vote.
 	 * @return the proxy that cast the vote or the voter if he cast a vote himself.
 	 */
-	private Optional<UserEntity> findEffectiveProxyRec(PollEntity poll, UserEntity voter, RightToVoteEntity rightToVote) throws LiquidoException {
+	private Optional<UserEntity> findEffectiveProxyRec(PollEntity poll, UserEntity voter, RightToVoteEntity rightToVote, Set<String> visited) throws LiquidoException {
+		// Same reason as findTopChecksumRec: a read path must not hang or blow the stack on a graph
+		// it did not write. On revisiting a node, stop and report this voter as the effective proxy.
+		if (!visited.add(rightToVote.getHashedVoterInfo())) return Optional.of(voter);
 		if (rightToVote.getPublicProxy() != null &&	!rightToVote.getPublicProxy().equals(voter))
 			throw new RuntimeException("Data inconsistency: " + rightToVote + " is not the checksum of public proxy="+voter);
 
@@ -624,7 +642,7 @@ public class PollService {
 				.orElseThrow(() -> new RuntimeException("Data inconsistency: Voter has a delegated checksum but no direct proxy! "+voter+", "+rightToVote));
 
 		//----- at last recursively check for that proxy up in the tree.
-		return findEffectiveProxyRec(poll, delegation.getToProxy(), rightToVote.getDelegatedTo());
+		return findEffectiveProxyRec(poll, delegation.getToProxy(), rightToVote.getDelegatedTo(), visited);
 
 		//of course the order of all the IF statements in this method is extremely important. Managed to do it without any "else" !! :-)
 	}
@@ -636,11 +654,16 @@ public class PollService {
 	 */
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_ADMIN_ROLE)  // only the admin may delete polls.  See application.properties for admin name and email
 	@Transactional
-	public void deletePoll(@NonNull PollEntity poll, boolean deleteProposals) {
+	public void deletePoll(@NonNull PollEntity poll, boolean deleteProposals) throws LiquidoException {
 		log.info("DELETE "+poll);
 		if (poll == null) return;
 
-		//TODO: !!! check that poll is in current user's team !!!
+		// Team is the tenant boundary, and it is never implied by a role: @RolesAllowed(ADMIN) says the
+		// caller is an admin of SOME team, never that they own this poll. Re-resolving the poll through
+		// the team-scoped lookup is the same one-call pattern every other poll operation uses, so a
+		// caller cannot do the lookup and forget the guard. This method is not exposed through GraphQL
+		// today -- the check goes in before it is, not after.
+		getPollInCurrentTeam(poll.getId());
 
 		// unlink proposals/laws from poll and then (optionally) delete them
 		for (ProposalEntity prop : poll.getProposals()) {

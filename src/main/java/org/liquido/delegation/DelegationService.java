@@ -111,17 +111,32 @@ public class DelegationService {
 		// findByIdList(delegationRequestIds) directly, which fetched ANY delegation rows by arbitrary ID with no
 		// check they were addressed to the caller -- e.g. acceptDelegationRequests([1..1000]) absorbed every
 		// pending delegation request in the system.
-		DelegationEntity.findDelegationRequestsTo(proxy).stream()
+		List<DelegationEntity> toAccept = DelegationEntity.findDelegationRequestsTo(proxy).stream()
 				.filter(delegationRequest -> delegationRequestIds.contains(delegationRequest.getId()))
-				.forEach(delegationRequest -> {
-					RightToVoteEntity requestedDelegationFrom = delegationRequest.getRequestedDelegationFrom();
-					requestedDelegationFrom.delegateToProxy(proxyRightToVote);
-					// Clear the request markers rather than deleting the row: the fromuser_id unique constraint
-					// means this row also IS the record of the now-accepted delegation (see isDelegationRequest()).
-					delegationRequest.setRequestedDelegationFrom(null);
-					delegationRequest.setRequestedDelegationAt(null);
-					delegationRequest.persist();
-				});
+				.toList();
+
+		// A plain for loop, not forEach: accepting has to be able to REFUSE, and a lambda cannot throw
+		// the checked exception that refusal needs.
+		for (DelegationEntity delegationRequest : toAccept) {
+			RightToVoteEntity requestedDelegationFrom = delegationRequest.getRequestedDelegationFrom();
+
+			// SECURITY/CORRECTNESS: the cycle check on delegateTo() is NOT enough on its own. When a
+			// delegation to a non-public proxy is only REQUESTED, no edge exists yet -- so two users can
+			// each request the other with neither request looking circular at request time, and the cycle
+			// is created here, at accept time, by the second accept. Two cooperating users could
+			// therefore build a loop that makes vote casting and every upward walk of the graph recurse
+			// forever. The edge is created here, so the check belongs here too.
+			if (delegationWouldCauseCycle(requestedDelegationFrom, proxyRightToVote))
+				throw new LiquidoException(LiquidoException.Errors.CANNOT_ASSIGN_CIRCULAR_PROXY,
+						"Cannot accept this delegation request: it would create a circular delegation.");
+
+			requestedDelegationFrom.delegateToProxy(proxyRightToVote);
+			// Clear the request markers rather than deleting the row: the fromuser_id unique constraint
+			// means this row also IS the record of the now-accepted delegation (see isDelegationRequest()).
+			delegationRequest.setRequestedDelegationFrom(null);
+			delegationRequest.setRequestedDelegationAt(null);
+			delegationRequest.persist();
+		}
 		proxyRightToVote.persist();
 	}
 
@@ -155,9 +170,14 @@ public class DelegationService {
 	 * Check if adding this delegation would create a cycle.
 	 */
 	public boolean delegationWouldCauseCycle(RightToVoteEntity usersRightToVote, RightToVoteEntity proxy) {
+		// The visited set guards the DETECTOR itself. Walking delegatedTo with only a null check
+		// terminates on a well-formed graph, but hangs forever on one that already contains a loop --
+		// so the one function whose job is to find loops was the one that could not survive meeting one.
+		Set<String> visited = new HashSet<>();
 		RightToVoteEntity current = proxy;
 		while (current != null) {
 			if (usersRightToVote.equals(current)) return true;
+			if (!visited.add(current.getHashedVoterInfo())) return true;   // already looping: refuse
 			current = current.getDelegatedTo();
 		}
 		return false;
