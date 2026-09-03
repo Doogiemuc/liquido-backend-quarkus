@@ -52,7 +52,10 @@ public class CastVoteService {
 		if (DoogiesUtil.isEmpty(voter.getEmail()))
 			throw new LiquidoException(LiquidoException.Errors.CANNOT_CREATE_VOTING_TOKEN, "Need voter with email to create a OneTimeVoterToken!");
 
-		RightToVoteEntity rightToVote = RightToVoteEntity.findByVoter(voter, config.hashSecret())
+		// A right to vote is scoped to ONE team, so the poll's team is what identifies it. This is
+		// also where the team boundary for voting is enforced: token issuance is the one authenticated
+		// step, and a voter without a right to vote in THIS poll's team gets no token at all.
+		RightToVoteEntity rightToVote = RightToVoteEntity.findByVoterAndTeam(voter, poll.getTeam(), config)
 				.orElseThrow(LiquidoException.supplyAndLog(LiquidoException.Errors.CANNOT_CREATE_VOTING_TOKEN, "You are not allowed to vote! No RightToVote!"));
 		if (!rightToVote.isValid()) throw new LiquidoException(LiquidoException.Errors.CANNOT_CREATE_VOTING_TOKEN, "Your right to vote has expired.");
 
@@ -178,11 +181,8 @@ public class CastVoteService {
 		// Validate voter token and lookup linked RightToVote
 		RightToVoteEntity rightToVote = consumeVoterToken(plainVoterToken, poll);
 
-		// Create a new ballot for the voter himself at level 0.
-		BallotEntity newBallot = new BallotEntity(poll, 0, voteOrder, rightToVote);
-
-		// check this ballot and recursively cast ballots for delegated rightToVotes
-		return castVoteRec(newBallot);
+		// Cast at level 0 for the voter themselves, then recursively for everyone delegating to them.
+		return castVoteRec(poll, 0, voteOrder, rightToVote);
 	}
 
 	/**
@@ -219,14 +219,19 @@ public class CastVoteService {
 	 * @throws LiquidoException with {@link LiquidoException.Errors#ALREADY_VOTED} when this voter already cast a direct (level 0) vote in this poll.
 	 */
 	//@Transactional Do not open a transaction for each recursion!
-	private CastVoteResponse castVoteRec(BallotEntity newBallot) throws LiquidoException {
+	private CastVoteResponse castVoteRec(PollEntity poll, int level, List<ProposalEntity> voteOrder, RightToVoteEntity rightToVote) throws LiquidoException {
+		// The persistent, team-scoped RightToVote is what we RECURSE over; the poll-scoped pseudonym
+		// derived from it is the only thing that ever reaches a ballot row. That split is what lets
+		// delegation be a standing arrangement while ballots stay unlinkable across polls.
+		String ballotPseudonym = rightToVote.deriveBallotPseudonym(poll.id, config);
+		BallotEntity newBallot = new BallotEntity(poll, level, voteOrder, ballotPseudonym);
 		log.debug("   castVoteRec: {}", newBallot);
 
 		//----- check the validity of the ballot
 		checkBallot(newBallot);
 
 		//----- check if there already is a ballot, then update that, otherwise save newBallot
-		Optional<BallotEntity> existingBallotOpt = BallotEntity.findByPollAndRightToVote(newBallot.getPoll(), newBallot.getRightToVote());
+		Optional<BallotEntity> existingBallotOpt = BallotEntity.findByPollAndPseudonym(poll, ballotPseudonym);
 		BallotEntity savedBallot;
 
 		if (existingBallotOpt.isPresent()) {
@@ -274,11 +279,12 @@ public class CastVoteService {
 
 		//----- When a user is a proxy, then recursively cast a ballot for each delegated rightToVote
 		long voteCount = 0;   // count for how many delegees (that have not voted yet for themselves) the proxy's ballot is also cast
-		for (RightToVoteEntity delegatedRightToVote : savedBallot.rightToVote.delegations) {
-			List<ProposalEntity> voteOrderClone = new ArrayList<>(newBallot.getVoteOrder());   // BUGFIX for org.hibernate.HibernateException: Found shared references to a collection
-			BallotEntity childBallot = new BallotEntity(newBallot.getPoll(), newBallot.getLevel() + 1, voteOrderClone, delegatedRightToVote);
-			log.debug("   Proxy casts vote for delegated childBallot {}", childBallot);
-			CastVoteResponse childRes = castVoteRec(childBallot);  // will return null when level of an existing childBallot is smaller than the childBallot that the proxy would cast. => this ends the recursion
+		for (RightToVoteEntity delegatedRightToVote : rightToVote.delegations) {
+			List<ProposalEntity> voteOrderClone = new ArrayList<>(voteOrder);   // BUGFIX for org.hibernate.HibernateException: Found shared references to a collection
+			// Each delegee derives their OWN pseudonym, so the proxy's ranking lands on a row that is
+			// still the delegee's ballot -- and the uniqueness constraint is not tripped by a proxy
+			// writing one ballot per delegee.
+			CastVoteResponse childRes = castVoteRec(poll, level + 1, voteOrderClone, delegatedRightToVote);  // returns null when an existing childBallot has a smaller level => ends the recursion
 			if (childRes != null) voteCount += 1 + childRes.getVoteCount();
 		}
 
@@ -324,9 +330,11 @@ public class CastVoteService {
 			}
 		}
 
-		// Every ballot must be linked to an existing & persisted RightToVote
-		RightToVoteEntity rightToVote = RightToVoteEntity.findByHash(ballot.getRightToVote().hashedVoterInfo)
-				.orElseThrow(() -> new LiquidoException(LiquidoException.Errors.CANNOT_CAST_VOTE, "Cannot cast vote: Ballot must be linked to an existing RightToVote."));
+		// A ballot must carry a pseudonym. It deliberately cannot be checked against a RightToVote:
+		// the ballot holds no reference to one, which is the entire point of deriving it per poll.
+		// The right to vote behind it was already validated in consumeVoterToken() before we got here.
+		if (DoogiesUtil.isEmpty(ballot.getBallotPseudonym()))
+			throw new LiquidoException(LiquidoException.Errors.CANNOT_CAST_VOTE, "Cannot cast vote: Ballot must have a pseudonym.");
 	}
 
 

@@ -9,6 +9,7 @@ import org.liquido.delegation.DelegationEntity;
 import org.liquido.delegation.DelegationService;
 import org.liquido.model.LiquidoBaseEntity;
 import org.liquido.poll.PollEntity;
+import org.liquido.security.JwtTokenUtils;
 import org.liquido.team.TeamDataResponse;
 import org.liquido.team.TeamEntity;
 import org.liquido.team.TeamMemberEntity;
@@ -43,6 +44,9 @@ public class UseCaseTests {
 
 	@Inject
 	DelegationService delegationService;
+
+	@Inject
+	JwtTokenUtils jwtTokenUtils;
 
 	/**
 	 * Check that a voter can vote in two separate polls.
@@ -182,14 +186,15 @@ public class UseCaseTests {
 	public void delegateToNonPublicProxy_createsPendingRequestOnly() {
 		// A dedicated, isolated team -- not the shared seeded one -- so this test can't shift member
 		// ordering/roles (TeamEntity.members is an unordered Set) that other tests depend on.
-		String inviteCode = util.createFreshTeam("DelegateNonPublic" + new Date().getTime()).team.inviteCode;
+		TeamEntity team = util.createFreshTeam("DelegateNonPublic" + new Date().getTime()).team;
+		String inviteCode = team.inviteCode;
 		UserEntity delegator = util.joinTeam(inviteCode, null).user;
 		UserEntity proxy = util.joinTeam(inviteCode, null).user;
 
 		TeamDataResponse delegatorRes = util.devLogin(delegator.email);
 		util.delegateTo(proxy, delegatorRes.jwt);
 
-		RightToVoteEntity delegatorRTV = RightToVoteEntity.findByVoter(delegator, config.hashSecret())
+		RightToVoteEntity delegatorRTV = RightToVoteEntity.findByVoterAndTeam(delegator, team, config)
 				.orElseThrow(() -> new RuntimeException("delegator has no RightToVote"));
 		assertNull(delegatorRTV.getDelegatedTo(), "Delegation to a non-public proxy must NOT be immediate");
 
@@ -204,7 +209,8 @@ public class UseCaseTests {
 	 */
 	@Test
 	public void delegateToPublicProxy_isImmediate() {
-		String inviteCode = util.createFreshTeam("DelegatePublic" + new Date().getTime()).team.inviteCode;
+		TeamEntity team = util.createFreshTeam("DelegatePublic" + new Date().getTime()).team;
+		String inviteCode = team.inviteCode;
 		UserEntity delegator = util.joinTeam(inviteCode, null).user;
 		UserEntity proxy = util.joinTeam(inviteCode, null).user;
 
@@ -212,7 +218,7 @@ public class UseCaseTests {
 		// the delegateTo() call below is a separate HTTP request on a separate transaction/thread
 		// and would otherwise never see this write.
 		QuarkusTransaction.requiringNew().run(() -> {
-			RightToVoteEntity proxyRTV = RightToVoteEntity.findByVoter(proxy, config.hashSecret())
+			RightToVoteEntity proxyRTV = RightToVoteEntity.findByVoterAndTeam(proxy, team, config)
 					.orElseThrow(() -> new RuntimeException("proxy has no RightToVote"));
 			proxyRTV.setPublicProxy(proxy);
 			proxyRTV.persist();
@@ -222,9 +228,9 @@ public class UseCaseTests {
 		util.delegateTo(proxy, delegatorRes.jwt);
 
 		QuarkusTransaction.requiringNew().run(() -> {
-			RightToVoteEntity proxyRTV = RightToVoteEntity.findByVoter(proxy, config.hashSecret())
+			RightToVoteEntity proxyRTV = RightToVoteEntity.findByVoterAndTeam(proxy, team, config)
 					.orElseThrow(() -> new RuntimeException("proxy has no RightToVote"));
-			RightToVoteEntity delegatorRTV = RightToVoteEntity.findByVoter(delegator, config.hashSecret())
+			RightToVoteEntity delegatorRTV = RightToVoteEntity.findByVoterAndTeam(delegator, team, config)
 					.orElseThrow(() -> new RuntimeException("delegator has no RightToVote"));
 			assertNotNull(delegatorRTV.getDelegatedTo(), "Delegation to a public proxy must be immediate");
 			assertEquals(proxyRTV.getHashedVoterInfo(), delegatorRTV.getDelegatedTo().getHashedVoterInfo());
@@ -240,7 +246,8 @@ public class UseCaseTests {
 	@Test
 	@TestTransaction
 	public void acceptDelegationRequests_cannotStealOthersRequests() throws org.liquido.util.LiquidoException {
-		String inviteCode = util.createFreshTeam("DelegationTheft" + new Date().getTime()).team.inviteCode;
+		TeamEntity team = util.createFreshTeam("DelegationTheft" + new Date().getTime()).team;
+		String inviteCode = team.inviteCode;
 		UserEntity delegator = util.joinTeam(inviteCode, null).user;
 		UserEntity intendedProxy = util.joinTeam(inviteCode, null).user;
 		UserEntity attacker = util.joinTeam(inviteCode, null).user;
@@ -258,10 +265,14 @@ public class UseCaseTests {
 		Lson vars = new Lson("ids", List.of(request.getId()));
 		TestFixtures.sendGraphQL(query, vars, attackerRes.jwt);
 
-		// THEN nothing was stolen: attacker gained no delegation, and the delegator is still not delegated
+		// THEN nothing was stolen: attacker gained no delegation, and the delegator is still not delegated.
+		// countDelegationsTo() is called DIRECTLY here rather than over HTTP, so it has no JWT to read a
+		// team from -- and a delegation count is now per team, because a right to vote is. Give it the
+		// team context the equivalent HTTP call would have carried.
+		jwtTokenUtils.setCurrentUserAndTeam(attacker, TeamEntity.findById(team.id));
 		long attackerDelegationCount = delegationService.countDelegationsTo(attacker);
 		assertEquals(0, attackerDelegationCount, "Attacker must not have gained a delegation from someone else's request");
-		RightToVoteEntity delegatorRTV = RightToVoteEntity.findByVoter(delegator, config.hashSecret())
+		RightToVoteEntity delegatorRTV = RightToVoteEntity.findByVoterAndTeam(delegator, team, config)
 				.orElseThrow(() -> new RuntimeException("delegator has no RightToVote"));
 		assertNull(delegatorRTV.getDelegatedTo(), "Delegator's vote must still not be delegated to anyone");
 	}

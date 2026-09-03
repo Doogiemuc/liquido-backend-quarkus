@@ -5,9 +5,13 @@ import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.codec.digest.HmacAlgorithms;
+import org.apache.commons.codec.digest.HmacUtils;
 import org.liquido.delegation.DelegationEntity;
 import org.liquido.poll.PollEntity;
+import org.liquido.team.TeamEntity;
+import org.liquido.util.LiquidoConfig;
+import org.liquido.util.LiquidoException;
 import org.liquido.user.UserEntity;
 
 import java.time.LocalDateTime;
@@ -84,28 +88,78 @@ public class RightToVoteEntity extends PanacheEntityBase {
 	 * Then voters can automatically delegate their vote to this proxy.
 	 * Then the proxy does not need to accept delegations. They can automatically be delegated.
 	 */
-	@OneToOne
+	@ManyToOne
 	UserEntity publicProxy = null;
 
 	/**
-	 * Hash a voter's info into their {@link #hashedVoterInfo}.
-	 * Deliberately does NOT include {@link UserEntity#passwordHash}: that would make a
-	 * password change silently destroy the user's right to vote and orphan their ballots
-	 * (this is the {@code @Id} of this entity and the FK on every {@code ballots} row).
+	 * The team this right to vote is scoped to.
+	 *
+	 * <p>A person in three teams holds three unrelated rights to vote, so two of them cannot be shown
+	 * to belong to one person without the server secret -- two unrelated LIQUIDO teams cannot
+	 * correlate their members even with full access to both databases. Team scope is also exactly
+	 * right for delegation: a proxy in one team has no standing in another team's poll, so the
+	 * delegation graph is naturally partitioned rather than being one global structure.
 	 */
-	private static String calcHashedVoterInfo(UserEntity voter, String salt) {
-		return DigestUtils.sha3_256Hex(voter.email + salt);
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "team_id")
+	@JsonIgnore     // Do not expose which team an anonymous right to vote belongs to
+	TeamEntity team;
+
+	/**
+	 * Which version of the server secret produced {@link #hashedVoterInfo}.
+	 * See {@link LiquidoConfig#secretForVersion(int)} for why this exists.
+	 */
+	@Column(name = "key_version")
+	int keyVersion;
+
+	/** Separator for every keyed-hash input here. Neither an email nor a decimal id can contain it. */
+	private static final String SEP = "|";
+
+	/**
+	 * Derive a voter's {@link #hashedVoterInfo} for one team.
+	 *
+	 * <p>HMAC, not {@code hash(data + secret)}. A plain hash proves nothing about who computed it,
+	 * and concatenating the secret onto the data is a construction HMAC exists to replace. The
+	 * explicit separator matters too: without it {@code email="ab"} with one team and
+	 * {@code email="a"} with another could in principle produce the same input string.
+	 *
+	 * <p>Deliberately does NOT include {@link UserEntity#passwordHash}: that would make a
+	 * password change silently destroy the user's right to vote and orphan their ballots
+	 * (this is the {@code @Id} of this entity).
+	 */
+	private static String calcHashedVoterInfo(UserEntity voter, TeamEntity team, String secret) {
+		return new HmacUtils(HmacAlgorithms.HMAC_SHA_256, secret).hmacHex(voter.email + SEP + team.id);
 	}
 
 	/**
-	 * Grant a user the right to vote.
+	 * Derive the poll-scoped pseudonym this right to vote casts a ballot under.
+	 *
+	 * <p>This is what a ballot stores; the right to vote itself is never written to a ballot row.
+	 * The mapping is never persisted anywhere -- the server re-derives it on demand, because it
+	 * holds the secret. So one voter's ballots in ten polls of one team carry ten unrelated
+	 * pseudonyms, and an attacker with the whole database and no secret cannot group them into a
+	 * voting history.
+	 *
+	 * <p>Derived under the key version that produced this right to vote, so the pseudonym stays
+	 * stable for the life of the row and previously cast ballots remain findable.
+	 */
+	public String deriveBallotPseudonym(Long pollId, LiquidoConfig config) throws LiquidoException {
+		String secret = config.secretForVersion(this.keyVersion);
+		return new HmacUtils(HmacAlgorithms.HMAC_SHA_256, secret).hmacHex(this.hashedVoterInfo + SEP + pollId);
+	}
+
+	/**
+	 * Grant a user the right to vote IN ONE TEAM.
 	 * @return a RightToVote that you still need to persist
 	 */
-	public static RightToVoteEntity build(UserEntity voter, int expirationDays, String salt) {
-		String hashedUserInfo = calcHashedVoterInfo(voter, salt);
-		log.debug("Creating new RightToVote for voter {}", voter.toStringShort());
-		// ConfigProvider.getConfig().getValue("liquido.right-to-vote-expiration-days", Integer.class); - would be possible but not clean. So we simply pass the salt as parameter.
-		return new RightToVoteEntity(hashedUserInfo, expiryFromNow(expirationDays));
+	public static RightToVoteEntity build(UserEntity voter, TeamEntity team, int expirationDays, LiquidoConfig config) {
+		String hashedUserInfo = calcHashedVoterInfo(voter, team, config.hashSecret());
+		// Deliberately logs neither the voter nor the hash: this row is the voter <-> ballot hinge.
+		log.debug("Creating new RightToVote in team.id={}", team.id);
+		RightToVoteEntity rightToVote = new RightToVoteEntity(hashedUserInfo, expiryFromNow(expirationDays));
+		rightToVote.team = team;
+		rightToVote.keyVersion = config.hashSecretVersion();
+		return rightToVote;
 	}
 
 	/**
@@ -171,21 +225,32 @@ public class RightToVoteEntity extends PanacheEntityBase {
 	}
 
 	/**
-	 * Lookup the RightToVote of a voter. This is used to lookup a user's ballot
-	 * in {@link org.liquido.poll.PollService#getBallotOfCurrentUser(PollEntity)}
-	 * and to {@link org.liquido.poll.PollService#findEffectiveProxy(PollEntity, UserEntity)}
+	 * Lookup the RightToVote of a voter IN ONE TEAM.
 	 *
-	 * Only the server can look up the RightToVote for a given voter, because a hashSecret is included in the hash.
-	 * It is not possible the other way round. It is not possible to find the voter that belongs to a right to vote.
-	 * This is the beauty of the hash algorithm.
+	 * Only the server can look up the RightToVote for a given voter, because the server secret is
+	 * mixed into the derivation. It is not possible the other way round: a right to vote cannot be
+	 * resolved back to the voter it belongs to. That asymmetry is the whole point.
+	 *
+	 * <p>Tries the current key version first, then any retired secret. A rotation therefore does not
+	 * lock voters out of rights to vote written under the previous secret -- see
+	 * {@link LiquidoConfig#previousHashSecrets()} for why that alone does not complete a rotation.
 	 *
 	 * @param voter a voter
-	 * @return RightToVote of this voter if he has one.
+	 * @param team the team to look up the voter's right to vote in
+	 * @return the voter's RightToVote in that team, if they have one
 	 */
-	public static Optional<RightToVoteEntity> findByVoter(UserEntity voter, String salt) {
+	public static Optional<RightToVoteEntity> findByVoterAndTeam(UserEntity voter, TeamEntity team, LiquidoConfig config) {
 		//TODO: Check validity of returned right to vote here!
-		String hashedUserInfo = calcHashedVoterInfo(voter, salt);
-		return RightToVoteEntity.findByIdOptional(hashedUserInfo);
+		Optional<RightToVoteEntity> current =
+				RightToVoteEntity.findByIdOptional(calcHashedVoterInfo(voter, team, config.hashSecret()));
+		if (current.isPresent()) return current;
+
+		for (String retiredSecret : config.previousHashSecrets().values()) {
+			Optional<RightToVoteEntity> old =
+					RightToVoteEntity.findByIdOptional(calcHashedVoterInfo(voter, team, retiredSecret));
+			if (old.isPresent()) return old;
+		}
+		return Optional.empty();
 	}
 
 	/*

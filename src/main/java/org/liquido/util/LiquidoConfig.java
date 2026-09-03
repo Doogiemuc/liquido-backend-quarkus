@@ -6,6 +6,7 @@ import io.smallrye.config.WithName;
 import jakarta.validation.constraints.NotNull;
 import lombok.NonNull;
 
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -114,6 +115,45 @@ public interface LiquidoConfig {
 	 */
 	@NotNull
 	String hashSecret();
+
+	/**
+	 * Which key version {@link #hashSecret()} currently is. Recorded on every RightToVote.
+	 *
+	 * <p>Without a version, a leaked secret is unrecoverable rather than merely serious: the
+	 * hashedVoterInfo derived from it is the PRIMARY KEY of the right-to-vote record, so changing
+	 * the secret invalidates every right to vote at once. Recording which secret produced a row is
+	 * what makes re-deriving it possible instead.
+	 */
+	@WithName("hash-secret-version")
+	@WithDefault("1")
+	int hashSecretVersion();
+
+	/**
+	 * Secrets retired by a rotation, keyed by the version they were used under.
+	 *
+	 * <p>A right to vote written before a rotation stays derivable, so voters are not locked out the
+	 * moment the secret changes. Note this alone does NOT complete a rotation: a ballot's pseudonym
+	 * is derived from the hashedVoterInfo, so re-keying a right to vote also changes every pseudonym
+	 * derived from it. A full rotation therefore has to re-derive rights to vote AND rewrite the
+	 * pseudonym on their ballots, in one batch. Lazy per-read re-keying cannot do that.
+	 */
+	@WithName("previous-hash-secrets")
+	Map<String, String> previousHashSecrets();
+
+	/**
+	 * The secret that produced a row written under key version {@code v}.
+	 * @throws LiquidoException when that version's secret is not configured -- which means rows exist
+	 *         that nothing on this server can derive any more, and silently treating them as absent
+	 *         would look exactly like "this voter has no right to vote".
+	 */
+	default String secretForVersion(int v) throws LiquidoException {
+		if (v == hashSecretVersion()) return hashSecret();
+		String retired = previousHashSecrets().get(String.valueOf(v));
+		if (retired == null)
+			throw new LiquidoException(LiquidoException.Errors.INTERNAL_ERROR,
+					"No secret configured for hash key version " + v + ". Set liquido.previous-hash-secrets." + v);
+		return retired;
+	}
 
 	/** (optional) login token that can be used to login during dev. (This CANNOT be used PROD!) */
 	@WithName("dev-login-token")

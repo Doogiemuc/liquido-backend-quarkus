@@ -7,6 +7,7 @@ import jakarta.transaction.Transactional;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.liquido.security.JwtTokenUtils;
+import org.liquido.team.TeamEntity;
 import org.liquido.user.UserEntity;
 import org.liquido.util.LiquidoConfig;
 import org.liquido.util.LiquidoException;
@@ -37,11 +38,15 @@ public class DelegationService {
 		// User
 		UserEntity currentUser = jwtTokenUtils.getCurrentUser()
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.UNAUTHORIZED, "Must be logged in to delegate."));
-		RightToVoteEntity usersRightToVote = RightToVoteEntity.findByVoter(currentUser, config.hashSecret())
+		// A delegation edge can only ever join two rights to vote in the SAME team, because that is the
+		// only scope a right to vote exists in. Delegation never crosses a team boundary -- a proxy in
+		// one team has no standing in another team's poll -- so this is the domain shape, not a limit.
+		TeamEntity team = currentTeam();
+		RightToVoteEntity usersRightToVote = RightToVoteEntity.findByVoterAndTeam(currentUser, team, config)
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_ASSIGN_PROXY, "Cannot delegate to Proxy. Cannot find his RightToVote"));
 
 		// proxy
-		RightToVoteEntity proxyRightToVote = RightToVoteEntity.findByVoter(proxy, config.hashSecret())
+		RightToVoteEntity proxyRightToVote = RightToVoteEntity.findByVoterAndTeam(proxy, team, config)
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_ASSIGN_PROXY, "Cannot delegate to Proxy. Cannot find RightToVote"));
 
 		if (proxy.equals(currentUser))
@@ -72,7 +77,7 @@ public class DelegationService {
 	public void removeDelegation() throws LiquidoException {
 		UserEntity currentUser = jwtTokenUtils.getCurrentUser()
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.UNAUTHORIZED, "Must be logged in to remove delegation"));
-		RightToVoteEntity usersRightToVote = RightToVoteEntity.findByVoter(currentUser, config.hashSecret())
+		RightToVoteEntity usersRightToVote = RightToVoteEntity.findByVoterAndTeam(currentUser, currentTeam(), config)
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_REMOVE_PROXY, "Cannot remove delegation, you have no right to vote!"));
 
 		// Delete the DelegationEntity row (pending request or accepted record) too, otherwise it's left
@@ -98,7 +103,7 @@ public class DelegationService {
 	public void acceptDelegationRequests(List<Long> delegationRequestIds) throws LiquidoException {
 		UserEntity proxy = jwtTokenUtils.getCurrentUser()
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.UNAUTHORIZED, "Must be logged in to accept delegation requests"));
-		RightToVoteEntity proxyRightToVote = RightToVoteEntity.findByVoter(proxy, config.hashSecret())
+		RightToVoteEntity proxyRightToVote = RightToVoteEntity.findByVoterAndTeam(proxy, currentTeam(), config)
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_ASSIGN_PROXY, "Cannot delegate to Proxy. Cannot find RightToVote"));
 
 		// SECURITY: only ever accept requests that were actually addressed to this proxy (findDelegationRequestsTo
@@ -124,7 +129,7 @@ public class DelegationService {
 	 * Count how many voters delegate to this proxy, including transitive delegations.
 	 */
 	public long countDelegationsTo(@NonNull UserEntity proxy) throws LiquidoException {
-		RightToVoteEntity proxyRightToVote = RightToVoteEntity.findByVoter(proxy, config.hashSecret())
+		RightToVoteEntity proxyRightToVote = RightToVoteEntity.findByVoterAndTeam(proxy, currentTeam(), config)
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_ASSIGN_PROXY, "Cannot count delegations. Cannot find RightToVote for proxy."));
 		return countDelegationsRec(proxyRightToVote, new HashSet<>());
 	}
@@ -139,6 +144,12 @@ public class DelegationService {
 		return count;
 	}
 
+
+	/** The team the caller is logged into -- the scope every right to vote here lives in. */
+	private TeamEntity currentTeam() throws LiquidoException {
+		return jwtTokenUtils.getCurrentTeam()
+				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.UNAUTHORIZED, "Must be logged into a team to manage delegations."));
+	}
 
 	/**
 	 * Check if adding this delegation would create a cycle.

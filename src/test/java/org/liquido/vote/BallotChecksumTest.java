@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import org.liquido.poll.PollEntity;
 import org.liquido.poll.ProposalEntity;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -46,8 +45,13 @@ public class BallotChecksumTest {
 		return proposal;
 	}
 
-	private static RightToVoteEntity rightToVote(String hash) {
-		return new RightToVoteEntity(hash, LocalDateTime.now().plusDays(1));
+	/**
+	 * A ballot stores a poll-scoped pseudonym, not a right to vote. For a checksum test any stable
+	 * string will do -- what matters is that the same pseudonym yields the same checksum and a
+	 * different one does not.
+	 */
+	private static String pseudonym(String value) {
+		return value;
 	}
 
 	@Test
@@ -56,9 +60,9 @@ public class BallotChecksumTest {
 		PollEntity poll = pollWithId(1);
 		ProposalEntity propA = proposalWithId(10, ProposalEntity.LawStatus.VOTING);
 		ProposalEntity propB = proposalWithId(11, ProposalEntity.LawStatus.VOTING);
-		RightToVoteEntity rightToVote = rightToVote("checksumStatusTestHash");
+		String pseudonym = pseudonym("checksumStatusTestHash");
 
-		BallotEntity ballot = new BallotEntity(poll, 0, List.of(propA, propB), rightToVote);
+		BallotEntity ballot = new BallotEntity(poll, 0, List.of(propA, propB), pseudonym);
 		ballot.calcSha256Checksum();
 		String checksumWhileVoting = ballot.checksum;
 		assertNotNull(checksumWhileVoting);
@@ -81,12 +85,12 @@ public class BallotChecksumTest {
 		PollEntity poll = pollWithId(2);
 		ProposalEntity propA = proposalWithId(20, ProposalEntity.LawStatus.VOTING);
 		ProposalEntity propB = proposalWithId(21, ProposalEntity.LawStatus.VOTING);
-		RightToVoteEntity rightToVote = rightToVote("checksumOrderTestHash");
+		String pseudonym = pseudonym("checksumOrderTestHash");
 
-		BallotEntity ballotAB = new BallotEntity(poll, 0, List.of(propA, propB), rightToVote);
+		BallotEntity ballotAB = new BallotEntity(poll, 0, List.of(propA, propB), pseudonym);
 		ballotAB.calcSha256Checksum();
 
-		BallotEntity ballotBA = new BallotEntity(poll, 0, List.of(propB, propA), rightToVote);
+		BallotEntity ballotBA = new BallotEntity(poll, 0, List.of(propB, propA), pseudonym);
 		ballotBA.calcSha256Checksum();
 
 		assertNotEquals(ballotAB.checksum, ballotBA.checksum,
@@ -103,11 +107,11 @@ public class BallotChecksumTest {
 		// checksums, because poll.id is now part of the hash input under its own delimiter.
 		ProposalEntity propA = proposalWithId(30, ProposalEntity.LawStatus.VOTING);
 		ProposalEntity propB = proposalWithId(31, ProposalEntity.LawStatus.VOTING);
-		RightToVoteEntity rightToVote = rightToVote("checksumPollTestHash");
+		String pseudonym = pseudonym("checksumPollTestHash");
 
-		BallotEntity ballotInPollOne = new BallotEntity(pollWithId(3), 0, List.of(propA, propB), rightToVote);
+		BallotEntity ballotInPollOne = new BallotEntity(pollWithId(3), 0, List.of(propA, propB), pseudonym);
 		ballotInPollOne.calcSha256Checksum();
-		BallotEntity ballotInPollTwo = new BallotEntity(pollWithId(4), 0, List.of(propA, propB), rightToVote);
+		BallotEntity ballotInPollTwo = new BallotEntity(pollWithId(4), 0, List.of(propA, propB), pseudonym);
 		ballotInPollTwo.calcSha256Checksum();
 
 		assertNotEquals(ballotInPollOne.checksum, ballotInPollTwo.checksum,
@@ -122,11 +126,11 @@ public class BallotChecksumTest {
 		PollEntity poll = pollWithId(5);
 		ProposalEntity propA = proposalWithId(40, ProposalEntity.LawStatus.VOTING);
 		ProposalEntity propB = proposalWithId(41, ProposalEntity.LawStatus.VOTING);
-		RightToVoteEntity rightToVote = rightToVote("checksumLevelTestHash");
+		String pseudonym = pseudonym("checksumLevelTestHash");
 
-		BallotEntity votedDirectly = new BallotEntity(poll, 0, List.of(propA, propB), rightToVote);
+		BallotEntity votedDirectly = new BallotEntity(poll, 0, List.of(propA, propB), pseudonym);
 		votedDirectly.calcSha256Checksum();
-		BallotEntity castByProxy = new BallotEntity(poll, 2, List.of(propA, propB), rightToVote);
+		BallotEntity castByProxy = new BallotEntity(poll, 2, List.of(propA, propB), pseudonym);
 		castByProxy.calcSha256Checksum();
 
 		assertEquals(votedDirectly.checksum, castByProxy.checksum,
@@ -142,11 +146,11 @@ public class BallotChecksumTest {
 		// would land on the identical input string, and therefore the identical checksum.
 		ProposalEntity singleProposalId23 = proposalWithId(23, ProposalEntity.LawStatus.VOTING);
 		ProposalEntity singleProposalId3 = proposalWithId(3, ProposalEntity.LawStatus.VOTING);
-		RightToVoteEntity rightToVote = rightToVote("checksumAdjacentDigitsTestHash");
+		String pseudonym = pseudonym("checksumAdjacentDigitsTestHash");
 
-		BallotEntity pollOneVoteTwentyThree = new BallotEntity(pollWithId(1), 0, List.of(singleProposalId23), rightToVote);
+		BallotEntity pollOneVoteTwentyThree = new BallotEntity(pollWithId(1), 0, List.of(singleProposalId23), pseudonym);
 		pollOneVoteTwentyThree.calcSha256Checksum();
-		BallotEntity pollTwelveVoteThree = new BallotEntity(pollWithId(12), 0, List.of(singleProposalId3), rightToVote);
+		BallotEntity pollTwelveVoteThree = new BallotEntity(pollWithId(12), 0, List.of(singleProposalId3), pseudonym);
 		pollTwelveVoteThree.calcSha256Checksum();
 
 		assertNotEquals(pollOneVoteTwentyThree.checksum, pollTwelveVoteThree.checksum,

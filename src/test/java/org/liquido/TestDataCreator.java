@@ -535,11 +535,14 @@ public class TestDataCreator {
 			PasswordResetToken.delete("user", user);
 			WebAuthnCredential.delete("liquidoUser", user);
 
-			RightToVoteEntity.findByVoter(user, config.hashSecret()).ifPresent(rightToVote -> {
+			// A right to vote is scoped to ONE team, so this purges only this team's.
+			// No ballot delete by right to vote any more: a ballot holds a poll-scoped pseudonym and no
+			// reference back, and every ballot this right to vote produced belongs to a poll in THIS
+			// team -- all of which were already deleted above.
+			RightToVoteEntity.findByVoterAndTeam(user, team, config).ifPresent(rightToVote -> {
 				rightToVote.removeDelegationToProxy();
 				new HashSet<>(rightToVote.getDelegations()).forEach(RightToVoteEntity::removeDelegationToProxy);
 				OneTimeVotingToken.delete("rightToVote", rightToVote);
-				BallotEntity.delete("rightToVote", rightToVote);
 				rightToVote.delete();
 			});
 		}

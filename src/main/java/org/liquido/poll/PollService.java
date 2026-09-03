@@ -525,10 +525,10 @@ public class PollService {
 				throw new LiquidoException(LiquidoException.Errors.INVALID_POLL_STATUS, "Cannot get ballot of poll in ELABORATION");
 		UserEntity currentUser = jwtTokenUtils.getCurrentUser()
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.UNAUTHORIZED, "Must be logged in to lookup your ballot in a poll!"));
-		RightToVoteEntity rightToVote = RightToVoteEntity.findByVoter(currentUser, config.hashSecret())
+		RightToVoteEntity rightToVote = RightToVoteEntity.findByVoterAndTeam(currentUser, poll.getTeam(), config)
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.UNAUTHORIZED, "You need a valid RightToVote to get your ballot in poll.id="+poll.id));
 
-		return BallotEntity.findByPollAndRightToVote(poll, rightToVote);
+		return BallotEntity.findByPollAndPseudonym(poll, rightToVote.deriveBallotPseudonym(poll.id, config));
 	}
 
 
@@ -556,7 +556,7 @@ public class PollService {
 	public Optional<BallotEntity> getBallotOfDirectProxy(PollEntity poll, RightToVoteEntity rightToVote) throws LiquidoException {
 		if (PollEntity.PollStatus.ELABORATION.equals(poll.getStatus()))
 			throw new LiquidoException(LiquidoException.Errors.INVALID_POLL_STATUS, "Cannot get ballot of poll in ELABORATION");
-		return BallotEntity.findByPollAndRightToVote(poll, rightToVote.getDelegatedTo());
+		return BallotEntity.findByPollAndPseudonym(poll, rightToVote.getDelegatedTo().deriveBallotPseudonym(poll.id, config));
 	}
 
 	public Optional<BallotEntity> getBallotOfTopProxy(PollEntity poll, RightToVoteEntity rightToVote) throws LiquidoException {
@@ -564,7 +564,7 @@ public class PollService {
 			throw new LiquidoException(LiquidoException.Errors.INVALID_POLL_STATUS, "Cannot get ballot of poll in ELABORATION");
 		if (rightToVote.getDelegatedTo() == null) return Optional.empty();
 		RightToVoteEntity topRightToVote = findTopChecksumRec(rightToVote);
-		return BallotEntity.findByPollAndRightToVote(poll, topRightToVote);
+		return BallotEntity.findByPollAndPseudonym(poll, topRightToVote.deriveBallotPseudonym(poll.id, config));
 	}
 
 	private RightToVoteEntity findTopChecksumRec(RightToVoteEntity rightToVote) {
@@ -592,7 +592,7 @@ public class PollService {
 	public Optional<UserEntity> findEffectiveProxy(PollEntity poll, UserEntity voter) throws LiquidoException {
 		if (PollEntity.PollStatus.ELABORATION.equals(poll.getStatus()))
 			throw new LiquidoException(LiquidoException.Errors.CANNOT_FIND_ENTITY, "Cannot find effective proxy, because poll is not in voting phase or finished");
-		RightToVoteEntity rightToVote = RightToVoteEntity.findByVoter(voter, config.hashSecret())
+		RightToVoteEntity rightToVote = RightToVoteEntity.findByVoterAndTeam(voter, poll.getTeam(), config)
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_FIND_ENTITY, "Cannot find effective Proxy, you have no RightTotVote"));
 		return findEffectiveProxyRec(poll, voter, rightToVote);
 	}
@@ -602,12 +602,12 @@ public class PollService {
 	 * the proxy that actually cast the vote.
 	 * @return the proxy that cast the vote or the voter if he cast a vote himself.
 	 */
-	private Optional<UserEntity> findEffectiveProxyRec(PollEntity poll, UserEntity voter, RightToVoteEntity rightToVote) {
+	private Optional<UserEntity> findEffectiveProxyRec(PollEntity poll, UserEntity voter, RightToVoteEntity rightToVote) throws LiquidoException {
 		if (rightToVote.getPublicProxy() != null &&	!rightToVote.getPublicProxy().equals(voter))
 			throw new RuntimeException("Data inconsistency: " + rightToVote + " is not the checksum of public proxy="+voter);
 
 		//----- Check if there is a ballot for this RightToVote. If not, this voter did not vote yet.
-		Optional<BallotEntity> ballot = BallotEntity.findByPollAndRightToVote(poll, rightToVote);
+		Optional<BallotEntity> ballot = BallotEntity.findByPollAndPseudonym(poll, rightToVote.deriveBallotPseudonym(poll.id, config));
 		if (ballot.isEmpty()) return Optional.empty();
 
 		//----- If a ballot has level 0, then this voter/proxy voted for himself.

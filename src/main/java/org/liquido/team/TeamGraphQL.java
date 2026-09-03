@@ -161,7 +161,7 @@ public class TeamGraphQL {
 			// him by presenting exactly the identity he is already registered with.
 			assertProvidedIdentityMatches(currentUserOpt.get(), member);
 			member = currentUserOpt.get();  // with db ID!
-			//TODO: sanity check RightToVoteEntity.findByVoter(member).orElseThrow(...)   -> Or create a separate RightToVote per team?
+			// (A separate RightToVote per team is exactly what happens now -- granted below, per membership.)
 		} else {
 			// Anonymous request. Must provide a new email. A mobilephone is optional.
 			Optional<UserEntity> userByMail = UserEntity.findByEmail(member.email);
@@ -176,6 +176,7 @@ public class TeamGraphQL {
 			member.persist();
 			team.addMember(member, TeamMemberEntity.Role.MEMBER);   // Add to java.util.Set. Will never add duplicate.
 			team.persist();
+			grantRightToVote(member, team);
 			member.setLastTeamId(team.getId());
 			member.setLastLogin(LocalDateTime.now());
 			member.persist();
@@ -241,9 +242,9 @@ public class TeamGraphQL {
 		user.setPasswordHash(PasswordServiceBcrypt.hashPassword(plainPassword));   // MUST set passwordHash before persisting UserEntity!
 		user.persist();
 
-		RightToVoteEntity rightToVote = RightToVoteEntity.build(user, config.rightToVoteExpirationDays(), config.hashSecret());
-		rightToVote.persist();
-		log.debug("Created liquido user with RightToVote"+rightToVote);
+		// NO RightToVote here any more. A right to vote is scoped to a TEAM, so it is granted when a
+		// user joins one (see grantRightToVote), not when the account is created. Registering an
+		// account is not by itself an entitlement to vote anywhere.
 
 		// Create a new auth Factor
 		//TODO: twilioVerifyClient.createFactor(user);  //  After a factor has been created, it must still be verified
@@ -260,8 +261,24 @@ public class TeamGraphQL {
 		jwtTokenUtils.setCurrentUserAndTeam(admin, null);   //BUGFIX: Also set createdBy in TeamEntity
 		TeamEntity team = new TeamEntity(teamName, admin, config.inviteCodeLength());
 		team.persist();
+		grantRightToVote(admin, team);
 		log.info("CREATE NEW TEAM: {}", team);
 		return team;
+	}
+
+	/**
+	 * Grant a user the right to vote IN ONE TEAM. Called from every place a membership is created --
+	 * founding a team and joining one -- because membership is exactly what a right to vote is scoped
+	 * to. A person in three teams therefore holds three unrelated rights to vote, and no two of them
+	 * can be shown to belong to one person without the server secret.
+	 *
+	 * <p>Idempotent: a user who somehow already holds one for this team keeps it, rather than having
+	 * a second row written under the same derived primary key.
+	 */
+	private void grantRightToVote(UserEntity user, TeamEntity team) {
+		if (RightToVoteEntity.findByVoterAndTeam(user, team, config).isPresent()) return;
+		RightToVoteEntity rightToVote = RightToVoteEntity.build(user, team, config.rightToVoteExpirationDays(), config);
+		rightToVote.persist();
 	}
 
 	/**

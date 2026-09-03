@@ -91,9 +91,9 @@ public class OneTimeVoterTokenIssuanceTest {
 	/** How many one-time tokens this voter currently holds for this poll. */
 	private long liveTokenCount(UserEntity voter, Long pollId) {
 		return QuarkusTransaction.requiringNew().call(() -> {
-			RightToVoteEntity rightToVote = RightToVoteEntity.findByVoter(voter, config.hashSecret())
-					.orElseThrow(() -> new AssertionError("test voter has no RightToVote"));
 			PollEntity poll = PollEntity.findById(pollId);
+			RightToVoteEntity rightToVote = RightToVoteEntity.findByVoterAndTeam(voter, poll.getTeam(), config)
+					.orElseThrow(() -> new AssertionError("test voter has no RightToVote in this team"));
 			return OneTimeVotingToken.count("rightToVote = ?1 and poll = ?2", rightToVote, poll);
 		});
 	}

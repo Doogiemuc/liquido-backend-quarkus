@@ -41,9 +41,9 @@ import org.eclipse.microprofile.graphql.Ignore;
 		// authority, because a read-then-insert has a race window between the read and the insert and
 		// a constraint does not. Same reasoning (and same naming) as uq_polly_ballot_voter.
 		//
-		// This does NOT restrict a proxy: a proxy writes one ballot per delegee, and each delegee has
-		// their own RightToVote, so every row differs in hashedVoterInfo.
-		@UniqueConstraint(name = "uq_ballot_poll_voter", columnNames = {"poll_id", "hashedVoterInfo"})
+		// This does NOT restrict a proxy: a proxy writes one ballot per delegee, and each delegee
+		// derives their OWN pseudonym, so every row differs in ballot_pseudonym.
+		@UniqueConstraint(name = "uq_ballot_poll_voter", columnNames = {"poll_id", "ballot_pseudonym"})
 })
 public class BallotEntity extends PanacheEntityBase {
 	//BallotModel deliberately does NOT extend BaseEntity!
@@ -108,21 +108,30 @@ public class BallotEntity extends PanacheEntityBase {
 	}
 
 	/**
-	 * Link to the right to vote that this ballot was cast with.
-	 * This cannot be traced back to the actual voter that did cast the vote.
-	 * If a proxy casts a vote for a voter, then this still is the voter's ballot. It links to the voter's delegated rightToVote.
+	 * The POLL-SCOPED pseudonym this ballot was cast under: HMAC(secret, hashedVoterInfo | poll.id).
+	 *
+	 * <p>A ballot deliberately holds <b>no reference to the right to vote</b> and no foreign key to
+	 * it. A direct link would mean one voter's ballots across ten polls all pointed at the same row,
+	 * so anyone with the database could group them into a voting history without ever breaking a
+	 * hash. Deriving per poll instead makes those ten ballots carry ten unrelated values.
+	 *
+	 * <p>The mapping from a right to vote to this value is never persisted anywhere. The server
+	 * re-derives it on demand when a voter asks about their own ballot, because it holds the secret.
+	 *
+	 * <p>If a proxy casts a vote for a delegee, this is still the DELEGEE's pseudonym, derived from
+	 * the delegee's own right to vote -- so it remains their ballot.
 	 */
 	@NotNull
 	@NonNull
-	@ManyToOne
-	@JoinColumn(name = "hashedVoterInfo")    // The @Id of a RightToVoteModel is the hashedVoterToken itself. This also makes the name of the column in the DB more readable
-	@JsonIgnore                               // [SECURITY] Do not expose voter's private right to vote (which might also include public proxies name)
-	public RightToVoteEntity rightToVote;
+	@Column(name = "ballot_pseudonym", nullable = false, length = 64)
+	@JsonIgnore   // [SECURITY] never expose the pseudonym: with the server secret it links back to a voter
+	@Ignore
+	public String ballotPseudonym;
 
 	/**
 	 * The checksum of a ballot uniquely identifies this ballot.
-	 * The checksum is calculated from the voteOrder, poll.hashCode and rightToVote.hash.
-	 * It deliberately does not depend on level or rightToVote.delegatedTo !
+	 * The checksum is calculated from the poll, the ordered proposal ids and the ballotPseudonym.
+	 * It deliberately does not depend on the delegation level.
 	 */
 	public String checksum;
 
@@ -155,15 +164,13 @@ public class BallotEntity extends PanacheEntityBase {
 		String voteOrderIds = this.voteOrder.stream()
 				.map(proposal -> String.valueOf(proposal.id))
 				.collect(Collectors.joining(","));
-		// TODO(P2-2 in the security backlog): once a ballot stops storing a direct RightToVote
-		// reference, this becomes the poll-scoped ballotPseudonym instead of hashedVoterInfo.
-		String canonical = "v2|" + this.poll.id + "|" + voteOrderIds + "|" + this.rightToVote.hashedVoterInfo;
+		String canonical = "v2|" + this.poll.id + "|" + voteOrderIds + "|" + this.ballotPseudonym;
 		this.checksum = DigestUtils.sha3_256Hex(canonical);
 	}
 
 
-	public static Optional<BallotEntity> findByPollAndRightToVote(PollEntity poll, RightToVoteEntity rightToVote) {
-		return BallotEntity.find("poll = ?1 and rightToVote = ?2", poll, rightToVote).firstResultOptional();
+	public static Optional<BallotEntity> findByPollAndPseudonym(PollEntity poll, String ballotPseudonym) {
+		return BallotEntity.find("poll = ?1 and ballotPseudonym = ?2", poll, ballotPseudonym).firstResultOptional();
 	}
 
 	public static Optional<BallotEntity> findByPollAndChecksum(PollEntity poll, String checksum) {

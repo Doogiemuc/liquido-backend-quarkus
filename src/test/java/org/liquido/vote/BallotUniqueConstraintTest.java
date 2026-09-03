@@ -80,16 +80,22 @@ public class BallotUniqueConstraintTest {
 
 		// Insert a second ballot for the SAME poll and the SAME RightToVote, straight through JPA -
 		// exactly the row a lost read-then-insert race would produce.
+		// Derived in its own transaction first, so the insert below is the only thing under assertThrows.
+		String pseudonym = QuarkusTransaction.requiringNew().call(() -> {
+			PollEntity poll = PollEntity.findById(voted.pollId());
+			return RightToVoteEntity.findByVoterAndTeam(voted.voter(), poll.getTeam(), config)
+					.orElseThrow(() -> new AssertionError("test voter has no RightToVote in this team"))
+					.deriveBallotPseudonym(poll.id, config);
+		});
+
 		PersistenceException thrown = assertThrows(PersistenceException.class, () ->
 			QuarkusTransaction.requiringNew().run(() -> {
 				PollEntity poll = PollEntity.findById(voted.pollId());
-				RightToVoteEntity rightToVote = RightToVoteEntity
-						.findByVoter(voted.voter(), config.hashSecret())
-						.orElseThrow(() -> new AssertionError("test voter has no RightToVote"));
 				List<ProposalEntity> voteOrder = voted.voteOrder().stream()
 						.map(id -> (ProposalEntity) ProposalEntity.findById(id)).toList();
 
-				new BallotEntity(poll, 0, voteOrder, rightToVote).persist();
+				// Same poll-scoped pseudonym the real cast derived, so this is the exact duplicate row.
+				new BallotEntity(poll, 0, voteOrder, pseudonym).persist();
 				BallotEntity.flush();
 			}),
 			"uq_ballot_poll_voter must refuse a second ballot for one voter in one poll. Without it, " +
