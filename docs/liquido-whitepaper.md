@@ -147,7 +147,7 @@ Neither measure is mistaken. Each is blind to exactly what the other perceives, 
 
 ### 4.4 Why the fork is also a question about strategy
 
-The choice carries a second consequence, and it is the structural reason each metric is preferred in different settings. Consider what a voter is actually able to manipulate.
+The choice carries a second consequence, and it is the structural reason each metric is preferred in different contexts. Consider what a voter is actually able to manipulate.
 
 Under **margin**, a contest scores as a *difference* — the votes for the winner minus the votes for the loser. A difference has two moving parts, and a voter can shift it without altering their genuine preference between the two proposals being compared: by changing how they rank other, unrelated proposals, or by declining to rank some at all, they change which pairs their ballot contributes to, and so move both sides of the subtraction.
 
@@ -157,7 +157,7 @@ This is why margin is generally regarded as somewhat easier to game and winning 
 
 ### 4.5 What LIQUIDO does
 
-LIQUIDO sorts by **winning votes**. A proposal a voter left unranked is treated as ranked below every proposal that voter did rank, while the unranked remain neutral among themselves. **[Implemented]**
+LIQUIDO sorts by **winning votes**. A proposal a voter left unranked is treated as ranked below every proposal that voter did rank, while the unranked remain neutral among themselves. The metric is applied uniformly rather than chosen per poll, so two results can be compared without first establishing which rule produced each. **[Implemented]**
 
 Margin has not been discarded so much as demoted. Where two contests carry the same number of winning votes, the one with **fewer votes for the loser** is locked in first — which, at equal winning votes, is exactly the wider margin. The primary criterion asks how many voters backed the winner; the secondary asks how convincingly they did so, and is consulted only when the primary cannot decide.
 
