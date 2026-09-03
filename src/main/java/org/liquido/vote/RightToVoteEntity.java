@@ -186,6 +186,39 @@ public class RightToVoteEntity extends PanacheEntityBase {
 	}
 
 	/**
+	 * Revive a lapsed right to vote, but only for someone who is still a member of its team.
+	 *
+	 * <h2>Why this exists</h2>
+	 *
+	 * Expiry used to be a one-way door. {@link #renewExpiry} was reachable only from the two casting
+	 * paths, and both refuse an already-expired right to vote before reaching it; the only other
+	 * writer, {@code grantRightToVote()}, correctly short-circuits when a row already exists, since a
+	 * second row cannot be written under the same derived primary key. A member who simply did not
+	 * vote for {@code right-to-vote-expiration-days} was therefore locked out permanently, with no
+	 * transition back short of editing the database. In a voting system that is disenfranchisement,
+	 * and it falls hardest on the least engaged voters.
+	 *
+	 * <h2>Why membership is what gets re-checked</h2>
+	 *
+	 * The entitlement is team MEMBERSHIP: a right to vote is granted on joining and derived from
+	 * {@code HMAC(secret, email | teamId)}. Expiry marks the derived value stale, it does not withdraw
+	 * the entitlement. Reviving it for a current member restores only what membership already grants.
+	 * Reviving it for a non-member would manufacture an entitlement that no longer exists, which is
+	 * what keeps a departed member's leftover row dead.
+	 *
+	 * @param team the team this right to vote belongs to
+	 * @param expirationDays validity from now, in DAYS (liquido.right-to-vote-expiration-days)
+	 * @return true if this right to vote is usable now -- either it was already valid, or it was
+	 *         renewed because its holder is still a member
+	 */
+	public boolean renewIfMemberOf(TeamEntity team, UserEntity voter, int expirationDays) {
+		if (this.isValid()) return true;
+		if (team == null || !team.isMember(voter)) return false;
+		this.renewExpiry(expirationDays);
+		return true;
+	}
+
+	/**
 	 * Delegate to a proxies right to vote
 	 * Before you call this, check that this delegation is valid!
 	 * Does not create a circle etc.
@@ -240,7 +273,18 @@ public class RightToVoteEntity extends PanacheEntityBase {
 	 * @return the voter's RightToVote in that team, if they have one
 	 */
 	public static Optional<RightToVoteEntity> findByVoterAndTeam(UserEntity voter, TeamEntity team, LiquidoConfig config) {
-		//TODO: Check validity of returned right to vote here!
+		// Deliberately does NOT filter on isValid(). Collapsing "expired" into "not found" here would
+		// make every caller report the wrong thing -- a lapsed voter would be told they have no right
+		// to vote at all -- and it would break the read-only paths that must keep working after expiry.
+		// Validity is a per-operation decision instead, and the callers divide cleanly in two:
+		//
+		//   Exercising the right (casting a vote, delegating): must be live, and renews it on use for
+		//   a current member -- see renewIfMemberOf().
+		//
+		//   Reading history (looking up your own ballot, resolving the effective proxy, counting
+		//   delegations): works on an expired right to vote on purpose. A voter whose right lapsed
+		//   after they voted must still be able to verify the ballot they cast, or expiry would
+		//   silently retract the verifiability the system promises them.
 		Optional<RightToVoteEntity> current =
 				RightToVoteEntity.findByIdOptional(calcHashedVoterInfo(voter, team, config.hashSecret()));
 		if (current.isPresent()) return current;

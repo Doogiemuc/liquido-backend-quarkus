@@ -78,25 +78,21 @@ public class TeamEntity extends LiquidoBaseEntity {
 
 	}
 
-	/*
-	public boolean emailIsAdmin(String email) {
-		return this.admins.stream().anyMatch(admin -> admin.email != null && admin.email.equals(email));
-	}
-	public boolean mobilephoneIsAdmin(String mobilephone) {
-		return this.admins.stream().anyMatch(admin -> admin.mobilephone != null && admin.mobilephone.equals(mobilephone));
-	}
-
-	public boolean isMember(UserEntity member) {
-		return this.members.contains(member);
-	}
-	public boolean emailIsMember(String email) {
-		return this.members.stream().anyMatch(member -> member.email != null && member.email.equals(email));
-	}
-	public boolean mobilephoneIsMember(String mobilephone) {
-		return this.members.stream().anyMatch(member -> member.mobilephone != null && member.mobilephone.equals(mobilephone));
-	}
-
+	/**
+	 * Check if the passed user is a member of this team. Admins are members too -- every row in
+	 * {@link #members} is a membership, and the role only says which kind.
+	 *
+	 * <p>Compared by id, like {@link #isAdmin}, and deliberately NOT by {@code members.contains(user)}:
+	 * {@code members} holds {@link TeamMemberEntity}, not {@link UserEntity}, so a {@code contains}
+	 * check compares across two unrelated types and silently answers false for everybody.
+	 *
+	 * @param member any user
+	 * @return true if that user is a member (of any role) of this team
 	 */
+	public boolean isMember(UserEntity member) {
+		if (member == null) return false;
+		return members.stream().anyMatch(tm -> Objects.equals(member.id, tm.user.id));
+	}
 
 	/**
 	 * Check if a user with that email is a member or admin of this team.

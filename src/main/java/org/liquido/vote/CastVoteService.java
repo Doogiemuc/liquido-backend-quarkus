@@ -57,7 +57,12 @@ public class CastVoteService {
 		// step, and a voter without a right to vote in THIS poll's team gets no token at all.
 		RightToVoteEntity rightToVote = RightToVoteEntity.findByVoterAndTeam(voter, poll.getTeam(), config)
 				.orElseThrow(LiquidoException.supplyAndLog(LiquidoException.Errors.CANNOT_CREATE_VOTING_TOKEN, "You are not allowed to vote! No RightToVote!"));
-		if (!rightToVote.isValid()) throw new LiquidoException(LiquidoException.Errors.CANNOT_CREATE_VOTING_TOKEN, "Your right to vote has expired.");
+		// A lapsed right to vote is revived here for anyone who is still a member of the poll's team.
+		// Expiry prunes dormant entries from the delegation graph; it is not meant to disenfranchise a
+		// member permanently, and before this it did exactly that -- no path led back out of expired.
+		if (!rightToVote.renewIfMemberOf(poll.getTeam(), voter, config.rightToVoteExpirationDays()))
+			throw new LiquidoException(LiquidoException.Errors.CANNOT_CREATE_VOTING_TOKEN,
+					"Your right to vote has expired and you are no longer a member of this team.");
 
 		// Create a new one-time voter token for this poll and hash it with an additional salt.
 		// The hash input must exactly be the same as in castVote(). It CANNOT contain voter.id, because that is not known in castVote()

@@ -45,6 +45,12 @@ public class DelegationService {
 		RightToVoteEntity usersRightToVote = RightToVoteEntity.findByVoterAndTeam(currentUser, team, config)
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_ASSIGN_PROXY, "Cannot delegate to Proxy. Cannot find his RightToVote"));
 
+		// Delegating is exercising the right to vote, so the same revival rule as casting applies: a
+		// member returning after their right lapsed gets it back, a departed member does not.
+		if (!usersRightToVote.renewIfMemberOf(team, currentUser, config.rightToVoteExpirationDays()))
+			throw new LiquidoException(LiquidoException.Errors.CANNOT_ASSIGN_PROXY,
+					"Your right to vote has expired and you are no longer a member of this team.");
+
 		// proxy
 		RightToVoteEntity proxyRightToVote = RightToVoteEntity.findByVoterAndTeam(proxy, team, config)
 				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_ASSIGN_PROXY, "Cannot delegate to Proxy. Cannot find RightToVote"));
