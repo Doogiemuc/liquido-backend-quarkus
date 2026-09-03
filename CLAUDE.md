@@ -65,9 +65,15 @@ Key invariants worth knowing before changing poll/vote/team code (full detail in
 - **Team is the tenant boundary**, and `@RolesAllowed` alone does not check resource ownership —
   use `JwtTokenUtils.getCurrentTeam()` plus a combined lookup+ownership-check helper like
   `PollService.getPollInCurrentTeam(pollId)`.
-- **Ballot anonymity** is `UserEntity` → `RightToVoteEntity` (hash of email+salt) →
-  `BallotEntity` (FK'd only to the hash, never the user). Never log `hashedVoterInfo`.
-- **Any `@OneToOne` on a join entity is suspect** — two real bugs here were a join that should have
+- **Ballot anonymity** is three derived layers with three different scopes:
+  `RightToVoteEntity` keyed by `HMAC(secret, email | teamId)` (persistent, **per team**, holds the
+  delegation graph) → a one-time poll-bound voter token → `ballotPseudonym = HMAC(secret,
+  hashedVoterInfo | pollId)` (**per poll**), which is the only voter-derived value a ballot stores.
+  `ballots` has **no FK to `righttovote`**. Never log `hashedVoterInfo` or a pseudonym.
+  A right to vote is granted per team MEMBERSHIP, not at registration.
+- **A cast vote is final** — a second *direct* (level 0) cast is rejected with `ALREADY_VOTED`.
+  Scoped to level 0 on both sides on purpose; level > 0 is a proxy cascade and must stay replaceable.
+- **Any `@OneToOne` on a join entity is suspect** — three real bugs here were a join that should have
   been `@ManyToOne` silently capping cardinality at 1, invisible until a second row was inserted.
 - Use `is not null` / `is null` in HQL/JPQL for association fields, not `!=`/`=null` — the latter
   silently matches zero rows on this Hibernate version.
