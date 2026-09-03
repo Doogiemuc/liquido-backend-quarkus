@@ -218,11 +218,11 @@ The three products in this section are not three implementations of one design. 
 |---|---|---|---|
 | Identity | Passkey only | Account in a team | Account in a team, or civic identity |
 | Login | None | Yes | Yes |
-| Identity pseudonym scope | Per poll | Per user *(target: per team)* | Per team |
-| Ballot pseudonym scope | Per poll | Per voter *(target: per poll)* | Per poll |
+| Identity pseudonym scope | Per poll | Per team | Per team |
+| Ballot pseudonym scope | Per poll | Per poll | Per poll |
 | Cross-poll linkability | No | Yes, by the operator | No |
 | Individual verifiability | No | Yes (checksum) | Yes (checksum) |
-| Universal verifiability | No | No | Yes |
+| Universal verifiability | No | Yes (published tally) | Yes |
 | Coercion-resistance | No | No | Required |
 | Delegation | No | No | Yes |
 | One ballot per voter enforced by | Database constraint | Database constraint | Database constraint |
