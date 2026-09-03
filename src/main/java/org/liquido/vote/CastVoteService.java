@@ -44,7 +44,11 @@ public class CastVoteService {
 	 */
 	@Transactional
 	public String createOneTimeVoterToken(UserEntity voter, PollEntity poll) throws LiquidoException {
-		log.debug("createOneTimeVoterToken: for {} in poll.id={}", voter.toStringShort(), poll.id);
+		// [SECURITY] Deliberately does NOT log who asked. Token issuance is the one authenticated
+		// step in voting, and casting is anonymous -- so a line naming the voter here, next to a
+		// line recording a cast in the same poll seconds later, reconstructs voter -> ballot from
+		// the log alone, defeating the separation the whole design is built around.
+		log.debug("createOneTimeVoterToken: for poll.id={}", poll.id);
 		if (DoogiesUtil.isEmpty(voter.getEmail()))
 			throw new LiquidoException(LiquidoException.Errors.CANNOT_CREATE_VOTING_TOKEN, "Need voter with email to create a OneTimeVoterToken!");
 
@@ -137,7 +141,10 @@ public class CastVoteService {
 	@Transactional
 	public CastVoteResponse castVote(String plainVoterToken, PollEntity poll, List<Long> voteOrderIds) throws LiquidoException {
 		//TODO: For even more security we could implement a challenge response mechanism for verifying plainVoterToken
-		log.info("castVote(poll={}, voteOrderIds={})", poll, voteOrderIds);
+		// [SECURITY] The ranking itself is not logged. It is the content of a secret ballot, and at
+		// INFO it would be on in production; anyone who could correlate it with an issuance line
+		// would learn not just that someone voted but how. Only the poll is recorded.
+		log.info("castVote in poll.id={}", poll.id);
 
 		// We need a poll
 		if (poll == null || poll.getId() == null)

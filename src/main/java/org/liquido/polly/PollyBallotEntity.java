@@ -1,14 +1,13 @@
 package org.liquido.polly;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
 
-import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * One cast vote in a polly: the options in the voter's preferred order, favourite first.
@@ -27,6 +26,12 @@ import java.util.List;
  * same person is unlinkable <i>across</i> different pollys, and a stolen database alone
  * cannot link voters to ballots. The raw credential id is never stored on a ballot.
  * (The server itself still can link them - that is the accepted trade, see {@link PollyEntity}.)
+ *
+ * <h3>No timing metadata</h3>
+ * A ballot carries <b>no creation timestamp</b> and a <b>random</b> primary key, for the same
+ * reason {@code BallotEntity} does: in a group of six, "who was online at 20:14" is often enough
+ * to identify a voter, and a sequential key leaks the order votes were cast in just as effectively
+ * as a timestamp leaks the time. Neither was ever read by anything; both were pure leak.
  */
 @Data
 @NoArgsConstructor(force = true)
@@ -35,7 +40,12 @@ import java.util.List;
 @Table(name = "polly_ballot", uniqueConstraints = {
 		@UniqueConstraint(name = "uq_polly_ballot_voter", columnNames = {"polly_id", "voter_key"})
 })
-public class PollyBallotEntity extends PanacheEntity {
+public class PollyBallotEntity extends PanacheEntityBase {
+
+	/** Random (v4) rather than sequential, so the key reveals nothing about when this ballot was cast. */
+	@Id
+	@GeneratedValue(strategy = GenerationType.UUID)
+	public UUID id;
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "polly_id", nullable = false)
@@ -56,10 +66,6 @@ public class PollyBallotEntity extends PanacheEntity {
 			inverseJoinColumns = @JoinColumn(name = "proposal_id"))
 	@OrderColumn(name = "proposal_order")
 	public List<PollyProposalEntity> voteOrder;
-
-	@CreationTimestamp
-	@Column(name = "created_at", nullable = false, updatable = false)
-	public LocalDateTime createdAt;
 
 	public PollyBallotEntity(PollyEntity polly, String voterKey, List<PollyProposalEntity> voteOrder) {
 		this.polly = polly;

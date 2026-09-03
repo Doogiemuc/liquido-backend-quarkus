@@ -2,7 +2,7 @@ package org.liquido.vote;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
@@ -12,6 +12,7 @@ import org.liquido.poll.ProposalEntity;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import org.eclipse.microprofile.graphql.Ignore;
 
@@ -44,10 +45,23 @@ import org.eclipse.microprofile.graphql.Ignore;
 		// their own RightToVote, so every row differs in hashedVoterInfo.
 		@UniqueConstraint(name = "uq_ballot_poll_voter", columnNames = {"poll_id", "hashedVoterInfo"})
 })
-public class BallotEntity extends PanacheEntity {
+public class BallotEntity extends PanacheEntityBase {
 	//BallotModel deliberately does NOT extend BaseEntity!
-	//No @CreatedDate, No @LastModifiedDate! This could lead to timing attacks.  <=== maybe reconsider? Should I have a CreatedDate on Ballots?
+	//No @CreatedDate, No @LastModifiedDate! This could lead to timing attacks.
 	//No @CreatedBy ! When voting it is confidential who did cast this ballot and when.
+
+	/**
+	 * Random (v4), never sequential.
+	 *
+	 * <p>Omitting the timestamps above achieves nothing while the primary key is an
+	 * auto-incrementing number: the key then reveals the order ballots were inserted in just as
+	 * effectively as a creation date reveals the time, and unlike the date it is exposed through
+	 * the API. Correlating that order against who was seen online defeats the same anonymity the
+	 * missing timestamps exist to protect.
+	 */
+	@Id
+	@GeneratedValue(strategy = GenerationType.UUID)
+	public UUID id;
 
 	/**
 	 * Reference to the poll this ballot was cast in.
