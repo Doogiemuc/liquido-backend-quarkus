@@ -327,6 +327,27 @@ public class PollsGraphQL {
 	 * @return { "voterToken": "$2ADDgg33gva...." }
 	 * @throws LiquidoException when user is not logged into a team
 	 */
+	/**
+	 * The published tally of a finished poll, so its result can be checked rather than trusted.
+	 *
+	 * <p>Team-scoped on purpose. Universal verifiability means "anyone in the electorate can check
+	 * the count", and for a team poll the electorate is the team -- a private group's decisions are
+	 * not public records. The tally exposes every ballot's ranking, so an unauthenticated version
+	 * would publish one team's deliberations to the whole internet. For a public election (Tier 3)
+	 * the electorate is everybody and this becomes genuinely public; that is a different tier with a
+	 * different threat model, not a flag to flip here.
+	 */
+	@Query
+	@Description("Everything needed to independently recompute a finished poll's result")
+	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
+	public PublishedTally publishedTally(
+			@Description("The finished poll whose tally you want to verify")
+			@NonNull Long pollId
+	) throws LiquidoException {
+		PollEntity poll = pollService.getPollInCurrentTeam(pollId);
+		return pollService.publishTally(poll);
+	}
+
 	@Query
 	@Description("Get a one-time voter token to cast a vote in this poll. This token is only valid for this user and this poll. And it can only be used once!")
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)

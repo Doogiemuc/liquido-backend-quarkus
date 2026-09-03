@@ -20,6 +20,7 @@ import org.liquido.vote.*;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -468,8 +469,22 @@ public class PollService {
 		if (!PollEntity.PollStatus.FINISHED.equals(poll.getStatus()))
 			throw new LiquidoException(LiquidoException.Errors.CANNOT_FINISH_POLL, "Poll must be in status finished to calcDuelMatrix!");
 
-		// Ordered list of proposal IDs in poll.  (Keep in mind that the proposal in a poll are not ordered.)
-		List<Long> allIds = poll.getProposals().stream().map(LiquidoBaseEntity::getId).collect(Collectors.toList());
+		// The row/column axes of the duel matrix, SORTED BY ID so they are reproducible.
+		//
+		// This ordering is load-bearing and used to be accidental. poll.getProposals() is a HashSet, so
+		// the index a proposal landed on was whatever iteration order happened to produce -- and
+		// ProposalEntity.hashCode() includes its STATUS, which finishVotingPhase() mutates (every
+		// proposal to LOST, then the winner to LAW). The set could therefore iterate differently after
+		// the poll closed than it did when the matrix was built, leaving the stored matrix indexed by an
+		// order nobody could reconstruct, not even this server.
+		//
+		// A tally nobody can reproduce is not a verifiable tally, so the axes are now sorted by the one
+		// attribute that never changes: the database id. Anyone can recompute the same ordering from the
+		// published proposal ids.
+		List<Long> allIds = poll.getProposals().stream()
+				.map(LiquidoBaseEntity::getId)
+				.sorted()
+				.collect(Collectors.toList());
 
 		// map the vote order of each ballot to a List of ids
 		List<List<Long>> idsInBallots = ballots.stream().map(
@@ -493,6 +508,63 @@ public class PollService {
 		throw new RuntimeException("Couldn't find winning Id in poll.");  // This should mathematically never happen!
 	}
 
+
+	/**
+	 * Publish everything a third party needs to recompute this poll's result themselves.
+	 *
+	 * <p>Only for a FINISHED poll, and that restriction is not bureaucratic: publishing ballots while
+	 * a poll is still open would leak the running tally to anyone who asked, which is exactly what the
+	 * rest of the design goes to some trouble to prevent (a poll has no link to its ballots for this
+	 * reason). A tally becomes public when there is no longer a vote to influence.
+	 *
+	 * @param poll a poll in status FINISHED
+	 * @return the anonymised ballot set, the duel matrix and the axes needed to interpret it
+	 * @throws LiquidoException when the poll has not finished yet
+	 */
+	public PublishedTally publishTally(@NonNull PollEntity poll) throws LiquidoException {
+		if (!PollEntity.PollStatus.FINISHED.equals(poll.getStatus()))
+			throw new LiquidoException(LiquidoException.Errors.INVALID_POLL_STATUS,
+					"A tally is only published once the poll has finished. Publishing one earlier would " +
+					"leak the running result while people are still voting.");
+
+		PublishedTally tally = new PublishedTally();
+		tally.pollId = poll.getId();
+		tally.pollTitle = poll.getTitle();
+		// The same ordering calcWinnerOfPoll() indexed the matrix by: ascending proposal id.
+		tally.proposalOrder = poll.getProposals().stream()
+				.map(LiquidoBaseEntity::getId)
+				.sorted()
+				.collect(Collectors.toList());
+		tally.duelMatrix = toNestedList(poll.getDuelMatrix());
+		tally.winnerId = poll.getWinner() != null ? poll.getWinner().getId() : null;
+
+		List<BallotEntity> ballots = BallotEntity.list("poll", poll);
+		tally.numBallots = ballots.size();
+		// Checksum and ranking only. Never the pseudonym (it leads back to a voter given the secret)
+		// and never the level (it would expose how much of the poll was decided by proxies).
+		tally.ballots = ballots.stream()
+				.map(ballot -> new PublishedTally.PublishedBallot(
+						ballot.getChecksum(),
+						ballot.getVoteOrder().stream().map(LiquidoBaseEntity::getId).collect(Collectors.toList())))
+				.collect(Collectors.toList());
+		return tally;
+	}
+
+	/**
+	 * Flatten the internal {@link Matrix} into plain nested lists for publication.
+	 * {@code Matrix} holds a {@code long[][]}, which SmallRye GraphQL cannot serialize, so the raw
+	 * type must not appear in a published DTO. See {@link PublishedTally#duelMatrix}.
+	 */
+	private static List<List<Long>> toNestedList(Matrix matrix) {
+		if (matrix == null) return null;
+		List<List<Long>> rows = new ArrayList<>(matrix.getRows());
+		for (int i = 0; i < matrix.getRows(); i++) {
+			List<Long> row = new ArrayList<>(matrix.getCols());
+			for (int j = 0; j < matrix.getCols(); j++) row.add(matrix.get(i, j));
+			rows.add(row);
+		}
+		return rows;
+	}
 
 	public Lson calcPollResults(PollEntity poll) {
 		Long ballotCount = BallotEntity.count("poll", poll);
