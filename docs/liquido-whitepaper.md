@@ -22,28 +22,30 @@ Each tier is presented with an honest statement of what it guarantees, against w
 
 ### A note on tense and status
 
-Chapters 6 and 7 describe systems that are running. Chapter 8 describes a system that is designed but not yet released. It is written in the present tense anyway, because it describes a specification rather than an aspiration — the data model, the algorithms and the invariants are settled, and much of the backend already implements them. Where that matters, three markers appear:
+Chapters 7 and 8 describe systems that are running. Chapter 9 describes a system that is designed but not yet released. It is written in the present tense anyway, because it describes a specification rather than an aspiration — the data model, the algorithms and the invariants are settled, and much of the backend already implements them. Where that matters, three markers appear:
 
 - **[Implemented]** — running in the current release.
 - **[Designed]** — specified and settled; some or all of it not yet built.
 - **[Envisioned]** — the direction of travel, with open research or engineering problems named honestly.
 
-As of this version **[Designed]** no longer appears in Chapters 6 and 7: everything those chapters describe is running. The marker is kept because it is the vocabulary the rest of the document argues in, and because Chapter 8 will need it again.
+As of this version **[Designed]** no longer appears in Chapters 7 and 8: everything those chapters describe is running. The marker is kept because it is the vocabulary the rest of the document argues in, and because Chapter 9 will need it again.
 
-A reader who wants to know only what exists today should read Chapters 6 and 7, and take Chapter 8 as a statement of intent.
+A reader who wants to know only what exists today should read Chapters 7 and 8, and take Chapter 9 as a statement of intent.
 
 ### What changed since version 3.0
 
-Version 3.0 described a two-layer anonymity architecture as a settled design that the code did not yet implement. It now does, and this version is the first in which Chapter 7's unlinkability claims are claims about a running system rather than about a specification.
+Version 3.0 described a two-layer anonymity architecture as a settled design that the code did not yet implement. It now does, and this version is the first in which Chapter 8's unlinkability claims are claims about a running system rather than about a specification.
 
 Four things that version 3.0 listed as open are closed:
 
 - **Rights to vote are scoped per team and ballot pseudonyms per poll**, both derived with HMAC. An attacker holding a full database dump and no secret can no longer group one anonymous voter's ballots across polls, or correlate one person across two teams.
 - **The server secret is versioned.** A leak is now recoverable by rotation rather than terminal.
-- **The tally is publishable.** A finished poll's ballots and duel matrix can be read back and the Ranked Pairs computation reproduced independently, so the announced winner can be checked rather than merely trusted. This closes the gap between individual and universal verifiability, and it carries a cost that Section 7.6 states rather than hides.
+- **The tally is publishable.** A finished poll's ballots and duel matrix can be read back and the Ranked Pairs computation reproduced independently, so the announced winner can be checked rather than merely trusted. This closes the gap between individual and universal verifiability, and it carries a cost that Section 8.6 states rather than hides.
 - **Polly ballots no longer carry timestamps or sequential identifiers**, removing the one place where the newer tier was the less careful one.
 
-What has not changed is the boundary. Both derivations still use one server secret, and an operator holding it can still reconstruct every link. Scoping defeats an attacker with the database; it does not defeat an attacker with the key. Section 4.3 sets out why that boundary is where it is, and Section 8.7 sets out what it would take to move it.
+This version also adds **Chapter 4**, on the choice between sorting pairwise victories by winning votes and by margin. Earlier versions disposed of it in a single paragraph inside Chapter 3. It deserves more: the two metrics diverge exactly when ballots are partial, which is the case LIQUIDO permits, and the choice between them changes outcomes while leaving no trace in the announced result.
+
+What has not changed is the boundary. Both derivations still use one server secret, and an operator holding it can still reconstruct every link. Scoping defeats an attacker with the database; it does not defeat an attacker with the key. Section 5.3 sets out why that boundary is where it is, and Section 9.7 sets out what it would take to move it.
 
 Version 2.0 ruled out governmental elections. From version 3.0 onward this document does not: it states them as the goal, and sets out exactly what must be true before that goal is legitimate.
 
@@ -92,7 +94,7 @@ What the model adds is an **option that representative democracy structurally ca
 
 Formally, then, representative democracy is the point in the space where every voter delegates all topics to a single proxy for a fixed term, and direct democracy is the point where nobody delegates at all. Both are corners of the same space. Liquid democracy is the space itself — which is why it should be evaluated not against either corner, but on whether the interior is reachable in practice.
 
-Liquid democracy inherits the known impossibility results of social choice theory rather than escaping them (Section 4.4). It changes *who* casts a ballot, not *what a ballot can express*.
+Liquid democracy inherits the known impossibility results of social choice theory rather than escaping them (Section 5.4). It changes *who* casts a ballot, not *what a ballot can express*.
 
 ## 3. In LIQUIDO you sort proposals instead of only voting for one alternative
 
@@ -106,19 +108,70 @@ If some option beats every other option in a pairwise duel, it is the **Condorce
 
 LIQUIDO uses **Ranked Pairs** (Tideman, *Independence of clones as a criterion for voting rules*, 1987). The algorithm sorts all pairwise victories by strength, then locks them in one at a time from strongest to weakest, skipping any victory that would create a cycle with those already locked. The result is an acyclic ordering whose source is the winner. Ranked Pairs elects the Condorcet winner whenever one exists, and satisfies independence of clones — it cannot be manipulated by entering several near-identical proposals.
 
-One detail deserves stating, because it is where implementations quietly diverge. Tideman's original formulation sorted pairwise victories by *winning margin*. That formulation implicitly assumed complete ballots, where every voter ranks every candidate; under complete ballots the total number of voters in each pairwise matchup is identical, and sorting by winning votes and sorting by margin produce the same sequence. LIQUIDO permits **partial ballots**, which breaks that equivalence, and the two metrics can then disagree. LIQUIDO sorts by **winning votes**, and treats a candidate a voter left unranked as ranked below every candidate that voter did rank, while remaining neutral among the unranked. This is a stated choice, not an accident of implementation.
+One step of that procedure hides a decision. Before the victories can be locked in they must be sorted from strongest to weakest — and *strongest* admits two defensible definitions that stop agreeing the moment ballots may be partial. The choice between them changes outcomes and cannot be recovered from the result, so it is set out separately in Chapter 4.
 
 A ranked ballot is also what makes delegation meaningful. A proxy who inherits a single cross expresses one bit on behalf of their delegees; a proxy who inherits a ranking expresses a *preference structure*, and a delegee reading it back can see not only which proposal won their vote but how the alternatives were ordered beneath it. Sections 2 and 3 are therefore not two independent design choices — the second is what gives the first something worth delegating.
 
 One implementation of Ranked Pairs is shared, unchanged, between Polly and LIQUIDO team polls. It is the one component both products have in common.
 
-## 4. The limits of this approach
+## 4. Which victories count as stronger
+
+Ranked Pairs locks in pairwise victories from the strongest downwards. Everything therefore depends on what *strongest* means, and there are two defensible answers that do not agree. Two implementations can both be faithful to Tideman's method, sort by different definitions, and announce different winners — with nothing in the published result revealing which definition was used. That makes this a decision a voting system is obliged to declare.
+
+### 4.1 Two facts inside one number
+
+When two proposals are compared head to head, the outcome is a split of votes. That split carries two different pieces of information at once:
+
+- **how decisively** the pair was settled — the gap between the winner and the loser;
+- **how many voters** actually took part in settling it.
+
+Sorting demands a single ordering, so one of these has to be treated as the more trustworthy signal. That is the whole fork.
+
+Under **complete** ballots the fork does not exist. If every voter ranks every proposal, every pairwise contest is decided by the same number of voters; the gap and the winner's count then rise and fall together, and the two orderings coincide. Tideman (1987) sorted by winning margin and could assume precisely this.
+
+LIQUIDO permits **partial ballots** — a voter ranks only the proposals they have an opinion about, which is the point of not compelling preferences nobody holds. Different pairs are then decided by different numbers of voters, the two measures come apart, and the choice becomes consequential rather than cosmetic.
+
+### 4.2 What margin sees, and what it cannot see
+
+Sorting by margin takes the gap as the signal: a lead of fifteen is a lead of fifteen, whether it was produced by twenty voters or two hundred.
+
+The blind spot follows immediately. Margin cannot distinguish **a decisive preference** from **a small group who happened to agree**. Where only a handful of voters expressed any opinion on a pair and most of them agreed, the gap is wide — but it is a wide gap resting on thin evidence, and margin scores it identically to the same gap drawn from hundreds of voters. It is indifferent to how much of the electorate stands behind the number.
+
+### 4.3 What winning votes sees, and what it cannot see
+
+Sorting by winning votes takes the winner's raw count as the signal: a victory with forty-six voters behind it outranks one with fifteen, however close the loser came.
+
+The blind spot is the exact mirror image. Winning votes cannot distinguish **a wide, convincing victory** from **a narrow one that merely attracted more participants**. A near-tie settled by ninety voters outranks a unanimous verdict from fifteen, purely because more people stood on the winning side. It is indifferent to how convincing the victory was, and attends only to the size of the winning crowd.
+
+Neither measure is mistaken. Each is blind to exactly what the other perceives, and no third quantity dissolves the problem: the split genuinely contains two facts, and the sort accepts one.
+
+### 4.4 Why the fork is also a question about strategy
+
+The choice carries a second consequence, and it is the structural reason each metric is preferred in different settings. Consider what a voter is actually able to manipulate.
+
+Under **margin**, a contest scores as a *difference* — the votes for the winner minus the votes for the loser. A difference has two moving parts, and a voter can shift it without altering their genuine preference between the two proposals being compared: by changing how they rank other, unrelated proposals, or by declining to rank some at all, they change which pairs their ballot contributes to, and so move both sides of the subtraction.
+
+Under **winning votes**, a contest scores as a *count* — the votes for the winner alone. One moving part, tied more directly to a preference the voter actually holds. The same indirect manoeuvring gains less purchase, because the number does not depend on the losing side at all.
+
+This is why margin is generally regarded as somewhat easier to game and winning votes as somewhat more resistant. It is a structural argument rather than a theorem, and Section 5.4 is the standing reminder that no ranked rule is immune to manipulation: the claim here is comparative, not absolute.
+
+### 4.5 What LIQUIDO does
+
+LIQUIDO sorts by **winning votes**. A proposal a voter left unranked is treated as ranked below every proposal that voter did rank, while the unranked remain neutral among themselves. **[Implemented]**
+
+Margin has not been discarded so much as demoted. Where two contests carry the same number of winning votes, the one with **fewer votes for the loser** is locked in first — which, at equal winning votes, is exactly the wider margin. The primary criterion asks how many voters backed the winner; the secondary asks how convincingly they did so, and is consulted only when the primary cannot decide.
+
+This is a stated choice rather than an accident of implementation, and it is the kind of choice that belongs in a whitepaper instead of only in the source code: it changes outcomes, and no reader can infer it from the winner alone.
+
+---
+
+## 5. The limits of this approach
 
 Everything proposed so far has boundaries, and some of them are not engineering problems that a later version will fix. They are results — proved, in the mathematical sense — about what any system of this kind can and cannot deliver. A whitepaper that omitted them would be a brochure.
 
 Two of the four sections below concern the secrecy of the ballot and two concern the aggregation of preferences. Stating them requires being precise about what is being promised in the first place, which is where this chapter starts.
 
-### 4.1 What a ballot must guarantee
+### 5.1 What a ballot must guarantee
 
 Any democratic vote, paper or electronic, must be **free**, **equal** and **secret**. In a governmental election these are not design preferences but constitutional requirements; German Basic Law, Article 38, states them directly, and most democratic constitutions state something equivalent.
 
@@ -140,7 +193,7 @@ Electronic voting research has decomposed these into a more precise vocabulary. 
 
 Two of these properties are worth dwelling on, because their relationship governs every design decision in this document.
 
-### 4.2 The central tension
+### 5.2 The central tension
 
 **Individual verifiability and receipt-freeness pull in opposite directions.**
 
@@ -154,20 +207,20 @@ Helios (Adida, 2008) made the opposite choice explicitly: it offers strong verif
 
 For Tiers 1 and 2, **LIQUIDO makes the Helios choice, for the Helios reason.** A team deciding where to hold its offsite is not a national election. In that setting, a voter's ability to confirm their ballot was counted is worth more than protection against a coercer who, in a team of twelve people, has many easier avenues anyway.
 
-For Tier 3, that trade is not available. An election whose outcome binds a population is exactly the setting where coercion and vote-buying are the dominant threats, and where the electorate contains people who can be leaned on — by an employer, a spouse, a party, a buyer. A system that aims at governmental elections must therefore acquire coercion-resistance rather than trade it away, and must do so without giving up the verifiability that makes the result trustworthy. Section 8.7 states what that requires. It is the hardest single obstacle on the path, and it is not solved by any amount of careful engineering of the current design — it requires different cryptography.
+For Tier 3, that trade is not available. An election whose outcome binds a population is exactly the setting where coercion and vote-buying are the dominant threats, and where the electorate contains people who can be leaned on — by an employer, a spouse, a party, a buyer. A system that aims at governmental elections must therefore acquire coercion-resistance rather than trade it away, and must do so without giving up the verifiability that makes the result trustworthy. Section 9.7 states what that requires. It is the hardest single obstacle on the path, and it is not solved by any amount of careful engineering of the current design — it requires different cryptography.
 
-### 4.3 The limits of the honest threat model
+### 5.3 The limits of the honest threat model
 
 There is a second distinction that marketing language tends to blur, and that this whitepaper will not.
 
 - **Anonymity** means the link between voter and ballot does not exist and cannot be reconstructed by anyone.
 - **Pseudonymity** means the link exists in a protected form, and *somebody* — typically the party holding a secret key — can reconstruct it.
 
-Every LIQUIDO product as it exists today is, against the server operator, **pseudonymous**. Against other voters, against a team administrator, and against an attacker who obtains a database dump without the server secret, it is anonymous. Section 9.3 sets out precisely who can learn what.
+Every LIQUIDO product as it exists today is, against the server operator, **pseudonymous**. Against other voters, against a team administrator, and against an attacker who obtains a database dump without the server secret, it is anonymous. Section 10.3 sets out precisely who can learn what.
 
-Claiming more than this would be dishonest. Achieving more requires either threshold cryptography with distributed key holders, or a verifiable mix network — neither of which is in the current implementation, and both of which are prerequisites for Tier 3 rather than optional enhancements (Sections 8.7 and 10).
+Claiming more than this would be dishonest. Achieving more requires either threshold cryptography with distributed key holders, or a verifiable mix network — neither of which is in the current implementation, and both of which are prerequisites for Tier 3 rather than optional enhancements (Sections 9.7 and 11).
 
-### 4.4 What no voting rule can do
+### 5.4 What no voting rule can do
 
 The ranked ballot of Chapter 3 is a better instrument than a single cross, but it is not an escape from social choice theory. Two results bound what any rule built on it can achieve, and they bound Ranked Pairs exactly as they bound everything else.
 
@@ -177,11 +230,11 @@ The ranked ballot of Chapter 3 is a better instrument than a single cross, but i
 
 These are the reasons the chapter is titled as it is. Liquid democracy changes *who* casts a ballot and Ranked Pairs improves *what a ballot can say*; neither changes the fact that aggregating conflicting preferences into a single collective choice involves irreducible trade-offs. The honest position is to name the trade-offs and choose deliberately, which is what the rest of this document does.
 
-## 5. Cryptographic building blocks
+## 6. Cryptographic building blocks
 
 Two primitives carry the entire security argument. Both are described here in terms a non-specialist can follow, because a voting system whose security nobody outside the team can reason about has a governance problem regardless of its mathematics.
 
-### 5.1 Hash functions
+### 6.1 Hash functions
 
 A cryptographic hash function maps an input of any size to an output of fixed size, with these properties:
 
@@ -196,13 +249,13 @@ LIQUIDO uses **SHA3-256** (NIST FIPS 202). This is a deliberate choice over the 
 
 Note for readers of older LIQUIDO documents: earlier versions of this text cited MD5 as an example. MD5 is cryptographically broken and must not be used for any security purpose.
 
-### 5.2 Keyed hashing (HMAC)
+### 6.2 Keyed hashing (HMAC)
 
 A plain hash proves nothing about *who* computed it, because anyone can compute it. A **keyed** hash mixes in a secret known only to the server, so that only the server can produce or verify the value. HMAC (Bellare, Canetti & Krawczyk, 1996) is the standard construction.
 
 The distinction matters for a specific reason. If a voter's pseudonym were `hash(email)`, anyone with a list of candidate email addresses could compute every pseudonym and de-anonymise the entire electorate offline. Mixing in a server secret makes this impossible without that secret. The security of every anonymity claim in this document therefore reduces to: **the server secret has not leaked.**
 
-### 5.3 Domain separation
+### 6.3 Domain separation
 
 A third, less glamorous property turns out to matter as much as either of the above: when several distinct values are combined into one hash input, the encoding must be **injective** — no two different inputs may produce the same string.
 
@@ -230,15 +283,15 @@ The three products in this section are not three implementations of one design. 
 
 ---
 
-## 6. Tier 1 — Polly
+## 7. Tier 1 — Polly
 
-### 6.1 What it is
+### 7.1 What it is
 
 A Polly is the small, fast sibling of a LIQUIDO poll. No team, no account, no login screen. One opaque link that everyone opens, an identity that is nothing but a passkey, and the same core idea: you *sort* the options instead of picking one.
 
 It exists because the security machinery of Part I is not free. It costs registration, email verification, team membership and an admin. For "where shall we go for dinner on Friday", that cost is absurd — and a tool that is too heavy for the question simply does not get used, which is the worst security outcome of all.
 
-### 6.2 Identity without accounts
+### 7.2 Identity without accounts
 
 A Polly participant has no username, no password and no email address on file. Their identity is a **WebAuthn passkey** (W3C Web Authentication) — the same mechanism behind Face ID and fingerprint login, in which the private key never leaves the user's device and the server only ever sees a public credential identifier.
 
@@ -253,15 +306,15 @@ The **owner key** is stable across every Polly a given passkey creates. It is wh
 
 The **voter key** is derived per Polly. This is the important one. Because the poll's public identifier is mixed into the derivation, **the same person is unlinkable across different Pollys**. Two ballots in two different Pollys cannot be shown to belong to one voter without the server secret. The raw credential identifier is never stored on a ballot at all.
 
-The separator between the two halves of the voter key input is not decoration. Without an unambiguous separator, two different `(credentialId, publicId)` pairs could concatenate to the same string and collide — the domain-separation problem of Section 5.3. Neither a base64url credential id nor a base58 public id can contain the separator character, so the encoding is injective.
+The separator between the two halves of the voter key input is not decoration. Without an unambiguous separator, two different `(credentialId, publicId)` pairs could concatenate to the same string and collide — the domain-separation problem of Section 6.3. Neither a base64url credential id nor a base58 public id can contain the separator character, so the encoding is injective.
 
-### 6.3 The share link
+### 7.3 The share link
 
 A Polly is addressed by an opaque **public identifier**: ten characters of base58, roughly 58 bits of entropy. Base58 omits the character pairs that are confusable when read aloud or retyped — no `0`/`O`, no `I`/`l`.
 
 The numeric database primary key is never exposed. With a sequential identifier the share link would be the only access control, and `/polly/1`, `/polly/2`, `/polly/3` would enumerate the title, options and results of every Polly ever created.
 
-### 6.4 One vote per participant
+### 7.4 One vote per participant
 
 The one-vote rule is enforced by a **database constraint** on the pair (poll, voter key). **[Implemented]**
 
@@ -269,11 +322,11 @@ This is a deliberate architectural decision, not an implementation detail. The a
 
 An earlier design keyed the rule on *issuing a voting token* rather than on the ballot. That locked out anyone who opened the page and wandered off without voting. The rule belongs on the ballot.
 
-### 6.5 What Polly guarantees, and what it does not
+### 7.5 What Polly guarantees, and what it does not
 
 **A Polly ballot is pseudonymous, not anonymous.** The server holds the secret and can therefore link a passkey to its ballot. This is stated in the product interface, not only here.
 
-That is the right trade for "where shall we go for dinner" and the wrong one for anything consequential — which is precisely why the team poll in Section 7 keeps its extra layer of indirection.
+That is the right trade for "where shall we go for dinner" and the wrong one for anything consequential — which is precisely why the team poll in Section 8 keeps its extra layer of indirection.
 
 What Polly deliberately does **not** offer:
 
@@ -283,20 +336,20 @@ What Polly deliberately does **not** offer:
 
 Two residual leaks were known and documented rather than hidden. One is now closed:
 
-- Polly ballots used to carry a **creation timestamp** and a sequential primary key. Both revealed the order and approximate time in which votes were cast, which in a small group can be correlated with who was online — so a Polly among six people leaked more about *when* someone voted than a team poll did. Both are now gone: ballots carry a random identifier and no creation time, matching the team poll's deliberate omission (Section 7.5). **[Implemented]** This was the one place where the newer design was the less careful one.
+- Polly ballots used to carry a **creation timestamp** and a sequential primary key. Both revealed the order and approximate time in which votes were cast, which in a small group can be correlated with who was online — so a Polly among six people leaked more about *when* someone voted than a team poll did. Both are now gone: ballots carry a random identifier and no creation time, matching the team poll's deliberate omission (Section 8.5). **[Implemented]** This was the one place where the newer design was the less careful one.
 - Voter keys are never written to logs — the ballot's string representation deliberately omits them — because a log reader holding the server secret could otherwise link passkeys to ballots. **[Implemented]**
 
 ---
 
-## 7. Tier 2 — LIQUIDO Team Polls
+## 8. Tier 2 — LIQUIDO Team Polls
 
-### 7.1 The setting
+### 8.1 The setting
 
 A LIQUIDO team is a bounded group that has to decide things repeatedly: a club, a working group, a department, a housing cooperative. One member creates the team and becomes its admin; others join with an invite code.
 
 The team boundary is a hard isolation boundary. A poll lookup that names a poll belonging to another team returns exactly the same "not found" error as a poll that does not exist, so the API cannot be used to enumerate other teams' activity. **[Implemented]**
 
-### 7.2 The life of a poll
+### 8.2 The life of a poll
 
 **ELABORATION.** The admin creates a poll. Proposals are added and may still be edited. Whether ordinary members may add proposals is a per-poll setting the admin chooses at creation time, and it defaults to *closed* — letting the whole team write on the ballot should be a deliberate decision, not something an admin gets by not noticing a checkbox.
 
@@ -307,15 +360,15 @@ Two permission rules in this phase are worth stating because their asymmetry is 
 
 **VOTING.** The admin starts the voting phase, which requires at least two competing proposals. The caller chooses only the *duration*; the start is always "now", server-side. A client-supplied start date would allow backdating and would make the poll's clock depend on whichever device pressed the button. Once voting begins, proposals are frozen and the poll title can no longer change — a renamed poll would silently reinterpret ballots already cast.
 
-**A vote, once cast, is final.** A voter who has cast their own ballot in a poll cannot cast a second one, and cannot change the ranking they submitted. **[Implemented]** This is a change from earlier versions of this document, which described a ballot as replaceable while the poll remained open. The reasons are given in Section 7.4.
+**A vote, once cast, is final.** A voter who has cast their own ballot in a poll cannot cast a second one, and cannot change the ranking they submitted. **[Implemented]** This is a change from earlier versions of this document, which described a ballot as replaceable while the poll remained open. The reasons are given in Section 8.4.
 
 **FINISHED.** The voting phase closes, the duel matrix is computed from all ballots, and Ranked Pairs determines the winner.
 
-### 7.3 The three-layer anonymity architecture
+### 8.3 The three-layer anonymity architecture
 
 This is the core of the system. It is best understood as three derived values with three different lifetimes: one scoped to a team, one scoped to a single vote-casting session, and one scoped to a single poll.
 
-All three layers below are implemented as described. Earlier versions of this document described Layers 1 and 3 as a target architecture that the code did not yet reach; that gap is closed, and the unlinkability claims in this section are now claims about a running system. Section 7.6 states what remains open, which is a different and smaller list.
+All three layers below are implemented as described. Earlier versions of this document described Layers 1 and 3 as a target architecture that the code did not yet reach; that gap is closed, and the unlinkability claims in this section are now claims about a running system. Section 8.6 states what remains open, which is a different and smaller list.
 
 **Layer 1 — the Right to Vote, scoped to a team.** When a voter joins a team they are granted a pseudonymous right to vote *in that team*:
 
@@ -353,19 +406,19 @@ The separation is the point. Token issuance is authenticated but carries no vote
 
 The cast-vote call is deliberately *not* team-scoped, unlike every other poll operation. There is no logged-in team to check against, and it does not need one: the token is poll-bound, so it cannot be replayed against a different poll, and the right to vote behind it is already team-bound by construction. The team boundary for voting is enforced at the one authenticated step — token issuance. **[Implemented]**
 
-**One vote per voter per poll** is enforced by a database constraint on the pair (poll, ballot pseudonym), not by an application-level check. **[Implemented]** Under concurrent requests a check-then-insert has a race window between the check and the insert; a constraint does not. The application check remains, but only to produce a readable error message — the constraint is the authority. This is the same decision Polly took (Section 6.4), applied to the older half of the system.
+**One vote per voter per poll** is enforced by a database constraint on the pair (poll, ballot pseudonym), not by an application-level check. **[Implemented]** Under concurrent requests a check-then-insert has a race window between the check and the insert; a constraint does not. The application check remains, but only to produce a readable error message — the constraint is the authority. This is the same decision Polly took (Section 7.4), applied to the older half of the system.
 
 The constraint does not restrict a proxy. A proxy writes one ballot per delegee, and each delegee derives their own pseudonym, so every row differs.
 
-### 7.4 The ballot and its checksum
+### 8.4 The ballot and its checksum
 
-A ballot records the poll, the voter's ordered list of proposals, a delegation level (Section 8), and the ballot pseudonym. **It contains no reference to a user account and no reference to a right to vote.**
+A ballot records the poll, the voter's ordered list of proposals, a delegation level (Section 9), and the ballot pseudonym. **It contains no reference to a user account and no reference to a right to vote.**
 
-It also carries a **checksum**, which is the receipt: only the voter knows which checksum is theirs, and an anonymous verification endpoint returns the ballot matching a presented checksum. This delivers individual verifiability — and, as Section 4.2 argued, forfeits receipt-freeness in the same stroke.
+It also carries a **checksum**, which is the receipt: only the voter knows which checksum is theirs, and an anonymous verification endpoint returns the ballot matching a presented checksum. This delivers individual verifiability — and, as Section 5.2 argued, forfeits receipt-freeness in the same stroke.
 
 For that receipt to mean anything, the checksum must be a **commitment**: a value that the voter, or an auditor given the ballot, can recompute independently and compare. Three properties are required, and version 2.0 of this document claimed the receipt without them. **[Implemented]**
 
-- **A canonical, injective encoding.** The checksum is computed over an explicitly delimited, version-prefixed serialisation of the poll identifier, the ordered proposal identifiers, and the ballot pseudonym. Without delimiters the encoding is not injective (Section 5.3); without a version prefix, a future change to the canonical form could not be distinguished from the current one.
+- **A canonical, injective encoding.** The checksum is computed over an explicitly delimited, version-prefixed serialisation of the poll identifier, the ordered proposal identifiers, and the ballot pseudonym. Without delimiters the encoding is not injective (Section 6.3); without a version prefix, a future change to the canonical form could not be distinguished from the current one.
 - **Immutable inputs.** The inputs are database identifiers, which never change for the life of a row. An earlier design derived the checksum in part from the in-memory hash codes of the proposal objects — and a proposal's hash code included its *status*, which changes to "won" or "lost" the moment the poll closes. The checksum therefore became impossible to recompute at exactly the moment an auditor or a voter would most want to check it. It still functioned as a lookup key, but it was a server-issued opaque identifier rather than a commitment, and no verifiability claim could rest on it.
 - **Computed before the record is written**, so the stored checksum always corresponds to the stored ballot rather than to an earlier state of it.
 
@@ -373,58 +426,58 @@ The checksum deliberately does not depend on the delegation level, so a ballot t
 
 **A voter cannot change a cast vote, and this is what makes the receipt stable.** In earlier versions of this document a voter could replace their ballot while the poll remained open, which meant a receipt from a first cast stopped verifying after a second — an inherently confusing property to explain to a voter, and a standing invitation to support tickets that cannot be distinguished from genuine tampering reports. A final vote yields a receipt that is valid for the life of the poll. This also aligns the electronic ballot with the paper one: a ballot dropped in the box is not retrievable.
 
-The one exception is not a voter changing their mind but the delegation hierarchy resolving, and it is described in Section 8.2. A ballot that a proxy cast on a delegee's behalf may still be replaced — by a closer proxy, or by the delegee's own first direct vote. A ballot the voter cast in person is never replaced by anything.
+The one exception is not a voter changing their mind but the delegation hierarchy resolving, and it is described in Section 9.2. A ballot that a proxy cast on a delegee's behalf may still be replaced — by a closer proxy, or by the delegee's own first direct vote. A ballot the voter cast in person is never replaced by anything.
 
-### 7.5 What the design gets right
+### 8.5 What the design gets right
 
 - **No timestamps on ballots.** A ballot deliberately carries no creation or modification date, and no "created by". Both would enable timing correlation against the authenticated token request. **[Implemented]**
 - **The proposal list is never exposed as a poll's ballots.** A poll has no link to its ballots at all, so the running tally cannot leak while voting is open. Clients that need a participation count get a computed field. **[Implemented]**
 - **Cross-tenant lookups are indistinguishable from missing records.** **[Implemented]**
-- **The published API surface is verified against the schema, not against intent.** **[Implemented]** Field-level hiding relies on annotations, and whether a given annotation reaches the published schema is a property of the framework version, not of the source code. The exposed surface is therefore asserted against the *generated* schema, by a test that fails the build if a sensitive field appears. This is what closes the weakness version 2.0 listed last in Section 7.6 — and it found a real one: an anonymous, deliberately unauthenticated verification endpoint could be walked from a ballot to its poll, from the poll to its team, and from the team to the invite code and the full member list. Nothing in the source code said those fields were public; the schema said so.
+- **The published API surface is verified against the schema, not against intent.** **[Implemented]** Field-level hiding relies on annotations, and whether a given annotation reaches the published schema is a property of the framework version, not of the source code. The exposed surface is therefore asserted against the *generated* schema, by a test that fails the build if a sensitive field appears. This is what closes the weakness version 2.0 listed last in Section 8.6 — and it found a real one: an anonymous, deliberately unauthenticated verification endpoint could be walked from a ballot to its poll, from the poll to its team, and from the team to the invite code and the full member list. Nothing in the source code said those fields were public; the schema said so.
 
-### 7.6 Known weaknesses
+### 8.6 Known weaknesses
 
 The following limitations are documented here because a whitepaper that lists only strengths is advertising. Version 3.0 listed seven: four are now closed, one is narrowed, and two stand — one of them permanently, by design. One new item joins the list, because closing the verifiability gap bought a fresh exposure rather than a free improvement, and a list that only ever shrinks is not being kept honestly.
 
 **A single secret is the ceiling on every claim in this section.** *Open, and structural.* One server secret protects both derivations. An attacker holding it, together with a team's membership list — which is visible to every team member — needs two keyed-hash computations per member to determine who cast which ballot. For a team of twenty that is forty operations, not a brute-force search. Per-team and per-poll scoping close the *linkage* threat completely; they do not and cannot close the *operator* threat. Only distributed trust does that, and no amount of work inside the current architecture substitutes for it. This is the single most important sentence in the chapter.
 
-**The token window is a correlation window.** *Narrowed.* For the twenty minutes a one-time voter token is live, a database row links a right to vote to a poll. During that window an observer with database access can see *that* a particular right to vote is about to vote in a particular poll — not how. Bounding issuance to one live token per voter per poll (Section 7.3) removes the ability to accumulate such rows, but not the window itself. The row is deleted on consumption, so this remains transient rather than permanent, and it is the one place where the otherwise clean separation between identity and ballot is briefly visible.
+**The token window is a correlation window.** *Narrowed.* For the twenty minutes a one-time voter token is live, a database row links a right to vote to a poll. During that window an observer with database access can see *that* a particular right to vote is about to vote in a particular poll — not how. Bounding issuance to one live token per voter per poll (Section 8.3) removes the ability to accumulate such rows, but not the window itself. The row is deleted on consumption, so this remains transient rather than permanent, and it is the one place where the otherwise clean separation between identity and ballot is briefly visible.
 
-**The system is not receipt-free.** *Unchanged, by design.* This is a decision rather than a defect, argued in Section 4.2, but it belongs on any list of limitations — and, per that same section, it is a decision that Tier 3 cannot inherit.
+**The system is not receipt-free.** *Unchanged, by design.* This is a decision rather than a defect, argued in Section 5.2, but it belongs on any list of limitations — and, per that same section, it is a decision that Tier 3 cannot inherit.
 
 **Publishing the tally has a cost, and it is the receipt problem again.** *Accepted, deliberately.* Universal verifiability (below) is achieved by publishing every counted ballot's ranking. With enough proposals, a distinctive ranking is effectively a signature: a coercer can demand an unusual ordering in advance and then look for it in the published set. This is the **Italian attack**, and the exposure grows with the number of proposals — it is negligible for three, real for ten. LIQUIDO is already not receipt-free, so this introduces no class of attack the system claimed to resist; a coercer had a simpler route already. But it is a trade that was made, not one that was avoided, and in a setting where coercion is the dominant threat the right configuration is to leave the tally unpublished.
 
 Closed since version 3.0:
 
-**Rights to vote were not team-scoped, and ballots were not poll-scoped.** *Closed.* Both derivations are now HMAC-based and scoped as Section 7.3 describes. A person in three teams holds three unrelated rights to vote; one voter's ballots in ten polls of one team carry ten unrelated pseudonyms. A ballot holds no reference to a right to vote at all.
+**Rights to vote were not team-scoped, and ballots were not poll-scoped.** *Closed.* Both derivations are now HMAC-based and scoped as Section 8.3 describes. A person in three teams holds three unrelated rights to vote; one voter's ballots in ten polls of one team carry ten unrelated pseudonyms. A ballot holds no reference to a right to vote at all.
 
 **The secret was not versioned.** *Closed.* Each right to vote records the key version it was derived under, and retired secrets are retained for lookup, so rotation re-derives records lazily instead of invalidating them. A leak is now recoverable rather than terminal. Rotation is a procedure, not merely a possibility — but the procedure now exists.
 
-**Verification required trusting the server.** *Closed.* A finished poll's tally can be published: the proposal ids that index the duel matrix, every counted ballot's ranking with its checksum, the matrix, and the announced winner. Ranked Pairs is deterministic, so an auditor recomputes the result from the published ballots alone and compares. A voter additionally finds their own checksum in the set, which turns "my ballot was counted" into a spot check on the whole count. The pseudonym and the delegation level are deliberately withheld: the first leads back to a voter given the secret, the second would expose how much of a poll proxies decided. What this does *not* provide is proof that the published set is the set that was cast — a server that never recorded a ballot publishes a consistent tally without it. Closing that gap requires a public bulletin board with voter-side confirmation, which is Section 8.7's territory.
+**Verification required trusting the server.** *Closed.* A finished poll's tally can be published: the proposal ids that index the duel matrix, every counted ballot's ranking with its checksum, the matrix, and the announced winner. Ranked Pairs is deterministic, so an auditor recomputes the result from the published ballots alone and compares. A voter additionally finds their own checksum in the set, which turns "my ballot was counted" into a spot check on the whole count. The pseudonym and the delegation level are deliberately withheld: the first leads back to a voter given the secret, the second would expose how much of a poll proxies decided. What this does *not* provide is proof that the published set is the set that was cast — a server that never recorded a ballot publishes a consistent tally without it. Closing that gap requires a public bulletin board with voter-side confirmation, which is Section 9.7's territory.
 
-**Anonymity was bounded by the API surface.** *Closed.* See Section 7.5.
+**Anonymity was bounded by the API surface.** *Closed.* See Section 8.5.
 
-None of the open items defeat the design. All of them are reasons the honest claim in Section 4.3 is "pseudonymous against the operator" rather than something stronger.
+None of the open items defeat the design. All of them are reasons the honest claim in Section 5.3 is "pseudonymous against the operator" rather than something stronger.
 
 ---
 
-## 8. Tier 3 — Liquid Democracy with Proxies
+## 9. Tier 3 — Liquid Democracy with Proxies
 
 > **This chapter describes a system that is not yet released.** It is written in the present tense because it describes a settled specification, not a hope: the data model, the recursion, the level rule and the delegation semantics are designed, and substantial parts already exist in the backend behind an unexposed API. Nothing in this chapter should be read as a description of what a user can do today. Where a component is designed but unbuilt, or where an open problem remains, this chapter says so explicitly.
 
 Everything in this chapter describes the intended next version, and beyond it the reason the whole architecture exists. It is included because LIQUIDO was built from the beginning to accommodate delegation, and because the design problems delegation raises are the most interesting ones in the document.
 
-### 8.1 Delegation of the right to vote
+### 9.1 Delegation of the right to vote
 
 A voter delegates by pointing their right to vote at their proxy's right to vote. Because both are pseudonymous, **the delegation graph itself contains no names**. The server can see that one anonymous right to vote is delegated to another; it cannot read the identities out of the graph.
 
-Delegation is confined to a team, which follows automatically from the scoping in Section 7.3: a right to vote exists per team, so an edge can only ever connect two members of the same team. This matches the domain — a proxy in one team has no standing in another team's poll — and it means the delegation graph is naturally partitioned rather than being one global structure.
+Delegation is confined to a team, which follows automatically from the scoping in Section 8.3: a right to vote exists per team, so an edge can only ever connect two members of the same team. This matches the domain — a proxy in one team has no standing in another team's poll — and it means the delegation graph is naturally partitioned rather than being one global structure.
 
 When a proxy casts a ballot, they present their own one-time token like anybody else. The system walks the delegation edges over the team-scoped rights to vote, derives each delegee's **poll-scoped ballot pseudonym**, and writes a separate ballot for each, carrying the same ranking. The persistent graph is traversed; the pseudonyms written to ballots are not persistent.
 
-This per-delegee ballot is not an implementation convenience. It is what makes Section 8.4 possible.
+This per-delegee ballot is not an implementation convenience. It is what makes Section 9.4 possible.
 
-### 8.2 Trees of proxies
+### 9.2 Trees of proxies
 
 A proxy may in turn delegate everything they have collected to a proxy above them, so a tree forms and voting power accumulates toward the root. A voter can always see who their effective proxy at the top of the chain currently is.
 
@@ -435,15 +488,15 @@ Each ballot carries a **level**: 0 means the voter cast it themselves, 1 means t
 
 The recursion terminates naturally at any branch where a lower-level ballot already exists.
 
-The level-0 exception deserves one sentence of justification, because it is the point where the rule of Section 7.4 and the rule of this section meet. Replacement at a level above zero is not a voter changing their mind — it is a proxy's cast cascading to someone who never acted, and a delegee who re-delegates must be able to receive the new proxy's ballot in place of the old one's. Replacement *at* level zero would be a voter changing a vote they cast in person, which is exactly what is not allowed.
+The level-0 exception deserves one sentence of justification, because it is the point where the rule of Section 8.4 and the rule of this section meet. Replacement at a level above zero is not a voter changing their mind — it is a proxy's cast cascading to someone who never acted, and a delegee who re-delegates must be able to receive the new proxy's ballot in place of the old one's. Replacement *at* level zero would be a voter changing a vote they cast in person, which is exactly what is not allowed.
 
 A delegation may be revoked at any time. The tree is therefore in permanent flux — it is *liquid*.
 
-### 8.3 Public proxies
+### 9.3 Public proxies
 
 A voter who wants to accept delegations from as many people as possible can declare themselves a **public proxy**, at which point delegation requests to them are accepted automatically. This is how political parties map onto the model: the party's position-holder is a public proxy, and "membership" is a delegation that can be withdrawn at any moment.
 
-### 8.4 The privacy cost of being a proxy
+### 9.4 The privacy cost of being a proxy
 
 Here the design must confront an unavoidable consequence.
 
@@ -455,7 +508,7 @@ LIQUIDO resolves it by **making delegation opt-in for the proxy**. Delegations m
 
 The API methods that let a voter inspect their direct proxy's ballot, their top proxy's ballot, and the identity of the proxy that actually cast their vote exist in the backend today. They are deliberately not yet exposed.
 
-### 8.5 How delegation and unlinkability were reconciled
+### 9.5 How delegation and unlinkability were reconciled
 
 There was, for a long time, an apparent conflict at the centre of this design, and it is worth recording how it dissolved.
 
@@ -472,9 +525,9 @@ The general lesson generalises past this system: when two requirements appear to
 
 **Status.** *Solved, and now built.* The two-layer split above is no longer only the specification this tier is written to — it is the code. Rights to vote are scoped per team and hold the delegation graph; ballot pseudonyms are derived per poll at casting time and are the only voter-derived value a ballot stores, with no foreign key back to the right to vote. Tier 3 remains unreleased, but its unlinkability foundations are properties of a running system rather than of a design document, and the rest of this chapter can be read on that footing.
 
-**What this still does not solve.** Both derivations use the same server secret. An operator holding it can reconstruct every link at any layer. Per-team and per-poll scoping defeat an attacker with the database; they do not defeat an attacker with the key. That is the boundary set out in Section 4.3, and splitting the value does not move it. Moving it is the subject of Section 8.7.
+**What this still does not solve.** Both derivations use the same server secret. An operator holding it can reconstruct every link at any layer. Per-team and per-poll scoping defeat an attacker with the database; they do not defeat an attacker with the key. That is the boundary set out in Section 5.3, and splitting the value does not move it. Moving it is the subject of Section 9.7.
 
-### 8.6 The goal: binding public elections **[Envisioned]**
+### 9.6 The goal: binding public elections **[Envisioned]**
 
 Version 2.0 of this document ruled out governmental elections. This version states them as the objective.
 
@@ -482,19 +535,19 @@ The reasoning is in Chapter 2, and it is a claim about *fit*, not about readines
 
 Two things follow from taking that goal seriously, and both cut against the temptation to declare victory early.
 
-The first is that **the trade-off of Section 4.2 inverts**. In a team of twelve, coercion is not the dominant threat and verifiability is worth more; in an electorate of millions, coercion and vote-buying are precisely the dominant threats, and a system that hands every voter a transferable proof of how they voted is not merely imperfect but actively dangerous. The checksum receipt that is a feature in Tier 2 is a liability in Tier 3, and it cannot simply be removed, because verifiability is also non-negotiable at that scale. Both properties are required at once — which is the exact combination Part I identified as requiring substantial cryptographic machinery.
+The first is that **the trade-off of Section 5.2 inverts**. In a team of twelve, coercion is not the dominant threat and verifiability is worth more; in an electorate of millions, coercion and vote-buying are precisely the dominant threats, and a system that hands every voter a transferable proof of how they voted is not merely imperfect but actively dangerous. The checksum receipt that is a feature in Tier 2 is a liability in Tier 3, and it cannot simply be removed, because verifiability is also non-negotiable at that scale. Both properties are required at once — which is the exact combination Part I identified as requiring substantial cryptographic machinery.
 
 The second is that **the standard of proof changes**. A team poll has to convince twelve people who know each other. A governmental election has to convince the losing side. That is a far stronger requirement, and it is a public and legal requirement rather than a technical one. The German Federal Constitutional Court put it precisely in its 2009 judgment on voting machines (2 BvC 3/07): the *public nature of elections* requires that all essential steps of an election be verifiable by the citizen **without special technical knowledge**. The court did not prohibit electronic voting; it set a bar that most electronic voting does not clear. A cryptographic proof that only cryptographers can check does not, on its own, satisfy that standard — and any honest roadmap toward governmental use has to treat "verifiable by an expert" and "verifiable by a citizen" as two different goals, both of which must be met.
 
-This is why Section 8.7 exists and why it is long. The gap between the current system and a system fit for binding public elections is not a matter of hardening what is there. Several of its components must be replaced by different constructions.
+This is why Section 9.7 exists and why it is long. The gap between the current system and a system fit for binding public elections is not a matter of hardening what is there. Several of its components must be replaced by different constructions.
 
-### 8.7 What must be true first **[Envisioned]**
+### 9.7 What must be true first **[Envisioned]**
 
 The following are prerequisites, not enhancements. Each is stated as a condition to be met, with the current position named honestly.
 
-**1. Coercion-resistance, not merely receipt-freeness.** *Not started.* Remote voting in an uncontrolled environment is the hardest setting in the field: the adversary may be standing behind the voter. The known approaches are fake-credential schemes in the manner of Civitas, in which a coerced voter surrenders a credential that produces a ballot silently discarded by the tally, and re-voting schemes in the manner of Estonia's national system, in which a later vote supersedes an earlier one and a paper vote supersedes all of them. Note that the second approach is in direct tension with the finality rule of Section 7.4 — which is correct for a team poll and would have to be revisited for a public election. This is the single largest open problem, and it is a research-grade one.
+**1. Coercion-resistance, not merely receipt-freeness.** *Not started.* Remote voting in an uncontrolled environment is the hardest setting in the field: the adversary may be standing behind the voter. The known approaches are fake-credential schemes in the manner of Civitas, in which a coerced voter surrenders a credential that produces a ballot silently discarded by the tally, and re-voting schemes in the manner of Estonia's national system, in which a later vote supersedes an earlier one and a paper vote supersedes all of them. Note that the second approach is in direct tension with the finality rule of Section 8.4 — which is correct for a team poll and would have to be revisited for a public election. This is the single largest open problem, and it is a research-grade one.
 
-**2. Distributed trust.** *Not started.* The single server secret must cease to be a single point of de-anonymisation. The construction is threshold cryptography: the key is shared among independent authorities (Shamir, 1979; Desmedt & Frankel, 1989) such that a quorum is required to decrypt, and no individual party — including the operator — can act alone. This is the difference between "we do not look" and "we cannot look", and only the second is a security property. Everything in Section 4.3 is conditional on this.
+**2. Distributed trust.** *Not started.* The single server secret must cease to be a single point of de-anonymisation. The construction is threshold cryptography: the key is shared among independent authorities (Shamir, 1979; Desmedt & Frankel, 1989) such that a quorum is required to decrypt, and no individual party — including the operator — can act alone. This is the difference between "we do not look" and "we cannot look", and only the second is a security property. Everything in Section 5.3 is conditional on this.
 
 **3. End-to-end verifiability, in a form a citizen can check.** *Not started.* The tally must be universally verifiable: the anonymised ballot set published alongside the duel matrix, so that any third party can recompute the Ranked Pairs result independently. Ranked Pairs is deterministic, so this is straightforward to specify. What is not straightforward is the constitutional requirement above — that the verification be intelligible to a non-specialist. Meeting the mathematical requirement and meeting the public-nature requirement are two distinct pieces of work.
 
@@ -504,15 +557,15 @@ The following are prerequisites, not enhancements. Each is stated as a condition
 
 **6. Availability under attack.** *Not started.* An election has a deadline. A denial-of-service attack that suppresses turnout in a particular region during a particular window is a form of vote suppression, and the mitigations are operational rather than cryptographic.
 
-**7. The delegation graph's own problems.** *Partly analysed.* These are discussed in Section 8.8; unlike the six above, they are not solved anywhere in the literature by a construction one could simply adopt.
+**7. The delegation graph's own problems.** *Partly analysed.* These are discussed in Section 9.8; unlike the six above, they are not solved anywhere in the literature by a construction one could simply adopt.
 
 Until items 1 to 6 are met, LIQUIDO is not a candidate for a binding public election, and this document will continue to say so plainly. Stating the destination is not the same as claiming to have arrived, and a voting system that blurs the two forfeits exactly the credibility it needs.
 
-### 8.8 What delegation itself costs at scale **[Envisioned]**
+### 9.8 What delegation itself costs at scale **[Envisioned]**
 
-The prerequisites in Section 8.7 are shared with any serious internet-voting proposal. The problems in this section are specific to liquid democracy, and they are the ones the model's advocates most often skip.
+The prerequisites in Section 9.7 are shared with any serious internet-voting proposal. The problems in this section are specific to liquid democracy, and they are the ones the model's advocates most often skip.
 
-**Ballot secrecy is structurally forfeit for public proxies.** Section 8.4 establishes that a proxy has no ballot secrecy toward their delegees, and defends this as accountability. That defence holds for a working group. It does not obviously hold for a public proxy with a hundred thousand delegees, because at that scale "my delegees can see how I voted" is indistinguishable from "my vote is public". A constitutional requirement of secret ballot applies to every voter including proxies, and a system in which accepting delegations means surrendering ballot secrecy has created a class of citizens who vote publicly. That may well be acceptable — a party spokesperson's position is public anyway — but it must be a stated, examined and consented trade rather than an emergent property, and it is a genuine constitutional question rather than a design detail.
+**Ballot secrecy is structurally forfeit for public proxies.** Section 9.4 establishes that a proxy has no ballot secrecy toward their delegees, and defends this as accountability. That defence holds for a working group. It does not obviously hold for a public proxy with a hundred thousand delegees, because at that scale "my delegees can see how I voted" is indistinguishable from "my vote is public". A constitutional requirement of secret ballot applies to every voter including proxies, and a system in which accepting delegations means surrendering ballot secrecy has created a class of citizens who vote publicly. That may well be acceptable — a party spokesperson's position is public anyway — but it must be a stated, examined and consented trade rather than an emergent property, and it is a genuine constitutional question rather than a design detail.
 
 **Power concentrates, and the graph is the mechanism.** Transitive delegation accumulates voting power toward the root of each tree. There is no natural bound: a sufficiently trusted proxy can hold a decisive share of the electorate's power without any individual delegation being unreasonable. Every delegation is individually revocable, which is the standard answer, but the answer assumes delegees notice in time and act. Caps on accumulated power, decay of unused delegations, and mandatory periodic reconfirmation are the usual proposals, and each of them weakens the fluidity that makes the model attractive in the first place. Blum and Zuber's critique bears directly here.
 
@@ -526,15 +579,15 @@ None of these is a reason to abandon the model. They are the reasons the model n
 
 # Part III — Positioning and Roadmap
 
-## 9. What LIQUIDO is and is not
+## 10. What LIQUIDO is and is not
 
-### 9.1 What it is for today
+### 10.1 What it is for today
 
 Bounded groups that trust the operator of their instance and need to make ranked decisions repeatedly, with a real guarantee of secrecy against *each other* and a real ability to verify their own ballot.
 
-### 9.2 What it is not for today
+### 10.2 What it is not for today
 
-**Governmental elections — not yet.** This is the stated objective of the project (Section 8.6) and it is not a claim about the present. LIQUIDO today does not offer coercion resistance, does not distribute trust across independent key holders, has no verifiable mix network, and has no independently auditable tally. Section 8.7 lists the six prerequisites and the position on each. Anyone evaluating LIQUIDO for a binding public election today should read that section and conclude that it is not ready; anyone evaluating the project's direction should read it as the work plan.
+**Governmental elections — not yet.** This is the stated objective of the project (Section 9.6) and it is not a claim about the present. LIQUIDO today does not offer coercion resistance, does not distribute trust across independent key holders, has no verifiable mix network, and has no independently auditable tally. Section 9.7 lists the six prerequisites and the position on each. Anyone evaluating LIQUIDO for a binding public election today should read that section and conclude that it is not ready; anyone evaluating the project's direction should read it as the work plan.
 
 **Adversarial settings with a hostile operator.** The anonymity guarantee is conditional on the server secret. An operator who is themselves the adversary defeats it. This is unchanged until threshold key sharing exists.
 
@@ -542,7 +595,7 @@ Bounded groups that trust the operator of their instance and need to make ranked
 
 **High-coercion settings of any size.** The checksum receipt is transferable by construction. Where a voter may be compelled to show how they voted, that receipt is a weapon rather than a feature.
 
-### 9.3 Who can learn what
+### 10.3 Who can learn what
 
 The table describes the system **as it runs today**. Since version 3.0 the scoping rows have moved from "not yet built" to built, so this is no longer a description of a target architecture.
 
@@ -550,14 +603,14 @@ The table describes the system **as it runs today**. Since version 3.0 the scopi
 |---|---|
 | Another team member | No |
 | The team admin | No |
-| An attacker with a database dump, without the secret | No — and, since team- and poll-scoping shipped (Section 7.3), they can no longer group one anonymous voter's ballots across polls, or correlate one person across two teams |
-| A reader of the published tally of a finished poll | No — ballots are published with their rankings and checksums but no pseudonym. But a *coercer* who demanded a distinctive ranking in advance can recognise it (Section 7.6) |
+| An attacker with a database dump, without the secret | No — and, since team- and poll-scoping shipped (Section 8.3), they can no longer group one anonymous voter's ballots across polls, or correlate one person across two teams |
+| A reader of the published tally of a finished poll | No — ballots are published with their rankings and checksums but no pseudonym. But a *coercer* who demanded a distinctive ranking in advance can recognise it (Section 8.6) |
 | An observer of the database during the 20-minute token window | They learn *that* an anonymous right to vote is about to vote in a named poll — never how |
 | The server operator, or anyone holding the server secret | **Yes**, for every ballot, retroactively. Only threshold key sharing changes this |
-| A delegee, learning how their own proxy voted (Tier 3) | Yes, by design — see Section 8.4 |
+| A delegee, learning how their own proxy voted (Tier 3) | Yes, by design — see Section 9.4 |
 | Anyone shown a voter's checksum by that voter | Yes, for that ballot |
 
-## 10. Roadmap
+## 11. Roadmap
 
 **Completed in this version.**
 Rights to vote are scoped per team and ballot pseudonyms per poll, both derived with HMAC, and a ballot holds no reference to a right to vote. The server secret is versioned, so a leak is recoverable by rotation rather than terminal. A finished poll's tally can be published and its Ranked Pairs result recomputed independently. Polly ballots no longer carry timestamps or sequential identifiers. Delegation cycles are refused at the point where an accepted request would close a loop, rather than only at request time when there is nothing yet to find. An expired right to vote is revived for a current member instead of disenfranchising them permanently.
@@ -567,13 +620,13 @@ The one-ballot-per-voter rule is enforced by a database constraint. One-time tok
 
 **Near term — key management as an operation.** Versioning made rotation possible; it did not make it routine. Move the secret into a managed store, and exercise rotation end to end so that it is a rehearsed procedure rather than a capability nobody has used. An untested recovery path is not a recovery path.
 
-**Near term — publish the tally by choice, not by default.** Section 7.6 states the Italian-attack cost of publishing full rankings. That cost depends on the poll — negligible for three proposals, real for ten — so the decision belongs to whoever runs the instance, as a per-poll or per-team setting with the trade explained where it is made, rather than as a global constant chosen here.
+**Near term — publish the tally by choice, not by default.** Section 8.6 states the Italian-attack cost of publishing full rankings. That cost depends on the poll — negligible for three proposals, real for ten — so the decision belongs to whoever runs the instance, as a per-poll or per-team setting with the trade explained where it is made, rather than as a global constant chosen here.
 
 **Medium term — from verifiable arithmetic to a verifiable record.** Publishing the tally proves the announced winner follows from the published ballots. It does not prove the published ballots are the ballots that were cast. Closing that gap needs a public bulletin board on which voters confirm their own ballot is present, so that omission is detectable by the person who was omitted. This is the step that turns individual and universal verifiability into end-to-end verifiability, and it is a prerequisite for anything binding.
 
-**Medium term — release Tier 3.** Expose delegation, with the proxy-privacy consequences of Section 8.4 surfaced in the interface rather than in this document alone. The correctness prerequisite named in earlier versions — cycle prevention — is now in place. A related capability belongs here too: allowing a team admin to revoke a right to vote, which the current model grants at membership and never withdraws before expiry.
+**Medium term — release Tier 3.** Expose delegation, with the proxy-privacy consequences of Section 9.4 surfaced in the interface rather than in this document alone. The correctness prerequisite named in earlier versions — cycle prevention — is now in place. A related capability belongs here too: allowing a team admin to revoke a right to vote, which the current model grants at membership and never withdraws before expiry.
 
-**The long road — governmental elections.** The six prerequisites of Section 8.7, in roughly that order of difficulty, with coercion-resistance last because it is hardest and because the other five are worth having regardless of whether the last one is ever achieved. This is a multi-year research and engineering programme, not a backlog. It is also the reason the rest of the system is built the way it is.
+**The long road — governmental elections.** The six prerequisites of Section 9.7, in roughly that order of difficulty, with coercion-resistance last because it is hardest and because the other five are worth having regardless of whether the last one is ever achieved. This is a multi-year research and engineering programme, not a backlog. It is also the reason the rest of the system is built the way it is.
 
 ---
 

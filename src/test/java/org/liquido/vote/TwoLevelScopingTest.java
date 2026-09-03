@@ -37,7 +37,7 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * "Unrelated" here means only what it can mean without breaking a keyed hash: the values differ, and
  * neither is derivable from the other without the server secret. The server itself can still link
- * everything -- that is the accepted and documented trade (whitepaper 4.3), and no test can assert
+ * everything -- that is the accepted and documented trade (whitepaper 5.3), and no test can assert
  * it away.
  */
 @QuarkusTest

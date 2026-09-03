@@ -44,7 +44,7 @@ import java.util.List;
  * and then look for it in the published set. The risk grows with the number of proposals and is
  * negligible for two or three.
  *
- * <p>LIQUIDO already states that it is not receipt-free (whitepaper 4.2): the checksum receipt is
+ * <p>LIQUIDO already states that it is not receipt-free (whitepaper 5.2): the checksum receipt is
  * transferable by construction, so a determined coercer has a simpler route already. This therefore
  * adds verifiability without introducing a class of attack the system claimed to resist -- but it is
  * an accepted trade, made deliberately, not a side effect. In a setting where coercion is the
