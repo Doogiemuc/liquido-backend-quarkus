@@ -43,7 +43,7 @@ Four things that version 3.0 listed as open are closed:
 - **The tally is publishable.** A finished poll's ballots and duel matrix can be read back and the Ranked Pairs computation reproduced independently, so the announced winner can be checked rather than merely trusted. This closes the gap between individual and universal verifiability, and it carries a cost that Section 8.6 states rather than hides.
 - **Polly ballots no longer carry timestamps or sequential identifiers**, removing the one place where the newer tier was the less careful one.
 
-This version also adds **Chapter 4**, on the choice between sorting pairwise victories by winning votes and by margin. Earlier versions disposed of it in a single paragraph inside Chapter 3. It deserves more: the two metrics diverge exactly when ballots are partial, which is the case LIQUIDO permits, and the choice between them changes outcomes while leaving no trace in the announced result.
+This version also adds a short **Chapter 4** on the two ways of measuring the strength of a pairwise victory — winning votes and margin — and on why the difference between them can only affect a result when the pairwise majorities form a cycle.
 
 What has not changed is the boundary. Both derivations still use one server secret, and an operator holding it can still reconstruct every link. Scoping defeats an attacker with the database; it does not defeat an attacker with the key. Section 5.3 sets out why that boundary is where it is, and Section 9.7 sets out what it would take to move it.
 
@@ -108,7 +108,7 @@ If some option beats every other option in a pairwise duel, it is the **Condorce
 
 LIQUIDO uses **Ranked Pairs** (Tideman, *Independence of clones as a criterion for voting rules*, 1987). The algorithm sorts all pairwise victories by strength, then locks them in one at a time from strongest to weakest, skipping any victory that would create a cycle with those already locked. The result is an acyclic ordering whose source is the winner. Ranked Pairs elects the Condorcet winner whenever one exists, and satisfies independence of clones — it cannot be manipulated by entering several near-identical proposals.
 
-One step of that procedure hides a decision. Before the victories can be locked in they must be sorted from strongest to weakest — and *strongest* admits two defensible definitions that stop agreeing the moment ballots may be partial. The choice between them changes outcomes and cannot be recovered from the result, so it is set out separately in Chapter 4.
+One step of that procedure rests on a definition. Before the victories can be locked in they must be sorted from strongest to weakest, and *strongest* admits two defensible readings. They diverge only in an uncommon case, but the case is worth naming: Chapter 4 does so briefly.
 
 A ranked ballot is also what makes delegation meaningful. A proxy who inherits a single cross expresses one bit on behalf of their delegees; a proxy who inherits a ranking expresses a *preference structure*, and a delegee reading it back can see not only which proposal won their vote but how the alternatives were ordered beneath it. Sections 2 and 3 are therefore not two independent design choices — the second is what gives the first something worth delegating.
 
@@ -116,52 +116,18 @@ One implementation of Ranked Pairs is shared, unchanged, between Polly and LIQUI
 
 ## 4. Which victories count as stronger
 
-Ranked Pairs locks in pairwise victories from the strongest downwards. Everything therefore depends on what *strongest* means, and there are two defensible answers that do not agree. Two implementations can both be faithful to Tideman's method, sort by different definitions, and announce different winners — with nothing in the published result revealing which definition was used. That makes this a decision a voting system is obliged to declare.
+Ranked Pairs sorts the pairwise victories by strength and locks them in from the strongest downwards, skipping any that would close a cycle. "Strength" has two established definitions, and they are not the same quantity:
 
-### 4.1 Two facts inside one number
+- **Winning votes** — how many voters preferred the winner of that pair.
+- **Winning margin** — that number minus the votes cast for the loser.
 
-When two proposals are compared head to head, the outcome is a split of votes. That split carries two different pieces of information at once:
+Each attends to something the other ignores. Margin measures how decisively a pair was settled but is indifferent to how many voters settled it, so a wide gap among a handful of people scores like the same gap among hundreds. Winning votes measures how many voters stood behind the winner but is indifferent to how convincingly, so a near-tie among ninety voters outranks a unanimous verdict among fifteen. Under complete ballots the question does not arise at all: every pair is then decided by the same number of voters, the two orderings coincide, and Tideman (1987) could assume exactly that. LIQUIDO permits partial ballots, so the two can come apart.
 
-- **how decisively** the pair was settled — the gap between the winner and the loser;
-- **how many voters** actually took part in settling it.
+**The choice only ever changes a result when the pairwise majorities contain a cycle.** Where no cycle exists the majority relation is already transitive: no victory is ever skipped, every one of them is locked in, and the final ordering is the same whatever sequence they arrived in — the Condorcet winner wins under either definition. Only inside a cycle must some victory be discarded, and only there can the sort order decide which one.
 
-Sorting demands a single ordering, so one of these has to be treated as the more trustworthy signal. That is the whole fork.
+Such cycles are possible in principle and uncommon in practice; empirical studies of real elections find them rare, and they grow likelier only with many closely matched alternatives. For the overwhelming majority of polls the two metrics select the same winner. The distinction is therefore about which rule is right for the exceptional case, not a routine determinant of outcomes — which is precisely why it is worth stating once, here, rather than leaving it implicit in the source code.
 
-Under **complete** ballots the fork does not exist. If every voter ranks every proposal, every pairwise contest is decided by the same number of voters; the gap and the winner's count then rise and fall together, and the two orderings coincide. Tideman (1987) sorted by winning margin and could assume precisely this.
-
-LIQUIDO permits **partial ballots** — a voter ranks only the proposals they have an opinion about, which is the point of not compelling preferences nobody holds. Different pairs are then decided by different numbers of voters, the two measures come apart, and the choice becomes consequential rather than cosmetic.
-
-### 4.2 What margin sees, and what it cannot see
-
-Sorting by margin takes the gap as the signal: a lead of fifteen is a lead of fifteen, whether it was produced by twenty voters or two hundred.
-
-The blind spot follows immediately. Margin cannot distinguish **a decisive preference** from **a small group who happened to agree**. Where only a handful of voters expressed any opinion on a pair and most of them agreed, the gap is wide — but it is a wide gap resting on thin evidence, and margin scores it identically to the same gap drawn from hundreds of voters. It is indifferent to how much of the electorate stands behind the number.
-
-### 4.3 What winning votes sees, and what it cannot see
-
-Sorting by winning votes takes the winner's raw count as the signal: a victory with forty-six voters behind it outranks one with fifteen, however close the loser came.
-
-The blind spot is the exact mirror image. Winning votes cannot distinguish **a wide, convincing victory** from **a narrow one that merely attracted more participants**. A near-tie settled by ninety voters outranks a unanimous verdict from fifteen, purely because more people stood on the winning side. It is indifferent to how convincing the victory was, and attends only to the size of the winning crowd.
-
-Neither measure is mistaken. Each is blind to exactly what the other perceives, and no third quantity dissolves the problem: the split genuinely contains two facts, and the sort accepts one.
-
-### 4.4 Why the fork is also a question about strategy
-
-The choice carries a second consequence, and it is the structural reason each metric is preferred in different contexts. Consider what a voter is actually able to manipulate.
-
-Under **margin**, a contest scores as a *difference* — the votes for the winner minus the votes for the loser. A difference has two moving parts, and a voter can shift it without altering their genuine preference between the two proposals being compared: by changing how they rank other, unrelated proposals, or by declining to rank some at all, they change which pairs their ballot contributes to, and so move both sides of the subtraction.
-
-Under **winning votes**, a contest scores as a *count* — the votes for the winner alone. One moving part, tied more directly to a preference the voter actually holds. The same indirect manoeuvring gains less purchase, because the number does not depend on the losing side at all.
-
-This is why margin is generally regarded as somewhat easier to game and winning votes as somewhat more resistant. It is a structural argument rather than a theorem, and Section 5.4 is the standing reminder that no ranked rule is immune to manipulation: the claim here is comparative, not absolute.
-
-### 4.5 What LIQUIDO does
-
-LIQUIDO sorts by **winning votes**. A proposal a voter left unranked is treated as ranked below every proposal that voter did rank, while the unranked remain neutral among themselves. The metric is applied uniformly rather than chosen per poll, so two results can be compared without first establishing which rule produced each. **[Implemented]**
-
-Margin has not been discarded so much as demoted. Where two contests carry the same number of winning votes, the one with **fewer votes for the loser** is locked in first — which, at equal winning votes, is exactly the wider margin. The primary criterion asks how many voters backed the winner; the secondary asks how convincingly they did so, and is consulted only when the primary cannot decide.
-
-This is a stated choice rather than an accident of implementation, and it is the kind of choice that belongs in a whitepaper instead of only in the source code: it changes outcomes, and no reader can infer it from the winner alone.
+LIQUIDO sorts by **winning votes**, and treats a proposal a voter left unranked as ranked below every proposal that voter did rank, while the unranked remain neutral among themselves. Margin is not discarded but demoted to the tie-break: at equal winning votes, the victory with **fewer votes for the loser** is locked in first, which is exactly the wider margin. Winning votes is also the more resistant of the two to strategic manipulation, being a count rather than a difference and so offering fewer moving parts a voter can shift without changing their genuine preference. The metric is applied uniformly rather than chosen per poll. **[Implemented]**
 
 ---
 
