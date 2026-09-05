@@ -170,7 +170,18 @@ The distinction matters because a system may be anonymous against one adversary 
 
 The ranked ballot of Chapter 4 is a better instrument than a single cross, but it is not an escape from social choice theory. Two results bound what any rule built on it can achieve, and they bound Ranked Pairs exactly as they bound everything else.
 
-**Arrow's impossibility theorem** (1951) shows that no ranked voting rule over three or more options can simultaneously satisfy a small set of individually reasonable fairness conditions. Ranked Pairs is not exempt. It is a defensible compromise, not an optimum — and any claim that some future rule will be strictly better on every axis is a claim Arrow has already refuted.
+**Arrow's impossibility theorem** (1951) is the sharper of the two, and it is worth stating in full rather than paraphrasing into vagueness. It concerns any rule that takes every voter's ranking and produces one collective ranking. Over three or more options, four conditions cannot all hold at once:
+
+1. **Unrestricted domain** — the rule must work for any combination of individual rankings. Voters may rank the options however they like, and the rule must return a result.
+2. **Non-dictatorship** — no single voter's preferences decide the collective ranking regardless of what everyone else submitted.
+3. **Pareto efficiency** — if every voter prefers A to B, the collective ranking must place A above B.
+4. **Independence of irrelevant alternatives (IIA)** — whether the collective ranking puts A above B depends only on how voters ranked A against B, and not on where any of them placed some third option C.
+
+Arrow proved that any rule satisfying 1, 3 and 4 must violate 2: it must be a dictatorship. Equivalently, no non-dictatorial rule satisfies Pareto and IIA together.
+
+The first three conditions are ones no serious voting rule would give up, which is why **IIA is where every rule breaks** — and this one is no exception. In Ranked Pairs the violation is not subtle and not hidden: it is the cycle-breaking step of Section 4.1. Whether a pairwise victory is skipped depends on which victories were already locked in, which is to say on how voters ranked options *other than* the two being compared. A and B can therefore change places in the final ordering because voters changed their minds about C. Plurality, Borda and instant-runoff violate IIA too, by different routes.
+
+That is not an implementation defect any of them could repair. It is the price of insisting that the output be a consistent ranking at all — the same insistence that forces the cycle-breaking in the first place. Ranked Pairs is therefore a defensible compromise, not an optimum, and any claim that some future rule will be strictly better on every axis is a claim Arrow has already refuted.
 
 **The Gibbard–Satterthwaite theorem** shows that every non-dictatorial ranked rule is manipulable in principle: there exist situations in which a voter benefits from misreporting their true preferences. Ranked Pairs is harder to manipulate than plurality — its independence of clones defeats the most common practical attack, flooding a poll with near-identical proposals — but it is not immune, and no rule that could replace it would be.
 
