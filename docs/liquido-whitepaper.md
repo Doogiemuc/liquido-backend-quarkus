@@ -32,24 +32,7 @@ As of this version **[Designed]** no longer appears in Chapters 7 to 9: everythi
 
 A reader who wants to know only what exists today should read Chapters 7 to 9, and take Chapter 10 as a statement of intent.
 
-### What changed since version 3.0
-
-Version 3.0 described a two-layer anonymity architecture as a settled design that the code did not yet implement. It now does, and this version is the first in which Chapter 9's unlinkability claims are claims about a running system rather than about a specification.
-
-Four things that version 3.0 listed as open are closed:
-
-- **Rights to vote are scoped per team and ballot pseudonyms per poll**, both derived with HMAC. An attacker holding a full database dump and no secret can no longer group one anonymous voter's ballots across polls, or correlate one person across two teams.
-- **The server secret is versioned.** A leak is now recoverable by rotation rather than terminal.
-- **The tally is publishable.** A finished poll's ballots and duel matrix can be read back and the Ranked Pairs computation reproduced independently, so the announced winner can be checked rather than merely trusted. This closes the gap between individual and universal verifiability, and it carries a cost that Section 9.6 states rather than hides.
-- **Polly ballots no longer carry timestamps or sequential identifiers**, removing the one place where the newer tier was the less careful one.
-
-The document is also reorganised along a cleaner line. **Part I (Chapters 1 to 6) is now voting theory alone** — what a ballot must guarantee, which guarantees are incompatible, and what no voting rule can achieve — with no claims about any particular system. **Part II opens with a new Chapter 7** stating the decisions LIQUIDO takes against that background, including which of Part I's limits it addresses and which it does not. Statements about LIQUIDO that were previously scattered through the theory chapters have moved there. The three tiers keep their order and structure, renumbered to Chapters 8, 9 and 10.
-
-A short **Chapter 4** covers the two ways of measuring the strength of a pairwise victory — winning votes and margin — and why the difference between them can only affect a result when the pairwise majorities form a cycle.
-
-What has not changed is the boundary. Both derivations still use one server secret, and an operator holding it can still reconstruct every link. Scoping defeats an attacker with the database; it does not defeat an attacker with the key. Section 5.3 sets out why that boundary is where it is, and Section 10.7 sets out what it would take to move it.
-
-Version 2.0 ruled out governmental elections. From version 3.0 onward this document does not: it states them as the goal, and sets out exactly what must be true before that goal is legitimate.
+A record of what changed in each version, and why, is kept in the [Changelog](#changelog) at the end of this document.
 
 ---
 
@@ -640,6 +623,47 @@ The one-ballot-per-voter rule is enforced by a database constraint. One-time tok
 **Medium term — release Tier 3.** Expose delegation, with the proxy-privacy consequences of Section 10.4 surfaced in the interface rather than in this document alone. The correctness prerequisite named in earlier versions — cycle prevention — is now in place. A related capability belongs here too: allowing a team admin to revoke a right to vote, which the current model grants at membership and never withdraws before expiry.
 
 **The long road — governmental elections.** The six prerequisites of Section 10.7, in roughly that order of difficulty, with coercion-resistance last because it is hardest and because the other five are worth having regardless of whether the last one is ever achieved. This is a multi-year research and engineering programme, not a backlog. It is also the reason the rest of the system is built the way it is.
+
+---
+
+## Changelog
+
+This document is versioned, and each version records what changed in it. A whitepaper that quietly revises its own claims is not auditable; one that states when a claim became true, or stopped being true, can be checked against the system it describes.
+
+### Version 4.0
+
+Version 3.0 described a two-layer anonymity architecture as a settled design that the code did not yet implement. It now does, and this version is the first in which Chapter 9's unlinkability claims are claims about a running system rather than about a specification.
+
+Four things that version 3.0 listed as open are closed:
+
+- **Rights to vote are scoped per team and ballot pseudonyms per poll**, both derived with HMAC. An attacker holding a full database dump and no secret can no longer group one anonymous voter's ballots across polls, or correlate one person across two teams.
+- **The server secret is versioned.** A leak is now recoverable by rotation rather than terminal.
+- **The tally is publishable.** A finished poll's ballots and duel matrix can be read back and the Ranked Pairs computation reproduced independently, so the announced winner can be checked rather than merely trusted. This closes the gap between individual and universal verifiability, and it carries a cost that Section 9.6 states rather than hides.
+- **Polly ballots no longer carry timestamps or sequential identifiers**, removing the one place where the newer tier was the less careful one.
+
+The document is also reorganised along a cleaner line. **Part I (Chapters 1 to 6) is now voting theory alone** — what a ballot must guarantee, which guarantees are incompatible, and what no voting rule can achieve — with no claims about any particular system. **Part II opens with a new Chapter 7** stating the decisions LIQUIDO takes against that background, including which of Part I's limits it addresses and which it does not. Statements about LIQUIDO that were previously scattered through the theory chapters have moved there. The three tiers keep their order and structure, renumbered to Chapters 8, 9 and 10.
+
+A short **Chapter 4** covers the two ways of measuring the strength of a pairwise victory — winning votes and margin — and why the difference between them can only affect a result when the pairwise majorities form a cycle.
+
+What has not changed is the boundary. Both derivations still use one server secret, and an operator holding it can still reconstruct every link. Scoping defeats an attacker with the database; it does not defeat an attacker with the key. Section 5.3 sets out why that boundary is where it is, and Section 10.7 sets out what it would take to move it.
+
+Version 2.0 ruled out governmental elections. From version 3.0 onward this document does not: it states them as the goal, and sets out exactly what must be true before that goal is legitimate.
+
+### Version 3.0
+
+Version 3.0 made the verifiability claims true where version 2.0 had asserted them, and reset the project's stated ambition.
+
+- **The ballot checksum became a commitment.** It is computed over a canonical, delimited, version-prefixed encoding of immutable database identifiers, so a voter or an auditor can recompute it. Previously it derived partly from in-memory hash codes that changed when the poll closed, which made it an opaque server-issued identifier rather than a receipt anything could rest on.
+- **One ballot per voter became a database constraint** rather than an application-level check, closing the race window a check-then-insert leaves open.
+- **One-time token issuance was bounded** to a single live token per voter per poll.
+- **A cast vote became final.** Earlier versions described a ballot as replaceable while the poll remained open; that is no longer permitted, and the receipt is stable for the life of the poll as a result.
+- **The published API surface was verified against the generated schema** rather than against the source's intent, guarded by a test that fails the build on regression. It found a real exposure: an anonymous verification endpoint could be walked from a ballot to its poll, its team, the invite code and the full member list.
+- **Governmental elections were stated as the objective.** Version 2.0 ruled them out; from version 3.0 the document names them as the goal and sets out what must be true first.
+- The two-layer anonymity architecture was specified and settled, but not yet built — the gap version 4.0 closed.
+
+### Version 2.0
+
+The first version to document its own limitations rather than only its design. It listed the known weaknesses as a standing section, which is the practice every version since has kept. Three of its claims did not survive later scrutiny: the ballot checksum was presented as a receipt without the properties that would make it verifiable, a voter was described as able to change a cast vote while the poll remained open, and governmental elections were ruled out as a goal.
 
 ---
 
