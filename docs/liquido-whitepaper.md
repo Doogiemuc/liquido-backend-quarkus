@@ -10,27 +10,17 @@
 
 This is not a user guide. It is an argument.
 
-LIQUIDO is a family of electronic voting products. The user guide explains *how* to use them. This whitepaper explains *why* they are built the way they are: which properties an electronic ballot must have, which of those properties are mathematically incompatible with each other, and which trade-off each LIQUIDO product deliberately makes.
+LIQUIDO is a family of electronic voting products. The user guide explains *how* to use them. This whitepaper explains *why* they are built the way they are.
 
-The document is organised around three tiers, in increasing order of both security and ambition:
+It is in two parts. **Part I is voting theory**: what a ballot must guarantee, which of those guarantees are mathematically incompatible with each other, and what no voting rule can achieve at all. It makes no claims about any particular system and can be read on its own. **Part II is LIQUIDO**: the decisions taken against that background, the reason for each, and — the question Part I makes unavoidable — which of those limits LIQUIDO actually addresses and which it does not. A short Part III positions the result and sets out what remains to be done.
+
+Part II is organised around three tiers, in increasing order of both security and ambition:
 
 1. **Polly** — the small, fast vote among friends. No login, no password, just a passkey.
 2. **LIQUIDO Team Polls** — secure, private, anonymous voting for a team that has to decide something together.
 3. **Liquid Democracy with proxies** — the full delegative model, and the reason the rest exists.
 
 Each tier is presented with an honest statement of what it guarantees, against whom, and what it does not guarantee. A voting system whose limitations are undocumented is not a secure voting system; it is an unaudited one.
-
-### A note on tense and status
-
-Chapters 7 to 9 describe systems that are running. Chapter 10 describes a system that is designed but not yet released. It is written in the present tense anyway, because it describes a specification rather than an aspiration — the data model, the algorithms and the invariants are settled, and much of the backend already implements them. Where that matters, three markers appear:
-
-- **[Implemented]** — running in the current release.
-- **[Designed]** — specified and settled; some or all of it not yet built.
-- **[Envisioned]** — the direction of travel, with open research or engineering problems named honestly.
-
-As of this version **[Designed]** no longer appears in Chapters 7 to 9: everything those chapters describe is running. The marker is kept because it is the vocabulary the rest of the document argues in, and because Chapter 10 will need it again.
-
-A reader who wants to know only what exists today should read Chapters 7 to 9, and take Chapter 10 as a statement of intent.
 
 A record of what changed in each version, and why, is kept in the [Changelog](#changelog) at the end of this document.
 
@@ -210,6 +200,16 @@ Concatenation alone does not guarantee this. If a poll identifier and a candidat
 # Part II — LIQUIDO
 
 Part I made no claims about any particular system. From here on the document does: it states the decisions LIQUIDO has taken, the reasons for each, and — the question Part I makes unavoidable — which of the limits described there LIQUIDO actually addresses, and which it does not.
+
+Chapters 7 to 9 describe systems that are running. Chapter 10 describes one that is designed but not yet released; it is written in the present tense because it specifies a settled design rather than an aspiration. Where the distinction matters, a claim carries one of three markers:
+
+| Marker | Meaning |
+|---|---|
+| **[Implemented]** | Running in the current release |
+| **[Designed]** | Specified and settled; some or all of it not yet built |
+| **[Envisioned]** | The direction of travel, with open research or engineering problems named honestly |
+
+A reader who wants to know only what exists today should read Chapters 7 to 9, and take Chapter 10 as a statement of intent.
 
 ## 7. The choices LIQUIDO makes
 
