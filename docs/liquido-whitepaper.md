@@ -66,20 +66,26 @@ The question this whitepaper takes seriously is therefore not "direct or represe
 
 ## 3. Liquid Democracy
 
-Liquid democracy — also called delegative democracy — lets each voter choose, per issue, between voting directly and vesting their voting power in a delegate. Different issues may go to different delegates, or to none.
+Liquid democracy — also called delegative democracy — lets each voter choose, per issue, between voting directly and handing their voting power to somebody else. Different issues may go to different people, or to nobody at all.
 
-The concept was given its modern formulation by Bryan Ford in *Delegative Democracy* (2002), and developed practically by the LiquidFeedback project (Behrens, Kistner, Nitsche & Swierczek, *The Principles of LiquidFeedback*, 2014). Its philosophical status has been examined at length by Blum and Zuber, *Liquid Democracy: Potentials, Problems, and Perspectives* (Journal of Political Philosophy, 2016).
+The concept was given its modern formulation by Bryan Ford in *Delegative Democracy* (2002), and developed practically by the LiquidFeedback project (Behrens, Kistner, Nitsche & Swierczek, *The Principles of LiquidFeedback*, 2014).
 
-Two properties define it:
+**Delegation** is that handing-over, and whoever receives it is a **proxy**. A voter who delegates does not surrender their ballot; they nominate someone to cast it on their behalf until they take it back. The proxy then votes once, and that single act counts once for the proxy and once for every voter who has delegated to them.
+
+Delegation is **transitive**. A proxy may in turn delegate to a proxy of their own, carrying with them all the voting power they have collected. Chains of any length are possible, and what the proxy at the end of a chain casts is the accumulated weight of everyone behind them. A voter who delegates to someone they trust on housing policy is, in effect, also trusting that person's judgement about whom to defer to in turn.
+
+Two properties define the model:
 
 - **A voter may always vote for themselves**, regardless of whether they currently delegate — and even after their proxy has already cast a vote on their behalf, for as long as the poll is still running.
 - **A delegation may be revoked at any time.**
 
-The apparent novelty of "delegating your vote to a proxy" dissolves on inspection. It is exactly what a voter does in a representative democracy: the parliamentarian votes on the citizen's behalf. Political parties fit the model without modification — a party leader is simply a proxy for everyone who wants that party's position represented.
-
-The difference is granularity and reversibility. In a representative system the delegation is coarse (one representative, all topics) and lasts a fixed term. In a liquid system it is fine-grained (different proxies for different areas) and can be withdrawn the moment the delegate votes against your interest. The delegation graph is in constant motion. Hence *liquid*.
+Together these make a delegation provisional rather than a transfer. It is a default that holds only for as long as the voter leaves it in place, and because delegations can be granted and withdrawn continuously, the resulting graph is never at rest. Hence *liquid*.
 
 ### 3.1 Representative democracy is a special case, not an alternative
+
+The apparent novelty of "delegating your vote to a proxy" dissolves on inspection. It is exactly what a voter does in a representative democracy: the parliamentarian votes on the citizen's behalf. Political parties fit the model without modification — a party leader is simply a proxy for everyone who wants that party's position represented.
+
+The difference is granularity and reversibility. In a representative system the delegation is coarse (one representative, all topics) and lasts a fixed term. In a liquid system it is fine-grained (different proxies for different areas) and can be withdrawn the moment the delegate votes against your interest.
 
 This is the argument that makes liquid democracy worth taking seriously, and it is easy to miss.
 
