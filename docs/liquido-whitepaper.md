@@ -77,15 +77,25 @@ A separate question from *who* votes and *how secretly* is *what a ballot may sa
 
 Most electronic voting tools ask for a single choice, or for approval of several options. A **ranked ballot** instead asks the voter to sort the options into their preferred order. It need not demand a complete ranking: a voter may rank only the options they have an opinion about, and leave the rest unordered.
 
-The reason is Condorcet's. In his *Essai sur l'application de l'analyse à la probabilité des décisions rendues à la pluralité des voix* (1785), Condorcet observed that plurality voting can elect an option that a majority would have rejected in a head-to-head comparison against another candidate. A ranked ballot contains enough information to detect this: from the individual orderings one can construct the **pairwise duel matrix**, counting for each pair of proposals how many voters preferred one to the other.
+A ranked ballot is also what makes delegation meaningful. A proxy who inherits a single cross expresses one bit on behalf of their delegees; a proxy who inherits a ranking expresses a *preference structure*, and a delegee reading it back can see not only which proposal won their vote but how the alternatives were ordered beneath it. Sections 2 and 3 are therefore not two independent design choices — the second is what gives the first something worth delegating.
+
+The reason for ranking at all is Condorcet's. In his *Essai sur l'application de l'analyse à la probabilité des décisions rendues à la pluralité des voix* (1785), Condorcet observed that plurality voting can elect an option that a majority would have rejected in a head-to-head comparison against another candidate. A ranked ballot contains enough information to detect this: from the individual orderings one can construct the **pairwise duel matrix**, counting for each pair of proposals how many voters preferred one to the other.
 
 If some option beats every other option in a pairwise duel, it is the **Condorcet winner**, and there is a strong argument that it should win. The complication is that pairwise majorities can cycle: A beats B, B beats C, and C beats A. A voting rule must specify what to do then.
+
+### 3.1 Ranked Pairs
 
 **Ranked Pairs** (Tideman, *Independence of clones as a criterion for voting rules*, 1987) answers it. The algorithm sorts all pairwise victories by strength, then locks them in one at a time from strongest to weakest, skipping any victory that would create a cycle with those already locked. The result is an acyclic ordering whose source is the winner. Ranked Pairs elects the Condorcet winner whenever one exists, and satisfies independence of clones — it cannot be manipulated by entering several near-identical proposals.
 
 One step of that procedure rests on a definition. Before the victories can be locked in they must be sorted from strongest to weakest, and *strongest* admits two defensible readings. They diverge only in an uncommon case, but the case is worth naming: Chapter 4 does so briefly.
 
-A ranked ballot is also what makes delegation meaningful. A proxy who inherits a single cross expresses one bit on behalf of their delegees; a proxy who inherits a ranking expresses a *preference structure*, and a delegee reading it back can see not only which proposal won their vote but how the alternatives were ordered beneath it. Sections 2 and 3 are therefore not two independent design choices — the second is what gives the first something worth delegating.
+### 3.2 Multiple winners
+
+Locking in pairwise victories builds a directed graph: an edge from winner to loser for every victory that did not close a cycle. The winner of the poll is that graph's **source** — the proposal with no incoming edge. Nothing in the procedure guarantees there is only one.
+
+A second source appears whenever two proposals are never joined by a locked-in edge, while each defeats every other proposal in the poll. The clearest case is an exact pairwise tie between the two: an even split produces no victory for either side, so there is no edge between them for the algorithm ever to consider locking in — not because the rule declines to compare them, but because the pairwise vote itself did not favour either. If both are otherwise undefeated, the graph ends up with two sources, and Ranked Pairs reports two winners.
+
+This is a genuine tie, not a defect in the count. A Condorcet method is only obliged to report what the pairwise votes actually establish, and here they establish that two outcomes are equally supported. Resolving it further requires a rule the method itself does not supply — a later chapter states which one LIQUIDO applies.
 
 
 ## 4. Which victories count as stronger
