@@ -72,7 +72,7 @@ The concept was given its modern formulation by Bryan Ford in *Delegative Democr
 
 Two properties define it:
 
-- **A voter may always vote for themselves**, regardless of whether they currently delegate.
+- **A voter may always vote for themselves**, regardless of whether they currently delegate — and even after their proxy has already cast a vote on their behalf, for as long as the poll is still running.
 - **A delegation may be revoked at any time.**
 
 The apparent novelty of "delegating your vote to a proxy" dissolves on inspection. It is exactly what a voter does in a representative democracy: the parliamentarian votes on the citizen's behalf. Political parties fit the model without modification — a party leader is simply a proxy for everyone who wants that party's position represented.
