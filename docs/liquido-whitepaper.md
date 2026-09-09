@@ -10,33 +10,43 @@
 
 This is not a user guide. It is an argument.
 
-LIQUIDO is a family of electronic voting products. The user guide explains *how* to use them. This whitepaper explains *why* they are built the way they are.
+LIQUIDO is a family of electronic voting products. There is another user guide that explains *how* to use them. This whitepaper explains *why* they are built the way they are.
+ 
+# Organization of this document
 
-It is in two parts. **Part I is voting theory**: what a ballot must guarantee, which of those guarantees are mathematically incompatible with each other, and what no voting rule can achieve at all. It makes no claims about any particular system and can be read on its own. **Part II is LIQUIDO**: the decisions taken against that background, the reason for each, and — the question Part I makes unavoidable — which of those limits LIQUIDO actually addresses and which it does not. A short Part III positions the result and sets out what remains to be done.
+**Part I: Voting theory**: What every democratic voting system must guarantee. Direct and representative democracy and how Liquid Democracy adresses their structural problems. This first part makes no claims about any particular technical system and can be read on its own.
 
-Part II is organised around three tiers, in increasing order of both security and ambition:
+**Part II: Preferential Voting**: Voters sort proposals into their preferred order. Focusing on Marquis de Condorcet’s 1785 foundational framework and Nicolaus Tideman’s Ranked Pairs algorithm as robust methods for collective decision-making.
 
-1. **Polly** — the small, fast vote among friends. No login, no password, just a passkey.
-2. **LIQUIDO Team Polls** — secure, private, anonymous voting for a team that has to decide something together.
-3. **Liquid Democracy with proxies** — the full delegative model, and the reason the rest exists.
+**Part III: Limits of this approach**: Individual verifiability vs receipt-freeness, anonymity vs pseudonomity, Arrow’s imposibility theorem and Gibbard–Satterthwaite (1973/1975)
+
+**Part IV: Cryptographic Building Blocks**: Hash functions and Keyed hashing (HMAC)
+
+**Part V is LIQUIDO**: implemented as a progressive web application (PWA) with a Java Quarkus backend and a GraphQL API. Its design decisions are grounded in the theoretical framework established above. Part III, however, establishes fundamental limits that no voting system can overcome. This raises the question of how LIQUIDO can nevertheless provide useful and progressively stronger guarantees within those limits. It does so through **three tiers**, ordered by increasing levels of both security and ambition:
+
+1. **Polly** - simple, secure and anomymous vote among friends. No passwords, just a biometric passkey.
+2. **LIQUIDO Team Polls** - secure, anonymous and fair voting within a team that has to decide something together.
+3. **Liquid Democracy with proxies** — the full blown model with a liquid tree of delegations
 
 Each tier is presented with an honest statement of what it guarantees, against whom, and what it does not guarantee. A voting system whose limitations are undocumented is not a secure voting system; it is an unaudited one.
 
-A record of what changed in each version, and why, is kept in the [Changelog](#changelog) at the end of this document.
+**Changelog** with a record of what changed in each version, and why,  [at the end of this document.](#changelog) 
 
 ---
 
-# Part I — Foundations
+# Part I — Foundations in Social Choice and Voting Theory
 
-## 1. What a ballot must guarantee
+[Social choice theory](https://en.wikipedia.org/wiki/Social_choice_theory) studies the behavior of different mathematical procedures ([social welfare functions](https://en.wikipedia.org/wiki/Social_welfare_function)) used to combine individual preferences into a coherent whole. Real-world examples of social choice rules include [constitutions](https://en.wikipedia.org/wiki/Constitution) and [parliamentary procedures](https://en.wikipedia.org/wiki/Parliamentary_procedure) for voting on laws, as well as [electoral systems](https://en.wikipedia.org/wiki/Electoral_system); as such, the field is occasionally called **voting theory**
 
-Any democratic vote, paper or electronic, must be **free**, **equal** and **secret**. In a governmental election these are not design preferences but constitutional requirements. German Basic Law, Article 38(1), names five: *allgemeiner, unmittelbarer, freier, gleicher und geheimer Wahl* — universal, direct, free, equal and secret suffrage — and most democratic constitutions state an equivalent. The first two govern who may vote and through what electoral system; the remaining three govern the ballot itself, and are this document's subject:
+## 1. What any democratic voting system must guarantee
+
+Any democratic vote, paper or electronic, must be **free**, **equal** and **secret**. In a governmental election these are not design preferences but constitutional requirements. For example German Basic Law, Article 38(1), names five: *allgemeiner, unmittelbarer, freier, gleicher und geheimer Wahl* — universal, direct, free, equal and secret suffrage — and most democratic constitutions state an equivalent. The first two govern who may vote and through what electoral system; the remaining three govern the ballot itself, and are this document's subject:
 
 - **Free** — the voter chooses how to vote, without coercion.
 - **Equal** — every vote counts the same. No ballot outweighs another.
 - **Secret** — the voter is not required to reveal their choice. They *may* say how they voted, but nobody can compel proof.
 
-Electronic voting research has decomposed these into a more precise vocabulary. The terms below are used consistently throughout this document.
+[Electronic voting research](https://de.wikipedia.org/wiki/Internetwahl) has decomposed these into a more precise vocabulary. The terms below are used consistently throughout this document.
 
 | Property | Definition |
 |---|---|
@@ -46,50 +56,139 @@ Electronic voting research has decomposed these into a more precise vocabulary. 
 | **Universal verifiability** | Anyone can check that the published tally follows from the recorded ballots. |
 | **Receipt-freeness** | A voter *cannot* prove to a third party how they voted, even if they want to (Benaloh & Tuinstra, 1994). |
 | **Coercion-resistance** | Receipt-freeness that also survives an adversary who watches the voter, demands their credentials, or forces abstention (Juels, Catalano & Jakobsson, 2005). |
+| **Scalability** | The voting system must work with thousands of voters. |
 | **Software independence** | An undetected change in the software cannot cause an undetected change in the outcome (Rivest & Wack, 2006). |
 
-Two of these properties are worth dwelling on, because their relationship governs every design decision in this document. Section 5.1 takes them up, once the case for liquid democracy and for a ranked ballot has been made.
-
-## 2. Why the question is old
+## 2. History of direct and representative democracy
 
 Democracy — from the Greek δημοκρατία, *dēmokratía*, rule by the people — names any system in which state authority ultimately rests with the population rather than with a ruler above it. That is a statement about where power comes from, not about how it is exercised. The mechanics have been the contested part for two and a half thousand years.
 
 In its original Athenian form, citizens assembled in one place and deliberated. This scales badly. Beyond a few thousand participants it is no longer possible to discuss everything with everybody, and the assembly stops being a deliberative body and becomes a crowd.
 
-Two answers to this scaling problem have dominated the last two centuries.
+Two answers to this scaling problem have dominated the last two centuries. Direct and Representative Democracy. But both have their structural weaknesses.
 
-**Direct democracy** lets the people decide on policy without intermediaries. It preserves the principle that authority rests with citizens, but it assumes two things that are often false: that a majority actually participates in each vote, and that every citizen can form an informed judgement on every question. Where participation is low, small motivated minorities decide. Where the question is technical, the electorate is being asked something it has no way to answer well.
+### 2.1  Weaknesses of Direct Democracy
 
-**Representative democracy** answers both objections by having citizens elect officials who deliberate full-time on their behalf. It is, by a wide margin, the most successful governance technology yet invented. It also has well-documented pathologies: party fragmentation, the resulting absence of clear majorities, and — most importantly for our purposes — a *temporal* problem. Between elections, the individual citizen has essentially no influence. The press acts as a check; the individual does not.
+Direct democracy grants maximum civic autonomy but suffers from significant structural limits:
+
+- **Voter Fatigue and Participation Costs**: Requiring citizens to vote on every technical, legislative, and administrative detail leads to plummeting turnout, participation bias toward highly motivated special interest groups, and superficial voter engagement.
+- **Information Asymmetries and Competence Constraints**: Individual voters rarely possess the time or domain expertise required to evaluate complex technical proposals (e.g., monetary policy or environmental engineering).
+
+### 2.2 Weaknesses of Representative Democracy
+
+Representative democracy mitigates voter fatigue by delegating decision-making to a small cadre of full-time politicians, but introduces severe structural failures:
+
+- **The Missing Control (Fixed-Term Mandate Lock-in)**: In representative systems, a voter delegates their complete legislative agency to a candidate or political party for a fixed, long-term tenure (e.g., 4 to 5 years). During this entire legislative period, the voter exerts **zero direct institutional control** over specific policy choices. Once elected, representatives can break campaign promises, vote against their constituency’s preferences, or prioritize party discipline and lobbyist interests without risk of immediate removal or override.
+- **Principal-Agent Alignment Loss**: The representative (agent) frequently acts in alignment with personal career incentives, party leadership, or campaign donors rather than the interests of the voter (principal).
+- **Coarse-Grained Preference Aggregation**: Voters are forced to accept or reject bundled platforms containing hundreds of disparate policy positions, making precise preference expression impossible.
+
 
 The question this whitepaper takes seriously is therefore not "direct or representative?" but: **is there a system that recovers the responsiveness of direct democracy without requiring every citizen to be an expert in everything?**
 
 ## 3. Liquid Democracy
 
-Liquid democracy — also called delegative democracy — lets each voter choose, per issue, between voting directly and handing their voting power to somebody else. Different issues may go to different people, or to nobody at all.
+### 3.1 Literature Overview and Historical Context
 
-The concept was given its modern formulation by Bryan Ford in *Delegative Democracy* (2002), and developed practically by the LiquidFeedback project (Behrens, Kistner, Nitsche & Swierczek, *The Principles of LiquidFeedback*, 2014).
+The formal exploration of flexible proxy voting traces back to the late 19th century, notably in the work of Charles Dodgson (Lewis Carroll) in 1884 on parliamentary representation, and later James Miller in 1969 on transferable proxies. In recent decades, the convergence of computational social choice, network theory, and cryptographically secure digital platforms has formalized this paradigm under the nomenclature of **Liquid Democracy**.  
 
-**Delegation** is that handing-over, and whoever receives it is a **proxy**. A voter who delegates does not surrender their ballot; they nominate someone to cast it on their behalf until they take it back. The proxy then votes once, and that single act counts once for the proxy and once for every voter who has delegated to them.
+In contemporary academic literature, Liquid Democracy is analyzed through binary aggregation, epistemic social choice theory, and graph-theoretic delegation dynamics. The concept was given its modern formulation by Bryan Ford in *Delegative Democracy* (2002), and developed practically by the LiquidFeedback project (Behrens, Kistner, Nitsche & Swierczek, *The Principles of LiquidFeedback*, 2014). Scholars evaluate Liquid Democracy both as an epistemic mechanism—testing whether transitive delegation yields higher probabilities of identifying a “ground truth” optimal policy under Condorcet’s Jury Theorem framework—and as a political mechanism for preference alignment and proportional stake representation.
 
-Delegation is **transitive**. A proxy may in turn delegate to a proxy of their own, carrying with them all the voting power they have collected. Chains of any length are possible, and what the proxy at the end of a chain casts is the accumulated weight of everyone behind them. A voter who delegates to someone they trust on housing policy is, in effect, also trusting that person's judgement about whom to defer to in turn.
+### 3.2 “What is Liquid Democracy?”: Core Mechanics
 
-Two properties define the model:
+Liquid Democracy is a dynamic proxy voting architecture in which every eligible voter possesses full voting power and can choose, on an issue-by-issue or domain-by-domain basis, between two fundamental operational modes:
 
-- **A voter may always vote for themselves**, regardless of whether they currently delegate — and even after their proxy has already cast a vote on their behalf, for as long as the poll is still running.
-- **A delegation may be revoked at any time.**
+- **Direct Voting**: The voter directly casts their ballot on a given proposal or issue. (as in direct democracy)
+- **Delegation to a proxy**: The voter temporarily delegates their voting power to a chosen delegate, a “proxy” (as in representative democracy)
+
+A voter who delegates does not surrender their ballot; they nominate someone to cast it on their behalf until they take it back. The proxy then votes once, and that single act counts once for the proxy and once for every voter who has delegated to them. 
+
+Unlike formal elections in representative systems, becoming a delegate requires no costly campaign, party approval, or minimum electoral threshold. Any participant can serve as a proxy.
+
+Formally, representative democracy is the point in the space where every voter delegates all topics to a single proxy for a fixed term, and direct democracy is the point where nobody delegates at all. Both are corners of the same space. Liquid democracy does not *replace* direct or representative democracy. It *contains* them. It is the space itself.
+
+### 3.3 How Liquid Democracy mitigates the above challenges
+
+Liquid Democracy bridges this dichotomy by introducing fluid, dynamic representation:
+
+- **Mitigating Voter Fatigue**: Citizens delegate their votes on topics where they lack time or expertise, reducing cognitive overhead.
+- **Eliminating the “Missing Control”**: Voters are never locked into a multi-year mandate. Because delegation can be revoked instantly or overridden on any single issue, representatives and proxies face continuous, real-time accountability.
+- **Optimizing Expertise (Epistemic Efficiency)**: By enabling domain-specific transitive delegations, vote weight naturally flows toward trusted domain experts, increasing the competence of the decision-making body without stripping individual voters of their rights.
+
+### 3.4 Delegation to a proxy
+
+A delegation in Liquid Democracy has the following properties:
+
+- **Direct Override**: Voters retains absolute sovereignty over their vote. When a voters disagrees with their delegate’s vote on a specific issue, or simply wishes to participate directly in a specific poll, then the voter can **always** cast a direct ballot. Even after the proxy has already voted for them. Then the direct ballot automatically **overrides the proxies vote** for that specific poll.
+- **Granular and Domain-Specific Delegation**: Voters can assign delegates based on topic expertise (e.g., delegating environmental policy to expert $X$ and economic policy to expert $Y$).
+- **Time-sensitive Delegation** Voters can decide to divest their vote only for a certain period of time or delegations need to be re-confirmed regularly.
+- **Revocation**: A delegation **can be revoked at any time.** It can also be reassigned to another proxy at any time. This dynamic is the most important, newly introduced concept by Liquid Democracy. 
+- **Transitive**: Delegations are transitive across a directed graph. A proxy may in turn decide to delegate his (accumulated) right to votes to another upper proxy. 
 
 Together these make a delegation provisional rather than a transfer. It is a default that holds only for as long as the voter leaves it in place, and because delegations can be granted and withdrawn continuously, the resulting graph is never at rest. Hence *liquid*.
 
-### 3.1 Representative democracy is a special case, not an alternative
+The fact that delegations can transitivly be forwarded has some important consequences that need further inspection:
 
-The apparent novelty of "delegating your vote to a proxy" dissolves on inspection. It is exactly what a voter does in a representative democracy: the parliamentarian votes on the citizen's behalf. Political parties fit the model without modification — a party leader is simply a proxy for everyone who wants that party's position represented.
+### 3.5 Proxy delegations form a liquid tree (a constantly changing directed graph)
 
-The difference is granularity and reversibility. In a representative system the delegation is coarse (one representative, all topics) and lasts a fixed term. In a liquid system it is fine-grained (different proxies for different areas) and can be withdrawn the moment the delegate votes against your interest.
+**Example of a delegation graph**
 
-This is the argument that makes liquid democracy worth taking seriously, and it is easy to miss.
+````mermaid
+flowchart LR
+    A((A)) —> C((C))
+    B((B)) —> C
+    C —> D((D))
+    E((E)) —> D
+````
 
-Liquid democracy does not *replace* representative democracy. It **contains** it. A voter who wants the representative model can simply have it: delegate everything to one proxy — which is to say, to a party — and leave it there for the whole legislative period. That voter has reproduced exactly the arrangement they have today. They vote once, someone else votes on their behalf until the next election, and nothing further is asked of them.
+The proxies vote is weighted by the accumulated voting power of all their transitive delegees behind them. In the above example, proxy $D$ has a accumulated a weight of 5. He votes for $A$, $B$, $C$, $E$ and for himself $D$. In the wording of represantative democracy: “A party votes with the weighted power of all the votes that they received during the last election.” But this weight does not change during a legislative term. The **new concept** that Liquid Democracy introduces is, that this power may change at any time. Voters are free to override, revoke or resassign their delegation at any time. This has an **immideate** effect on the voting power of the proxy.
+
+### 3.6 Effective Proxy and Top Proxy
+
+From the point of view of a voter there are two relevant nodes in the graph:
+
+- For every voter there is one **top proxy** at the end of their delegation chain. 
+- For one specific poll there is an **effective proxy**, that casted the ballot which was then effectifely also counted for the voter.
+
+The effective proxy can be the top proxy, but it can also be any intermediate delegate in the chain. And the effective proxy can change when another nearer intermediate proxy casts his vote while a poll is still open. This is by design! With the assumption that a voter has more trust in closer proxies compared to his top proxy that he might not even know.
+
+### 3.8 Should a voter see how his proxy voted?
+
+Chapter one defined two criterias that every democratic voting system should fullfill:
+
+| **Ballot secrecy** | An observer cannot determine how a given voter voted. |
+| **Individual verifiability** | A voter can check that *their* ballot was recorded and counted as cast. |
+
+But this creates a contradiction when when a proxy votes for a delegee.
+
+1. **Ballot secrecy**: A delegee should not be able to see how any other voter voted. Thus, theoretically also not how his proxy voted.
+2. **Individual verifiability**: But at the same time a voter should be able to check how he himself voted - which is the ballot of his proxy.
+
+Both criterias canot be fullfilled at the same time. Liquid Demcoracy limits Ballot Secrecy - but just in this case. A voter can see how his own ballot which implicitly *is* how his *effective proxy* voted for him. (The question whether a voter shall see *who* his current effective proxy in a poll actually is will be discussed in [chapter 3.7](#C3.7))
+
+There is a way of mitigating this: Let a voter decided if he wants to become a proxy.
+
+**Delegation Requests** A voter must request to delegate their voting right to a proxy. The proxy must then actively accept the delegation request. By accepting it, the proxy not only gains additional voting power, but also implicitly makes all future votes visible to the delegating voter, to all voters delegated through that voter, and to all future voters who join this continuously evolving delegation subtree.
+
+### 3.9 Do delegations always need to be transitive?
+
+A very similar issue as down the delegation tree from the previous chapter arisis upwards along the delegation chain. When a voter decides to delegate his vote to a proxy, he does not only trust the proxy to vote for him, but he also trusts the proxy that he might in turn delegate both their (collected) votes further upwards. Maybe to someone he doesn’t even know.
+
+A voter may designate a delegation as **non-transitive**, thereby restricting the designated proxy from further propagating that delegation to another proxy. Consequently, a proxy may hold two distinct classes of delegated voting rights: **transitive delegations**, which may be forwarded further downstream, and **non-transitive delegations**, which may be exercised only by the proxy itself.
+This distinction introduces a subtle issue in the voting protocol. An intermediate proxy may incorrectly assume that no action is required once an upstream proxy has cast a vote on its behalf. However, the intermediate proxy must still cast a vote independently in order to establish a ballot for any downstream non-transitive delegations. This remains necessary even when the intermediate proxy intends to cast the same vote as the upstream proxy.
+
+### 3.10 Privacy of the delegation tree {#C3.7}
+
+Which parts of the delegation tree should be visible for whom?
+
+| **Entity** | **Visible to whom** |
+|---|---|
+| Direct Proxy | Is known to the voter who delegated. He knows his direct proxy anyway |
+| Top Proxy | May be shown to a voter. |
+| Effective Proxy (per poll) | A voter already can see how his effective proxy voted. It would make sense to also show who voted for him. Especially if its not his direct proxy. |
+| The full delegation chain of a voter | Questionable. One migth consider this a privacy issue for proxies along the chain |
+| The full tree of all delegations |  Should remain private. Publishing it creates bias. And possible also supports larger proxies that they would receive even more delegations. | 
+
+# 3.8 Criticism of Liquid Democracy
 
 Nothing in the system pushes them to do otherwise. There is no penalty for delegating, no obligation to participate, no expectation that a citizen form an opinion on every question. The objection that people neither can nor want to decide everything themselves is not an argument against liquid democracy, because liquid democracy never required it.
 
@@ -99,23 +198,29 @@ Formally, then, representative democracy is the point in the space where every v
 
 Liquid democracy inherits the known impossibility results of social choice theory rather than escaping them (Section 5.3). It changes *who* casts a ballot, not *what a ballot can express*.
 
-## 4. Ranking proposals instead of choosing one
+--- 
+
+## 4. Ranking proposals instead of choosing only one alternative
 
 A separate question from *who* votes and *how secretly* is *what a ballot may say*.
 
-Most electronic voting tools ask for a single choice, or for approval of several options. A **ranked ballot** instead asks the voter to sort the options into their preferred order. It need not demand a complete ranking: a voter may rank only the options they have an opinion about, and leave the rest unordered.
+Most [electoral systems](https://en.wikipedia.org/wiki/Electoral_system) ask for a single choice, or for approval of several options. A **ranked ballot** instead asks the voter to sort the options into their preferred order. It need not demand a complete ranking: a voter may rank only the options they have an opinion about, and leave the rest unordered.
 
-A ranked ballot is also what makes delegation meaningful. A proxy who inherits a single cross expresses one bit on behalf of their delegees; a proxy who inherits a ranking expresses a *preference structure*, and a delegee reading it back can see not only which proposal won their vote but how the alternatives were ordered beneath it. Sections 3 and 4 are therefore not two independent design choices — the second is what gives the first something worth delegating.
+A ranked ballot is also what makes delegation meaningful. A proxy who inherits a single cross expresses one bit on behalf of their delegees; a proxy who inherits a ranking expresses a *preference structure*, and a delegee reading it back can see not only which proposal won their vote but how the alternatives were ordered beneath it. 
 
 The reason for ranking at all is Condorcet's. In his *Essai sur l'application de l'analyse à la probabilité des décisions rendues à la pluralité des voix* (1785), Condorcet observed that plurality voting can elect an option that a majority would have rejected in a head-to-head comparison against another candidate. A ranked ballot contains enough information to detect this: from the individual orderings one can construct the **pairwise duel matrix**, counting for each pair of proposals how many voters preferred one to the other.
 
-If some option beats every other option in a pairwise duel, it is the **Condorcet winner**, and there is a strong argument that it should win. The complication is that pairwise majorities can cycle: A beats B, B beats C, and C beats A. A voting rule must specify what to do then.
+If some option beats every other option in a pairwise duel, it is the **Condorcet winner**, and there is a strong argument that it should win. The complication is that pairwise majorities can create a cycle: A beats B, B beats C, and C beats A. Like in the stone-paper-scissors game. A voting rule must specify what to do then.
 
-### 4.1 Ranked Pairs
+### 4.1  Nicolaus Tideman’s Ranked Pairs Algorithm (1987)
 
-**Ranked Pairs** (Tideman, *Independence of clones as a criterion for voting rules*, 1987) answers it. The algorithm sorts all pairwise victories by strength, then locks them in one at a time from strongest to weakest, skipping any victory that would create a cycle with those already locked. The result is an acyclic ordering whose source is the winner. Ranked Pairs elects the Condorcet winner whenever one exists, and satisfies independence of clones — it cannot be manipulated by entering several near-identical proposals.
+**Ranked Pairs** (Tideman, *Independence of clones as a criterion for voting rules*, 1987) answers it. The algorithm first calculates all pairwise comparissons in a duel matrix, then sorts all pairwise victories by strength, then locks them in one at a time from strongest to weakest, skipping any victory that would create a cycle with those already locked. The result is an acyclic ordering whose source is the winner. 
 
-One step of that procedure rests on a definition. Before the victories can be locked in they must be sorted from strongest to weakest, and *strongest* admits two defensible readings. They diverge only in an uncommon case, but the case is worth naming: Section 4.3 does so briefly.
+**Properties of the Ranked Pairs Algorithm**
+
+- **Condorcet Consistency**: If a Condorcet winner, that beats every other cancidate in a pairwise comparison, exists, then it will be elected.
+- **Independence of Clones**: Introducing multiple near-identical alternatives cannot artificially alter the outcome by splitting the preferences for an existing alternative.
+- **Monotonicity**: Increasing a winning candidate’s position on any voter’s ballot cannot cause that candidate to lose.
 
 ### 4.2 Multiple winners
 
@@ -123,23 +228,18 @@ Locking in pairwise victories builds a directed graph: an edge from winner to lo
 
 A second source appears whenever two proposals are never joined by a locked-in edge, while each defeats every other proposal in the poll. The clearest case is an exact pairwise tie between the two: an even split produces no victory for either side, so there is no edge between them for the algorithm ever to consider locking in — not because the rule declines to compare them, but because the pairwise vote itself did not favour either. If both are otherwise undefeated, the graph ends up with two sources, and Ranked Pairs reports two winners.
 
-This is a genuine tie, not a defect in the count. A Condorcet method is only obliged to report what the pairwise votes actually establish, and here they establish that two outcomes are equally supported. Resolving it further requires a rule the method itself does not supply — a later chapter states which one LIQUIDO applies.
+This is a genuine tie, not a defect in the count. A Condorcet method is only obliged to report what the pairwise votes actually establish, and here they establish that two outcomes are equally supported. Resolving it further requires a rule the method itself does not supply.
 
 
-### 4.3 Which victories count as stronger
+### 4.3 Which Victories Count as Stronger
 
-Ranked Pairs sorts the pairwise victories by strength and locks them in from the strongest downwards, skipping any that would close a cycle. "Strength" has two established definitions, and they are not the same quantity:
+Ranked Pairs requires a measure of victory strength to determine which pairwise preferences take precedence when resolving a cycle. Two established measures are commonly used:
 
-- **Winning votes** — how many voters preferred the winner of that pair.
-- **Winning margin** — that number minus the votes cast for the loser.
+- **Winning votes:** the number of voters preferring the winner.
+- **Winning margin:** the difference between votes for the winner and the loser.
 
-Each attends to something the other ignores. Margin measures how decisively a pair was settled but is indifferent to how many voters settled it, so a wide gap among a handful of people scores like the same gap among hundreds. Winning votes measures how many voters stood behind the winner but is indifferent to how convincingly, so a near-tie among ninety voters outranks a unanimous verdict among fifteen. Under complete ballots the question does not arise at all: every pair is then decided by the same number of voters, the two orderings coincide, and Tideman (1987) could assume exactly that. Where partial ballots are permitted, the two can come apart.
-
-**The choice only ever changes a result when the pairwise majorities contain a cycle.** Where no cycle exists the majority relation is already transitive: no victory is ever skipped, every one of them is locked in, and the final ordering is the same whatever sequence they arrived in — the Condorcet winner wins under either definition. Only inside a cycle must some victory be discarded, and only there can the sort order decide which one.
-
-Such cycles are possible in principle and uncommon in practice; empirical studies of real elections find them rare, and they grow likelier only with many closely matched alternatives. For the overwhelming majority of polls the two metrics select the same winner. The distinction is therefore about which rule is right for the exceptional case, not a routine determinant of outcomes.
-
-It remains a decision a system has to take, and one that leaves no trace in the announced winner — which is why it is worth naming rather than leaving implicit in the source code. Chapter 7 states the choice LIQUIDO has made, and why.
+With complete ballots, when every voter has to rank all candidates, both measures produce exactly the same ordering of victories. With partial ballots, when a voter may only sort some candidates into his ballit however, they may differ.
+This distinction matters **only when the pairwise preferences would create a cycle**. If no cycle exists, all victories can be locked without conflict, and the choice of strength measure cannot affect the result. The two measures therefore represent alternative policies for the exceptional case in which a cycle must be resolved.
 
 ---
 
@@ -159,13 +259,13 @@ This is not an engineering oversight that a better implementation would fix. It 
 
 Helios (Adida, 2008) made the opposite choice explicitly: it offers strong verifiability and openly states that it is *not* coercion-resistant, on the grounds that it targets settings — professional societies, university elections, clubs — where coercion is not the dominant threat.
 
-**The right answer depends on the tier, and this is the single most important structural point in the document.**
+**The three LIQUIDO tears anser this in different ways.**
 
 Which way a given system should resolve this depends entirely on the setting it serves. A group deciding where to hold its offsite is not a national election: there, the ability to confirm one's own ballot is worth more than protection against a coercer who has easier avenues anyway. An election whose outcome binds a population is the opposite case — coercion and vote-buying are the dominant threats, and the electorate contains people who can be leaned on by an employer, a spouse, a party or a buyer. A system aiming at that setting must *acquire* coercion-resistance rather than trade it away, without surrendering the verifiability that makes a result trustworthy. Section 7.4 states where LIQUIDO stands on this, and Section 10.7 what the harder case would require.
 
-### 5.2 The limits of the honest threat model
+### 5.2 Anonymity vs Pseudonomity
 
-There is a second distinction that marketing language tends to blur, and that this whitepaper will not.
+There is a distinction that marketing language tends to blur, and that this whitepaper will not.
 
 - **Anonymity** means the link between voter and ballot does not exist and cannot be reconstructed by anyone.
 - **Pseudonymity** means the link exists in a protected form, and *somebody* — typically the party holding a secret key — can reconstruct it.
@@ -176,7 +276,7 @@ The distinction matters because a system may be anonymous against one adversary 
 
 The ranked ballot of Chapter 4 is a better instrument than a single cross, but it is not an escape from social choice theory. Two results bound what any rule built on it can achieve, and they bound Ranked Pairs exactly as they bound everything else.
 
-**Arrow's impossibility theorem** (1951) is the sharper of the two, and it is worth stating in full rather than paraphrasing into vagueness. It concerns any rule that takes every voter's ranking and produces one collective ranking. Over three or more options, four conditions cannot all hold at once:
+**Arrow’s impossibility theorem** (1951) establishes a fundamental limitation of ranked voting systems. It considers any rule that takes the individual rankings of three or more alternatives and produces a collective ranking. Arrow proved that no such rule can simultaneously satisfy the following four conditions:
 
 1. **Unrestricted domain** — the rule must work for any combination of individual rankings. Voters may rank the options however they like, and the rule must return a result.
 2. **Non-dictatorship** — no single voter's preferences decide the collective ranking regardless of what everyone else submitted.
@@ -185,7 +285,7 @@ The ranked ballot of Chapter 4 is a better instrument than a single cross, but i
 
 Arrow proved that any rule satisfying 1, 3 and 4 must violate 2: it must be a dictatorship. Equivalently, no non-dictatorial rule satisfies Pareto and IIA together.
 
-The first three conditions are ones no serious voting rule would give up, which is why **IIA is where every rule breaks** — and this one is no exception. In Ranked Pairs the violation is not subtle and not hidden: it is the cycle-breaking step of Section 4.1. Whether a pairwise victory is skipped depends on which victories were already locked in, which is to say on how voters ranked options *other than* the two being compared. A and B can therefore change places in the final ordering because voters changed their minds about C. Plurality, Borda and instant-runoff violate IIA too, by different routes.
+The first three conditions are ones no serious voting rule would give up, which is why **IIA is where every rule breaks** — and Ranked Pairs is no exception. In Ranked Pairs the violation is not subtle and not hidden: it is the cycle-breaking step of Section 4.3. Whether a pairwise victory is skipped depends on which victories were already locked in, which is to say on how voters ranked options *other than* the two being compared. A and B can therefore change places in the final ordering because voters changed their minds about C. Plurality, Borda and instant-runoff violate IIA too, by different routes.
 
 That is not an implementation defect any of them could repair. It is the price of insisting that the output be a consistent ranking at all — the same insistence that forces the cycle-breaking in the first place. Ranked Pairs is therefore a defensible compromise, not an optimum, and any claim that some future rule will be strictly better on every axis is a claim Arrow has already refuted.
 
@@ -195,7 +295,7 @@ These are the reasons the chapter is titled as it is. Liquid democracy changes *
 
 ## 6. Cryptographic building blocks
 
-Two primitives carry the entire security argument. Both are described here in terms a non-specialist can follow, because a voting system whose security nobody outside the team can reason about has a governance problem regardless of its mathematics.
+Two primitives carry the entire security argument. Both are described here in terms a non-specialist can follow, because a voting system whose security only experts can verify has a governance problem regardless of its mathematics.
 
 ### 6.1 Hash functions
 
@@ -216,17 +316,11 @@ A plain hash proves nothing about *who* computed it, because anyone can compute 
 
 The distinction matters for a specific reason. If a voter's pseudonym were `hash(email)`, anyone with a list of candidate email addresses could compute every pseudonym and de-anonymise the entire electorate offline. Mixing in a server secret makes this impossible without that secret. The security of every anonymity claim in this document therefore reduces to: **the server secret has not leaked.**
 
-### 6.3 Domain separation
-
-A third, less glamorous property turns out to matter as much as either of the above: when several distinct values are combined into one hash input, the encoding must be **injective** — no two different inputs may produce the same string.
-
-Concatenation alone does not guarantee this. If a poll identifier and a candidate identifier are concatenated without a delimiter, the pair `(1, 23)` and the pair `(12, 3)` both produce `123`, and the two collide. The fix is an unambiguous separator that cannot occur inside any component, plus a version prefix so that a future change to the encoding cannot be confused with the current one.
-
 ---
 
 # Part II — LIQUIDO
 
-Part I made no claims about any particular system. From here on the document does: it states the decisions LIQUIDO has taken, the reasons for each, and — the question Part I makes unavoidable — which of the limits described there LIQUIDO actually addresses, and which it does not.
+Part I made no claims about any particular system. From here on the document does: it states the decisions LIQUIDO has taken, the reasons for each, and how it addresses the limits described above.
 
 Chapters 7 to 9 describe systems that are running. Chapter 10 describes one that is designed but not yet released; it is written in the present tense because it specifies a settled design rather than an aspiration. Where the distinction matters, a claim carries one of three markers:
 
@@ -248,7 +342,9 @@ LIQUIDO asks the voter to **sort the proposals into their preferred order**, and
 
 The count is **Ranked Pairs**, for the reasons Chapter 4 gives — it elects the Condorcet winner whenever one exists, and its independence of clones means a faction cannot gain by entering several near-identical proposals.
 
-One implementation of Ranked Pairs is shared, unchanged, between Polly and LIQUIDO team polls. It is the one component both products have in common. **[Implemented]**
+The implementation of the Ranked Pairs algorithm is shared between Polly and LIQUIDO team polls. It is the one component both products have in common. 
+
+**[Implemented]**
 
 ### 7.2 Which victories count as stronger
 
@@ -260,7 +356,9 @@ As Section 4.3 sets out, this choice can only change a result when the pairwise 
 
 LIQUIDO uses **SHA3-256** (NIST FIPS 202) rather than the older SHA-2 family, because several of its derivations take the form `hash(data ‖ secret)` and SHA-3's sponge construction is not vulnerable to the length-extension attack that form invites.
 
-Every voter-derived value is computed with **HMAC-SHA256** under a server secret, so that nobody holding a list of candidate email addresses can compute the corresponding pseudonyms offline. Polly's key derivation and LIQUIDO's ballot checksum both use explicitly delimited, version-prefixed canonical forms, for the injectivity reason given in Section 6.3. **[Implemented]**
+Every voter-derived value is computed with **HMAC-SHA256** under a server secret, so that nobody holding a list of candidate email addresses can compute the corresponding pseudonyms offline. Polly's key derivation and LIQUIDO's ballot checksum both use explicitly delimited, version-prefixed canonical form.
+
+**[Implemented]**
 
 ### 7.4 What LIQUIDO does about the limits of Part I
 
@@ -308,7 +406,7 @@ The three products in this section are not three implementations of one design. 
 
 ## 8. Tier 1 — Polly
 
-### 8.1 What it is
+### 8.1 What a Polly is
 
 A Polly is the small, fast sibling of a LIQUIDO poll. No team, no account, no login screen. One opaque link that everyone opens, an identity that is nothing but a passkey, and the same core idea: you *sort* the options instead of picking one.
 
@@ -329,7 +427,7 @@ The **owner key** is stable across every Polly a given passkey creates. It is wh
 
 The **voter key** is derived per Polly. This is the important one. Because the poll's public identifier is mixed into the derivation, **the same person is unlinkable across different Pollys**. Two ballots in two different Pollys cannot be shown to belong to one voter without the server secret. The raw credential identifier is never stored on a ballot at all.
 
-The separator between the two halves of the voter key input is not decoration. Without an unambiguous separator, two different `(credentialId, publicId)` pairs could concatenate to the same string and collide — the domain-separation problem of Section 6.3. Neither a base64url credential id nor a base58 public id can contain the separator character, so the encoding is injective.
+The separator between the two halves of the voter key input is not decoration. Without an unambiguous separator, two different `(credentialId, publicId)` pairs could concatenate to the same string and collide. Neither a base64url credential id nor a base58 public id can contain the separator character, so the encoding is injective.
 
 ### 8.3 The share link
 
@@ -357,10 +455,7 @@ What Polly deliberately does **not** offer:
 - **Coercion resistance.** Out of scope entirely.
 - **Sybil resistance.** Nothing prevents one human from registering several passkeys and voting several times. A Polly assumes good faith among people who know each other.
 
-Two residual leaks were known and documented rather than hidden. One is now closed:
-
-- Polly ballots used to carry a **creation timestamp** and a sequential primary key. Both revealed the order and approximate time in which votes were cast, which in a small group can be correlated with who was online — so a Polly among six people leaked more about *when* someone voted than a team poll did. Both are now gone: ballots carry a random identifier and no creation time, matching the team poll's deliberate omission (Section 9.5). **[Implemented]** This was the one place where the newer design was the less careful one.
-- Voter keys are never written to logs — the ballot's string representation deliberately omits them — because a log reader holding the server secret could otherwise link passkeys to ballots. **[Implemented]**
+**[Implemented]**
 
 ---
 
@@ -374,16 +469,16 @@ The team boundary is a hard isolation boundary. A poll lookup that names a poll 
 
 ### 9.2 The life of a poll
 
-**ELABORATION.** The admin creates a poll. Proposals are added and may still be edited. Whether ordinary members may add proposals is a per-poll setting the admin chooses at creation time, and it defaults to *closed* — letting the whole team write on the ballot should be a deliberate decision, not something an admin gets by not noticing a checkbox.
+**NEW.** The admin creates a poll. Proposals are added and may still be edited. Whether ordinary members may add proposals is a per-poll setting the admin chooses at creation time, and it defaults to *closed* — letting the whole team write on the ballot should be a deliberate decision, not something an admin gets by not noticing a checkbox.
 
 Two permission rules in this phase are worth stating because their asymmetry is intentional:
 
 - A member may edit **only their own** proposal. **There is no admin override.** An admin rewriting a member's words would be a trust problem, not a convenience.
 - An admin **may delete** any proposal. Removing an off-topic or duplicate proposal is legitimate, and — unlike a silent edit — a removal is obvious to its author.
 
-**VOTING.** The admin starts the voting phase, which requires at least two competing proposals. The caller chooses only the *duration*; the start is always "now", server-side. A client-supplied start date would allow backdating and would make the poll's clock depend on whichever device pressed the button. Once voting begins, proposals are frozen and the poll title can no longer change — a renamed poll would silently reinterpret ballots already cast.
+**IN VOTING.** The admin starts the voting phase, which requires at least two competing proposals. The caller chooses only the *duration*; the start is always "now", server-side. A client-supplied start date would allow backdating and would make the poll's clock depend on whichever device pressed the button. Once voting begins, proposals are frozen and the poll title can no longer change — a renamed poll would silently reinterpret ballots already cast.
 
-**A vote, once cast, is final.** A voter who has cast their own ballot in a poll cannot cast a second one, and cannot change the ranking they submitted. **[Implemented]** This is a change from earlier versions of this document, which described a ballot as replaceable while the poll remained open. The reasons are given in Section 9.4.
+**A vote, once cast, is final.** A voter who has cast their own ballot in a poll cannot cast a second one, and cannot change the ranking they submitted. **[Implemented]** 
 
 **FINISHED.** The voting phase closes, the duel matrix is computed from all ballots, and Ranked Pairs determines the winner.
 
@@ -391,23 +486,20 @@ Two permission rules in this phase are worth stating because their asymmetry is 
 
 This is the core of the system. It is best understood as three derived values with three different lifetimes: one scoped to a team, one scoped to a single vote-casting session, and one scoped to a single poll.
 
-All three layers below are implemented as described. Earlier versions of this document described Layers 1 and 3 as a target architecture that the code did not yet reach; that gap is closed, and the unlinkability claims in this section are now claims about a running system. Section 9.6 states what remains open, which is a different and smaller list.
-
 **Layer 1 — the Right to Vote, scoped to a team.** When a voter joins a team they are granted a pseudonymous right to vote *in that team*:
 
-```
-hashedVoterInfo = HMAC-SHA256(serverSecret, email ‖ teamId)          [Implemented]
-```
+````
+hashedVoterInfo = HMAC-SHA256(serverSecret, email ‖ teamId)
+````
+
+Note what the hashedVoterInfo deliberately does *not* include: the user’s password hash. Including it would mean that changing a password silently destroyed the user’s right to vote. **[Implemented]**
 
 The scope is the important part. A person who belongs to three teams holds three unrelated rights to vote, and no two of them can be shown to belong to the same person without the server secret. A book club and an employer running separate LIQUIDO teams cannot correlate their members' behaviour even with full database access to both.
 
-This scope is not an arbitrary choice. It is the boundary the rest of the system already enforces: poll lookups are team-isolated, membership is team-isolated, and a poll in one team has no bearing on a poll in another. Extending that same boundary to the anonymity layer makes the security model consistent with the domain model rather than cutting across it.
+This scope is not an arbitrary choice. It is the boundary the rest of the system already enforces: poll lookups are team-isolated, membership is team-isolated, and a poll in one team has no bearing on a poll in another. Applying that same boundary to the anonymity layer makes the security model consistent with the domain model rather than cutting across it.
 
-This value is the primary key of the right-to-vote record. It carries eligibility, an expiry after a year of disuse, and, in Tier 3, the delegation graph.
+**[Implemented]**
 
-Expiry prunes dormant entries from the delegation graph; it is not a withdrawal of the franchise. The entitlement to vote is team *membership*, and the right to vote is a value derived from it — so a lapsed right to vote is revived whenever a current member next uses it, and only for a current member. A person who has left the team leaves behind a derived row that stays dead. Getting this wrong in the other direction is worse than it sounds: a version of this system made expiry a one-way door, which silently disenfranchised exactly the least engaged members and could only be undone by editing the database. **[Implemented]**
-
-Note what it deliberately does *not* include: the user's password hash. Including it would mean that changing a password silently destroyed the user's right to vote. **[Implemented]**
 
 **Layer 2 — the one-time voter token.** To vote in a specific poll, the voter requests a token over an authenticated channel. The server stores only the **hash** of that token, linked to the voter's right to vote. The plain token is returned to the voter and to nobody else. It is valid for twenty minutes, is bound to one poll, and is **deleted the moment it is consumed**. **[Implemented]**
 
@@ -423,7 +515,7 @@ ballotPseudonym = HMAC-SHA256(serverSecret, hashedVoterInfo ‖ pollId)   [Imple
 
 The consequence is that ballots are unlinkable across polls. A single voter's ballots in ten different polls of the same team carry ten unrelated pseudonyms. An attacker with a complete database dump and no secret cannot group them, cannot count how many polls a given pseudonym participated in, and cannot build a voting history.
 
-**Casting the vote.** The voter submits their ranked order together with the plain token, over a call that carries **no authentication and no identity whatsoever**. The server hashes the presented token, looks up the stored hash, follows it to the right to vote, derives the ballot pseudonym for this poll, deletes the token, and records the ballot.
+**Anonymously casting the vote.** The voter submits their ranked order together with the plain token, over a call that carries **no authentication and no identity whatsoever**. The server hashes the presented token, looks up the stored hash, follows it to the right to vote, derives the ballot pseudonym for this poll, deletes the token, and records the ballot.
 
 The separation is the point. Token issuance is authenticated but carries no vote. Vote casting carries a vote but no identity. The stored ballot carries neither an identity nor anything reusable outside its own poll.
 
@@ -439,7 +531,7 @@ A ballot records the poll, the voter's ordered list of proposals, a delegation l
 
 It also carries a **checksum**, which is the receipt: only the voter knows which checksum is theirs, and an anonymous verification endpoint returns the ballot matching a presented checksum. This delivers individual verifiability — and, as Section 5.1 argued, forfeits receipt-freeness in the same stroke.
 
-For that receipt to mean anything, the checksum must be a **commitment**: a value that the voter, or an auditor given the ballot, can recompute independently and compare. Three properties are required, and version 2.0 of this document claimed the receipt without them. **[Implemented]**
+For that receipt to mean anything, the checksum must be a **commitment**: a value that the voter, or an auditor given the ballot, can recompute independently and compare. Three properties are required: **[Implemented]**
 
 - **A canonical, injective encoding.** The checksum is computed over an explicitly delimited, version-prefixed serialisation of the poll identifier, the ordered proposal identifiers, and the ballot pseudonym. Without delimiters the encoding is not injective (Section 6.3); without a version prefix, a future change to the canonical form could not be distinguished from the current one.
 - **Immutable inputs.** The inputs are database identifiers, which never change for the life of a row. An earlier design derived the checksum in part from the in-memory hash codes of the proposal objects — and a proposal's hash code included its *status*, which changes to "won" or "lost" the moment the poll closes. The checksum therefore became impossible to recompute at exactly the moment an auditor or a voter would most want to check it. It still functioned as a lookup key, but it was a server-issued opaque identifier rather than a commitment, and no verifiability claim could rest on it.
@@ -447,20 +539,20 @@ For that receipt to mean anything, the checksum must be a **commitment**: a valu
 
 The checksum deliberately does not depend on the delegation level, so a ballot that is re-derived at a different level without a change of ranking keeps the same receipt.
 
-**A voter cannot change a cast vote, and this is what makes the receipt stable.** In earlier versions of this document a voter could replace their ballot while the poll remained open, which meant a receipt from a first cast stopped verifying after a second — an inherently confusing property to explain to a voter, and a standing invitation to support tickets that cannot be distinguished from genuine tampering reports. A final vote yields a receipt that is valid for the life of the poll. This also aligns the electronic ballot with the paper one: a ballot dropped in the box is not retrievable.
+**A voter cannot change a cast vote, and this is what makes the receipt stable.** A final vote yields a receipt that is valid for the life of the poll. This also aligns the electronic ballot with the paper one: a ballot dropped in the box is not retrievable.
 
 The one exception is not a voter changing their mind but the delegation hierarchy resolving, and it is described in Section 10.2. A ballot that a proxy cast on a delegee's behalf may still be replaced — by a closer proxy, or by the delegee's own first direct vote. A ballot the voter cast in person is never replaced by anything.
 
 ### 9.5 What the design gets right
 
 - **No timestamps on ballots.** A ballot deliberately carries no creation or modification date, and no "created by". Both would enable timing correlation against the authenticated token request. **[Implemented]**
-- **The proposal list is never exposed as a poll's ballots.** A poll has no link to its ballots at all, so the running tally cannot leak while voting is open. Clients that need a participation count get a computed field. **[Implemented]**
+- **The list ballots is never exposed.** A poll has no link to its ballots at all, so the running tally cannot leak while voting is open. Clients that need a participation count get a computed field. **[Implemented]**
 - **Cross-tenant lookups are indistinguishable from missing records.** **[Implemented]**
 - **The published API surface is verified against the schema, not against intent.** **[Implemented]** Field-level hiding relies on annotations, and whether a given annotation reaches the published schema is a property of the framework version, not of the source code. The exposed surface is therefore asserted against the *generated* schema, by a test that fails the build if a sensitive field appears. This is what closes the weakness version 2.0 listed last in Section 9.6 — and it found a real one: an anonymous, deliberately unauthenticated verification endpoint could be walked from a ballot to its poll, from the poll to its team, and from the team to the invite code and the full member list. Nothing in the source code said those fields were public; the schema said so.
 
 ### 9.6 Known weaknesses
 
-The following limitations are documented here because a whitepaper that lists only strengths is advertising. Version 3.0 listed seven: four are now closed, one is narrowed, and two stand — one of them permanently, by design. One new item joins the list, because closing the verifiability gap bought a fresh exposure rather than a free improvement, and a list that only ever shrinks is not being kept honestly.
+The following limitations are documented here because a whitepaper that lists only strengths is advertising. 
 
 **A single secret is the ceiling on every claim in this section.** *Open, and structural.* One server secret protects both derivations. An attacker holding it, together with a team's membership list — which is visible to every team member — needs two keyed-hash computations per member to determine who cast which ballot. For a team of twenty that is forty operations, not a brute-force search. Per-team and per-poll scoping close the *linkage* threat completely; they do not and cannot close the *operator* threat. Only distributed trust does that, and no amount of work inside the current architecture substitutes for it. This is the single most important sentence in the chapter.
 
@@ -726,3 +818,14 @@ The first version to document its own limitations rather than only its design. I
 - Shamir, A. (1979). *How to Share a Secret.* Communications of the ACM.
 - Tideman, T. N. (1987). *Independence of Clones as a Criterion for Voting Rules.* Social Choice and Welfare, 4(3).
 - W3C. *Web Authentication: An API for accessing Public Key Credentials.*
+
+#### Wikipedia Articles
+
+- [Social Choice Theory](https://en.wikipedia.org/wiki/Social_choice_theory)
+- [Electoral System](https://en.wikipedia.org/wiki/Electoral_system)
+- [Comparison of electoral system](https://en.wikipedia.org/wiki/Comparison_of_electoral_systems#Comparison_of_single-winner_voting_methods)
+- [Ranked Voting](https://en.wikipedia.org/wiki/Ranked_voting)
+- [Condorcet’s Voting Paradox](https://en.wikipedia.org/wiki/Condorcet_paradox)
+- [Arrow’s imposibility theorem](https://en.wikipedia.org/wiki/Arrow's_impossibility_theorem)
+- [Gibbard-Satterthwaite Theorem](https://en.wikipedia.org/wiki/Gibbard–Satterthwaite_theorem)
+- [DE: Internetwahl](https://de.wikipedia.org/wiki/Internetwahl) - with a list of requirements for a voting protocol
