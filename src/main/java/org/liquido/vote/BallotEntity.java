@@ -146,9 +146,13 @@ public class BallotEntity extends PanacheEntityBase {
 	 * <p><b>Built from database IDs, never from hashCode().</b> {@link ProposalEntity} is
 	 * {@code @EqualsAndHashCode(of={"title","status"})}, and {@code PollService.finishVotingPhase()}
 	 * sets every proposal's status to LOST or LAW. From that moment on, the inputs that produced the
-	 * ORIGINAL checksum no longer exist in the form they had at signing time -- so neither the voter
-	 * nor an auditor could ever recompute it again, which defeats the whole point of a checksum.
-	 * Database IDs are immutable for the life of the row, unlike a proposal's status.
+	 * ORIGINAL checksum no longer exist in the form they had at signing time, so the SERVER can no
+	 * longer reproduce it either -- a stored checksum silently stops corresponding to its stored
+	 * ballot at exactly the moment a voter looks for it. (Note that nobody but the server can
+	 * recompute a checksum in any case: the canonical form contains {@link #ballotPseudonym}, which
+	 * is exposed by no API. The receipt works because the voter KEPT the value he was handed, not
+	 * because he can re-derive it.) Database IDs are immutable for the life of the row, unlike a
+	 * proposal's status.
 	 *
 	 * <p><b>Explicit separators, not arithmetic string-plus-int concatenation.</b> The previous
 	 * version built {@code voteOrder.hashCode() + poll.hashCode() + rightToVote.hashedVoterInfo}.

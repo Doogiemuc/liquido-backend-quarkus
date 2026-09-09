@@ -181,16 +181,18 @@ Where delegation is topic-specific ([Section 3.4](#34-delegation-to-a-proxy)), b
 | **Ballot secrecy** | An observer cannot determine how a given voter voted. |
 | **Individual verifiability** | A voter can check that *their* ballot was recorded and counted as cast. |
 
-But this creates a contradiction when when a proxy votes for a delegee.
+When a proxy casts a ballot, a ballot is created for each delegee carrying the proxy's ranking. The two properties then pull against each other:
 
-1. **Ballot secrecy**: A delegee should not be able to see how any other voter voted. Thus, theoretically also not how his proxy voted.
-2. **Individual verifiability**: But at the same time a voter should be able to check how he himself voted - which is the ballot of his proxy.
+1. **Ballot secrecy** says a delegee should not learn how any other voter voted — his own proxy included.
+2. **Individual verifiability** says a voter must be able to check the ballot that was counted for him — and that ballot carries exactly that ranking.
 
-Both criterias canot be fullfilled at the same time. Liquid Demcoracy limits Ballot Secrecy - but just in this case. A voter can see how his own ballot which implicitly *is* how his *effective proxy* voted for him. (The question whether a voter shall see *who* his current effective proxy in a poll actually is will be discussed in [Section 3.9](#39-privacy-of-the-delegation-tree))
+It is worth being exact about where this bites, because it is not the same for everybody. A voter who casts in person cannot have one without the other: checking that a ballot was recorded *as cast* means comparing it against what he submitted. A delegee is differently placed. He submitted nothing. A system could tell him only that a ballot exists for him, placed by his proxy, and withhold the ranking — and that would still verify the one act he actually performed, which was delegating. So the two can be separated for a delegee. Whether they should be is a decision, not a consequence.
 
-There is a way of mitigating this: Let a voter decided if he wants to become a proxy.
+The decision taken here is that they should not be. **Every voter can check his own vote, and this does not weaken when somebody else casts it.** A voter who has handed his voting power to another person has the strongest claim of anyone to see what was done with it; telling him only that *something* was done in his name verifies the bookkeeping rather than the vote. So a delegee reads his own ballot in full, and thereby learns how his effective proxy voted. (Whether he should also see *who* that proxy was is a separate question, taken up in [Section 3.9](#39-privacy-of-the-delegation-tree).)
 
-**Delegation Requests** A voter must request to delegate their voting right to a proxy. The proxy must then actively accept the delegation request. By accepting it, the proxy not only gains additional voting power, but also implicitly makes all future votes visible to the delegating voter, to all voters delegated through that voter, and to all future voters who join this continuously evolving delegation subtree.
+That decision has a price, and it falls on the proxy rather than on the delegee: accepting a delegation costs a proxy the secrecy of his own ballot toward everyone below him, and nothing restores it. What can be done is to make the loss deliberate rather than accidental.
+
+**Delegation requests.** A voter must *request* to delegate his right to vote, and the proxy must actively accept. By accepting, a proxy gains voting power and, in the same act, makes all his future votes visible to the delegating voter, to everyone delegating through that voter, and to everyone who later joins the subtree beneath him — including people he never dealt with directly. That is the trade, and it is why the acceptance has to be explicit rather than assumed.
 
 ### 3.8 Do delegations always need to be transitive?
 
@@ -395,9 +397,11 @@ As [Section 4.3](#43-which-victories-count-as-stronger) sets out, this choice ca
 
 LIQUIDO uses **SHA3-256** (NIST FIPS 202) rather than the older SHA-2 family, because several of its derivations take the form `hash(data ‖ secret)` and SHA-3's sponge construction is not vulnerable to the length-extension attack that form invites.
 
-Every voter-derived value is computed with **HMAC-SHA256** under a server secret, so that nobody holding a list of candidate email addresses can compute the corresponding pseudonyms offline. Polly's key derivation and LIQUIDO's ballot checksum both use explicitly delimited, version-prefixed canonical form.
+Every pseudonym is computed with **HMAC-SHA256** under a server secret — the right to vote, the ballot pseudonym derived from it, and Polly's owner and voter keys — so that nobody holding a list of candidate email addresses can compute the corresponding pseudonyms offline. **[Implemented]**
 
-**[Implemented]**
+The ballot checksum is the one derived value that is **not** keyed. It is an unkeyed SHA3-256 over a canonical form that already contains the ballot pseudonym, and it needs no key of its own, because that pseudonym is itself a 256-bit HMAC output which is never revealed to anybody. This is worth naming rather than leaving to be inferred, because it says where the checksum's secrecy actually rests: anyone who learned a voter's pseudonym could confirm that voter's published ballot offline and for ever, so the pseudonym is returned by no API, appears in no schema, and is never stored in any mapping. **[Implemented]**
+
+Polly's key derivation and the ballot checksum both use explicitly delimited, version-prefixed canonical forms, so that two different sets of inputs cannot serialise to the same string. **[Implemented]**
 
 ### 7.4 What LIQUIDO does about the limits of Part I
 
@@ -570,13 +574,15 @@ A ballot records the poll, the voter's ordered list of proposals, a delegation l
 
 It also carries a **checksum**, which is the receipt: only the voter knows which checksum is theirs, and an anonymous verification endpoint returns the ballot matching a presented checksum. This delivers individual verifiability — and, as [Section 5.1](#51-the-central-tension) argued, forfeits receipt-freeness in the same stroke.
 
-For that receipt to mean anything, the checksum must be a **commitment**: a value that the voter, or an auditor given the ballot, can recompute independently and compare. Three properties are required: **[Implemented]**
+For that receipt to mean anything, the checksum must **bind** the poll, the ranking and the voter's pseudonym together, so that none of the three can change without it changing too. Three properties are required: **[Implemented]**
 
 - **A canonical, injective encoding.** The checksum is computed over an explicitly delimited, version-prefixed serialisation of the poll identifier, the ordered proposal identifiers, and the ballot pseudonym. Without delimiters the encoding is not injective; without a version prefix, a future change to the canonical form could not be distinguished from the current one.
-- **Immutable inputs.** The inputs are database identifiers, which never change for the life of a row. An earlier design derived the checksum in part from the in-memory hash codes of the proposal objects — and a proposal's hash code included its *status*, which changes to "won" or "lost" the moment the poll closes. The checksum therefore became impossible to recompute at exactly the moment an auditor or a voter would most want to check it. It still functioned as a lookup key, but it was a server-issued opaque identifier rather than a commitment, and no verifiability claim could rest on it.
+- **Immutable inputs.** The inputs are database identifiers, which never change for the life of a row. An earlier design derived the checksum in part from the in-memory hash codes of the proposal objects — and a proposal's hash code included its *status*, which changes to "won" or "lost" the moment the poll closes. The checksum therefore became impossible to reproduce at exactly the moment it most needed to hold still: the server could no longer recompute it either, so a stored checksum silently stopped corresponding to its stored ballot, and no verifiability claim could rest on it.
 - **Computed before the record is written**, so the stored checksum always corresponds to the stored ballot rather than to an earlier state of it.
 
 The checksum deliberately does not depend on the delegation level, so a ballot that is re-derived at a different level without a change of ranking keeps the same receipt.
+
+**What a voter can and cannot do with it.** He cannot recompute it. The canonical form contains his ballot pseudonym, which no API returns and which is never stored in any mapping, so the arithmetic is the server's alone. He does not need to. He keeps the value he was handed, and looks for it in the published tally when the poll closes, where every counted ballot appears with its ranking beside its checksum. A server that altered his ranking would have to publish a different checksum, and the one he holds would simply not be there. What the receipt proves is therefore not that a voter can reproduce the server's arithmetic, but that **the server cannot alter his ballot without the alteration becoming visible to him** — and since the same published set is what an auditor recomputes the winner from, individual and universal verifiability rest on one artefact rather than two.
 
 **A voter cannot change a cast vote, and this is what makes the receipt stable.** A final vote yields a receipt that is valid for the life of the poll. This also aligns the electronic ballot with the paper one: a ballot dropped in the box is not retrievable.
 
@@ -650,13 +656,15 @@ A voter who wants to accept delegations from as many people as possible can decl
 
 ### 10.4 The privacy cost of being a proxy
 
-Here the design must confront an unavoidable consequence.
+This is where [Section 3.7](#37-should-a-voter-see-how-his-proxy-voted) has to be answered rather than posed, and LIQUIDO answers it with three decisions that follow from one another.
 
-**A proxy has no ballot secrecy toward their own delegees.** When a proxy votes, a ballot is created for each delegee with the proxy's ranking — and each delegee can read their own ballot. Every delegee therefore learns exactly how their proxy voted. If a proxy has only one delegee, that delegee learns the proxy's vote precisely.
+**Every voter can check his own vote, and delegation does not weaken that.** A voter reads the ballot that was counted for him whether he cast it himself or a proxy cast it for him. This is the principle the other two decisions are consequences of, and it is not traded away: a voter who has handed his voting power to somebody else has the strongest claim of anyone to see what was done with it.
 
-This is not a leak to be patched. It is a requirement in disguise: a voter who has handed their voting power to someone else has a legitimate claim to know how it was used. Accountability of the delegate and secrecy of the delegate's ballot are the same fact seen from two sides.
+**A proxy therefore has no ballot secrecy toward their own delegees.** When a proxy votes, a ballot is created for each delegee carrying the proxy's ranking, and each delegee can read their own ballot. Every delegee therefore learns exactly how their proxy voted. If a proxy has one delegee, that delegee learns the proxy's vote precisely. [Section 3.7](#37-should-a-voter-see-how-his-proxy-voted) shows that this could be avoided — a delegee could be shown that a ballot exists for him and not what it says — and LIQUIDO declines to, because that would verify the bookkeeping rather than the vote.
 
-LIQUIDO resolves it by **making delegation opt-in for the proxy**. Delegations must be requested and accepted. A voter who declines all delegations keeps a fully secret ballot that always counts exactly once. A voter who accepts delegations trades some of their own privacy for influence, knowingly.
+**Delegation is therefore opt-in for the proxy.** Delegations must be requested and accepted. A voter who declines all delegations keeps a fully secret ballot that always counts exactly once. A voter who accepts them trades part of his own privacy for influence, knowingly — and what he is accepting extends to everyone who later joins the subtree beneath him, not only to the delegee in front of him.
+
+The same principle decides what a finished poll publishes. The tally lists every counted ballot's ranking **beside its checksum** ([Section 9.4](#94-the-ballot-and-its-checksum)), which is what lets a voter find his own ballot in it and lets anybody recompute the winner from the same rows. A delegee's ballot is in that set like any other, so the visibility described above is not a special channel built for delegation; it is the ordinary verification path, applied to a ballot somebody else cast.
 
 The API methods that let a voter inspect their direct proxy's ballot, their top proxy's ballot, and the identity of the proxy that actually cast their vote exist in the backend today. They are deliberately not yet exposed.
 
