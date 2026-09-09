@@ -65,3 +65,4 @@ application-prod.yml
 /createLiquidoDbSchema.sql
 /LiquidoExceptionCodes.js
 /liquido-testData.sql
+docs/__pycache__/

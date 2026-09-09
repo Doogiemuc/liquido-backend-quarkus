@@ -17,9 +17,20 @@ CHIPS = {"Implemented": "chip-ok", "Designed": "chip-warn", "Envisioned": "chip-
 
 
 def slug(text):
-    s = re.sub(r"<[^>]+>", "", text).lower()
-    s = re.sub(r"[^a-z0-9]+", "-", s).strip("-")
-    return s
+    """Reproduce GitHub's heading-anchor algorithm (github-slugger).
+
+    The same function generates the ids here and is used by check-whitepaper-links.py,
+    so one `[Section 5.3](#53-what-no-voting-rule-can-do)` works on GitHub and in this
+    page. GitHub *deletes* punctuation rather than replacing it, and does not collapse
+    or trim the resulting hyphens -- so "Part I - Foundations" (with an em dash) yields
+    a double hyphen. Collapsing runs here would silently produce dead links on GitHub.
+    """
+    s = re.sub(r"<[^>]+>", "", text)
+    s = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", s)   # links contribute their text only
+    s = re.sub(r"[*`_~$]", "", s)                    # markdown emphasis, code, math markers
+    s = s.lower()
+    s = re.sub(r"[^\w\s-]", "", s, flags=re.UNICODE)
+    return re.sub(r"\s", "-", s)
 
 
 def inline(text):
@@ -27,6 +38,12 @@ def inline(text):
     t = html.escape(text, quote=False)
     for label, cls in CHIPS.items():
         t = t.replace(f"**[{label}]**", f'<span class="chip {cls}">{label}</span>')
+    # Single-letter math, e.g. "voter $A$". GitHub renders $...$ as inline math natively;
+    # this is the equivalent for the page. The character class is deliberately narrow so
+    # it can never span two unrelated dollar signs in ordinary prose, and it runs before
+    # the emphasis pass so it cannot interact with * or _.
+    t = re.sub(r"\$([A-Za-z0-9]{1,3})_([A-Za-z0-9]{1,2})\$", r"<var>\1<sub>\2</sub></var>", t)
+    t = re.sub(r"\$([A-Za-z0-9]{1,3})\$", r"<var>\1</var>", t)
     t = re.sub(r"`([^`]+)`", r"<code>\1</code>", t)
     t = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', t)
     t = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", t)
@@ -62,15 +79,18 @@ def convert(md):
             i += 1
             continue
 
-        # fenced code -> <pre>
+        # fenced code -> <pre>. A ```mermaid fence keeps its class: artifacts render
+        # <pre class="mermaid"> natively, with no library to load.
         if stripped.startswith("```"):
+            lang = stripped.lstrip("`").strip().lower()
             i += 1
             buf = []
             while i < len(lines) and not lines[i].strip().startswith("```"):
                 buf.append(html.escape(lines[i], quote=False))
                 i += 1
             i += 1
-            out.append("<pre>" + "\n".join(buf) + "</pre>")
+            cls = ' class="mermaid"' if lang == "mermaid" else ""
+            out.append(f"<pre{cls}>" + "\n".join(buf) + "</pre>")
             continue
 
         # blockquote -> notice callout
@@ -136,7 +156,18 @@ def main():
     old = open(design, encoding="utf-8").read()
 
     # Reuse the existing presentation chrome verbatim: <title>, fonts, <style>.
-    chrome = old[old.index("<title>"): old.index("</style>") + len("</style>")]
+    # The design file may itself be a previously published page, which the artifact host
+    # prepends its own <style> block to. So the chrome runs from <title> to the last
+    # </style> at or after it, not to the first </style> in the file.
+    head = old.index("<title>")
+    chrome = old[head: old.rindex("</style>") + len("</style>")]
+    assert "<style>" in chrome and len(chrome) > 2000, f"chrome looks wrong: {len(chrome)} bytes"
+    chrome += """
+<style>
+  /* single-letter math, written as $A$ in the markdown */
+  var { font-family: "Iowan Old Style", Palatino, "Times New Roman", serif; font-style: italic; }
+  var sub { font-style: normal; font-size: 0.75em; }
+</style>"""
 
     # Front matter -> masthead. Everything from the first Part heading is body.
     title = re.search(r"^# (.+)$", md, re.M).group(1)
