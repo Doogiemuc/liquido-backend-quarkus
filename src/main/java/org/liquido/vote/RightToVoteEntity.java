@@ -54,7 +54,7 @@ public class RightToVoteEntity extends PanacheEntityBase {
 	@Id
 	@NonNull
 	@EqualsAndHashCode.Include      //FIX: only use this in Lombok equals and Hash code
-	public String hashedVoterInfo;  // == SHA3-256(user.email + serverConfig.hashSecret)
+	public String hashedVoterInfo;  // == HMAC-SHA256(hashSecret, user.email | team.id) -- see calcHashedVoterInfo()
 
 	/** A RightToVote is only valid for a given time */
 	@NonNull
