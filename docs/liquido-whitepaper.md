@@ -619,36 +619,25 @@ None of these defeat the design. All of them are reasons the honest claim in [Se
 
 > **This chapter describes a system that is not yet released.** It is written in the present tense because it describes a settled specification, not a hope: the data model, the recursion, the level rule and the delegation semantics are designed, and substantial parts already exist in the backend behind an unexposed API. Nothing in this chapter should be read as a description of what a user can do today. Where a component is designed but unbuilt, or where an open problem remains, this chapter says so explicitly.
 
-Everything in this chapter describes the intended next version, and beyond it the reason the whole architecture exists. It is included because LIQUIDO was built from the beginning to accommodate delegation, and because the design problems delegation raises are the most interesting ones in the document.
-
 ### 10.1 Delegation of the right to vote
 
-A voter delegates by pointing their right to vote at their proxy's right to vote. Because both are pseudonymous, **the delegation graph itself contains no names**. The server can see that one anonymous right to vote is delegated to another; it cannot read the identities out of the graph.
+[Chapter 3](#3-liquid-democracy) describes what a delegation is and what it does. This chapter states only the decisions LIQUIDO takes in implementing it.
 
-Delegation is confined to a team, which follows automatically from the scoping in [Section 9.3](#93-the-three-layer-anonymity-architecture): a right to vote exists per team, so an edge can only ever connect two members of the same team. This matches the domain — a proxy in one team has no standing in another team's poll — and it means the delegation graph is naturally partitioned rather than being one global structure.
+A voter delegates by pointing their right to vote at their proxy's right to vote. Because both are pseudonymous, **the delegation graph contains no names**: the server sees that one anonymous right to vote is delegated to another, and cannot read identities out of the graph. Delegation is confined to a team, which follows from the scoping in [Section 9.3](#93-the-three-layer-anonymity-architecture) — a right to vote exists per team, so an edge can only ever connect two members of one — so the graph is naturally partitioned rather than being one global structure.
 
-When a proxy casts a ballot, they present their own one-time token like anybody else. The system walks the delegation edges over the team-scoped rights to vote, derives each delegee's **poll-scoped ballot pseudonym**, and writes a separate ballot for each, carrying the same ranking. The persistent graph is traversed; the pseudonyms written to ballots are not persistent.
-
-This per-delegee ballot is not an implementation convenience. It is what makes [Section 10.4](#104-the-privacy-cost-of-being-a-proxy) possible.
+**One ballot is written for each delegee.** A proxy casting a vote presents their own one-time token like anybody else; the system then walks the delegation edges, derives each delegee's **poll-scoped ballot pseudonym**, and writes a separate ballot for each, carrying the proxy's ranking. The persistent graph is traversed; the pseudonyms written to ballots are not. This is not an implementation convenience — it is what makes [Section 10.4](#104-the-privacy-cost-of-being-a-proxy) possible.
 
 Two of the delegation properties described in [Section 3.4](#34-delegation-to-a-proxy) are not part of this design yet. A voter delegates once, to one proxy, for everything: **topic-specific delegation** — the "areas" that would let somebody send environmental questions to one proxy and financial ones to another — is planned but not specified here, and neither is **time-limited delegation**, where a delegation expires or has to be re-confirmed. Both are Tier 3 features, and both change the shape of the graph rather than the rules that govern it: with areas, a voter holds one delegation chain per area, and everything in this chapter applies within each of them. **[Envisioned]**
 
 ### 10.2 Trees of proxies
 
-A proxy may in turn delegate everything they have collected to a proxy above them, so a tree forms and voting power accumulates toward the root. A voter can always see who their **top proxy** currently is — the voter at the end of their chain, in the sense of [Section 3.6](#36-effective-proxy-and-top-proxy). Which proxy actually cast the ballot that counts for them in a given poll is a separate question, answered by the level rule below.
+[Section 3.6](#36-effective-proxy-and-top-proxy) states the rule in terms of distance: the nearest cast wins, whichever proxy voted first. LIQUIDO implements that distance as a number.
 
-Each ballot carries a **level**: 0 means the voter cast it themselves, 1 means their direct proxy did, 2 a transitive proxy, and so on. The rule for storing a ballot is that a stored ballot may be replaced only by one with a *lower or equal* level — and that a level 0 ballot, cast by the voter in person, is never replaced at all. This single rule produces the two properties that define liquid democracy:
+Each ballot carries a **level** — 0 the voter themselves, 1 their direct proxy, 2 a transitive proxy, and so on. A stored ballot may be replaced only by one of *lower or equal* level, and a level 0 ballot is never replaced at all. The recursion terminates at any branch where a lower-level ballot already exists, which is what makes the outcome independent of the order in which the proxies voted.
 
-- **A voter may always vote for themselves**, even after a proxy has already voted for them, as long as the poll is open. Their own ballot has level 0 and therefore wins. Once cast, it is final.
-- **A proxy can never overwrite** a vote cast by the voter, or by a proxy further down the chain.
+The level-0 exception is where this rule meets the finality rule of [Section 9.4](#94-the-ballot-and-its-checksum). Replacement above level zero is not a voter changing their mind — it is a proxy's cast cascading to somebody who never acted, and a delegee who re-delegates must be able to receive the new proxy's ballot in place of the old one's. Replacement *at* level zero would be a voter changing a vote they cast in person, which is what is not allowed.
 
-The recursion terminates naturally at any branch where a lower-level ballot already exists. The level is the distance of [Section 3.6](#36-effective-proxy-and-top-proxy) expressed as a number, so this rule is exactly "the nearest cast wins", and the recursion stopping early is what makes the outcome independent of the order in which proxies vote.
-
-The level-0 exception deserves one sentence of justification, because it is the point where the rule of [Section 9.4](#94-the-ballot-and-its-checksum) and the rule of this section meet. Replacement at a level above zero is not a voter changing their mind — it is a proxy's cast cascading to someone who never acted, and a delegee who re-delegates must be able to receive the new proxy's ballot in place of the old one's. Replacement *at* level zero would be a voter changing a vote they cast in person, which is exactly what is not allowed.
-
-**Cycles are refused, at both points where one can form.** A structure of delegations is only a tree if no chain loops back on itself, and [Section 3.4](#34-delegation-to-a-proxy) gives the reason a cycle must not exist: it has no top proxy, so nobody in it ever casts the accumulated vote. LIQUIDO therefore walks the chain before writing an edge and refuses a delegation to anybody who already delegates, directly or transitively, to the delegating voter. That check is repeated when a proxy *accepts* a pending delegation request, and the repetition is not redundant: two voters may each request the other while neither request looks circular on its own, and the loop appears only at the moment the second one is accepted.
-
-A delegation may be revoked at any time. The tree is therefore in permanent flux — it is *liquid*.
+**Cycles are refused at both points where one can form.** [Section 3.4](#34-delegation-to-a-proxy) gives the reason a cycle must not exist. LIQUIDO walks the chain before writing an edge and refuses a delegation to anybody who already delegates, directly or transitively, to the delegating voter — and repeats that check when a proxy *accepts* a pending request. The repetition is not redundant: two voters may each request the other while neither request looks circular on its own, and the loop appears only when the second one is accepted.
 
 ### 10.3 Public proxies
 
@@ -656,15 +645,11 @@ A voter who wants to accept delegations from as many people as possible can decl
 
 ### 10.4 The privacy cost of being a proxy
 
-This is where [Section 3.7](#37-should-a-voter-see-how-his-proxy-voted) has to be answered rather than posed, and LIQUIDO answers it with three decisions that follow from one another.
+[Section 3.7](#37-should-a-voter-see-how-his-proxy-voted) settles the principle: every voter can check his own vote, and delegation does not weaken that. What follows is what it costs here, and how LIQUIDO pays it.
 
-**Every voter can check his own vote, and delegation does not weaken that.** A voter reads the ballot that was counted for him whether he cast it himself or a proxy cast it for him. This is the principle the other two decisions are consequences of, and it is not traded away: a voter who has handed his voting power to somebody else has the strongest claim of anyone to see what was done with it.
+**A proxy has no ballot secrecy toward their own delegees.** A ballot is written for each delegee carrying the proxy's ranking ([Section 10.1](#101-delegation-of-the-right-to-vote)), and each delegee reads their own ballot by the ordinary verification path — it sits in the poll's published tally on the same terms as anybody else's ([Section 9.4](#94-the-ballot-and-its-checksum)). Every delegee therefore learns exactly how their proxy voted, and a proxy with a single delegee is fully exposed to that delegee.
 
-**A proxy therefore has no ballot secrecy toward their own delegees.** When a proxy votes, a ballot is created for each delegee carrying the proxy's ranking, and each delegee can read their own ballot. Every delegee therefore learns exactly how their proxy voted. If a proxy has one delegee, that delegee learns the proxy's vote precisely. [Section 3.7](#37-should-a-voter-see-how-his-proxy-voted) shows that this could be avoided — a delegee could be shown that a ballot exists for him and not what it says — and LIQUIDO declines to, because that would verify the bookkeeping rather than the vote.
-
-**Delegation is therefore opt-in for the proxy.** Delegations must be requested and accepted. A voter who declines all delegations keeps a fully secret ballot that always counts exactly once. A voter who accepts them trades part of his own privacy for influence, knowingly — and what he is accepting extends to everyone who later joins the subtree beneath him, not only to the delegee in front of him.
-
-The same principle decides what a finished poll publishes. The tally lists every counted ballot's ranking **beside its checksum** ([Section 9.4](#94-the-ballot-and-its-checksum)), which is what lets a voter find his own ballot in it and lets anybody recompute the winner from the same rows. A delegee's ballot is in that set like any other, so the visibility described above is not a special channel built for delegation; it is the ordinary verification path, applied to a ballot somebody else cast.
+**So delegation is opt-in for the proxy.** Delegations must be requested and accepted. A voter who declines them all keeps a fully secret ballot that counts exactly once. A voter who accepts is trading part of his own privacy for influence, and what he accepts reaches everyone who later joins the subtree beneath him, not only the delegee in front of him. A **public proxy** ([Section 10.3](#103-public-proxies)) makes that trade standingly and in advance, which is the whole content of being one.
 
 The API methods that let a voter inspect their direct proxy's ballot, their top proxy's ballot, and the identity of the proxy that actually cast their vote exist in the backend today. They are deliberately not yet exposed.
 
