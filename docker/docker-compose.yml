@@ -1,0 +1,30 @@
+# GISMO "integration" deployment: the one and only LIQUIDO instance on GISMO.
+# Postgres is NOT containerized here on purpose - it stays the native install on GISMO,
+# mirroring the eventual real-prod split (app on Hostinger/Docker, DB on Supabase).
+#
+# network_mode: host lets the container reach that native Postgres at localhost:5432 with
+# zero networking setup, and makes the backend bind directly to host port 8080 - exactly what
+# Caddy already reverse-proxies to (see /etc/caddy/Caddyfile), so no Caddy changes needed.
+services:
+  backend:
+    container_name: liquido-backend
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    network_mode: host
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Merge in the real GISMO secrets/config (JWT, mail, webauthn origins, ...) on top of
+      # the baked-in config/application.properties, same as the old systemd unit's
+      # -Dquarkus.config.locations. Backed-up copy lives at ~/Coding/liquido/config/ because
+      # this file is gitignored (contains credentials) - see [[gismo-deployment-setup]].
+      QUARKUS_CONFIG_LOCATIONS: /config/application-gismo.properties
+      # Without this the container defaults to UTC, but PollService.startVotingPhase() computes
+      # votingEndAt via LocalDateTime.now() (timezone-naive, uses the JVM's default zone) while
+      # the frontend computes the expected date in the browser's local zone - the two disagree
+      # for the few hours between local midnight and UTC midnight. Match the user base instead.
+      TZ: Europe/Berlin
+    volumes:
+      - /home/doogie/Coding/liquido/config/application-gismo.properties:/config/application-gismo.properties:ro
