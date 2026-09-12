@@ -461,7 +461,10 @@ public class PollService {
 	 *
 	 * @param poll a poll that just finished its voting phase
 	 * @param ballots the ballots casted in this poll
-	 * @return the duelMatrix, which counts the number of preferences for each pair of proposals.
+	 * @return the winning proposal, or null if there was no winner -- either because no ballots (or no
+	 *         decisive comparisons) were cast, or because Ranked Pairs found a genuine tie (more than
+	 *         one undefeated proposal). A tie is deliberately NOT resolved by picking one arbitrarily;
+	 *         see {@link #publishTally(PollEntity)}'s {@code winnerIds} for the full tied set.
 	 * @throws LiquidoException When poll is not in status FINISHED
 	 */
 	@Transactional
@@ -500,10 +503,16 @@ public class PollService {
 			log.warn("There is no winner in poll "+poll);  // This may for example happen when there are no votes at all.
 			return null;
 		}
-		if (winnerIndexes.size() > 1) log.warn("There is more than one winner in "+poll);
-		long firstWinnerId = allIds.get(winnerIndexes.get(0));
+		if (winnerIndexes.size() > 1) {
+			// A genuine Ranked Pairs tie: more than one undefeated proposal, with no path between them in
+			// the lock-in graph. Do NOT pick one of them arbitrarily -- that would misrepresent what the
+			// team actually voted for. publishTally()'s winnerIds still reports the full tied set.
+			log.warn("Poll "+poll+" ended in a tie between "+winnerIndexes.size()+" proposals. No single winner will be declared.");
+			return null;
+		}
+		long winnerId = allIds.get(winnerIndexes.get(0));
 		for(ProposalEntity prop: poll.getProposals()) {
-			if (prop.getId() == firstWinnerId)	return prop;
+			if (prop.getId() == winnerId)	return prop;
 		}
 		throw new RuntimeException("Couldn't find winning Id in poll.");  // This should mathematically never happen!
 	}
@@ -537,6 +546,14 @@ public class PollService {
 				.collect(Collectors.toList());
 		tally.duelMatrix = toNestedList(poll.getDuelMatrix());
 		tally.winnerId = poll.getWinner() != null ? poll.getWinner().getId() : null;
+		// Recompute the full set of undefeated proposals (Ranked Pairs "sources"), not just the single
+		// winner poll.getWinner() may or may not hold. Normally one element, equal to winnerId. More
+		// than one is a genuine tie -- exactly what winnerId==null on its own cannot distinguish from
+		// "nobody voted at all", which is why the frontend needs this list rather than just winnerId.
+		List<Integer> winnerIndexes = poll.getDuelMatrix() != null
+				? RankedPairVoting.calcRankedPairWinners(poll.getDuelMatrix())
+				: List.of();
+		tally.winnerIds = winnerIndexes.stream().map(tally.proposalOrder::get).collect(Collectors.toList());
 
 		List<BallotEntity> ballots = BallotEntity.list("poll", poll);
 		tally.numBallots = ballots.size();

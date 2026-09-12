@@ -78,6 +78,16 @@ public class PublishedTally {
 	@Description("The proposal the server announced as the winner, or null if the poll had no winner")
 	public Long winnerId;
 
+	/**
+	 * Every proposal Ranked Pairs found undefeated -- a graph "source" with no incoming edge in the
+	 * lock-in graph. Normally has exactly one element, equal to {@link #winnerId}. <b>More than one
+	 * element is a genuine tie</b>: those proposals have no clear preference between them, and no
+	 * single winner is declared -- {@link #winnerId} is null in that case, not an arbitrary pick.
+	 * Zero elements means no ballots (or no decisive comparisons) were cast.
+	 */
+	@Description("Every proposal Ranked Pairs found undefeated. Normally one element (winnerId). More than one is a genuine tie -- no single winner is declared. Empty means no ballots were cast.")
+	public List<Long> winnerIds;
+
 	@Description("How many ballots were counted")
 	public int numBallots;
 

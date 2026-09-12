@@ -70,6 +70,7 @@ public class PublishedTallyTest {
 		// JSON numbers arrive as Integer, so every id is widened explicitly rather than cast.
 		List<Long> proposalOrder = toLongs(res.extract().jsonPath().getList(path + "proposalOrder"));
 		Long announcedWinner = ((Number) res.extract().jsonPath().get(path + "winnerId")).longValue();
+		List<Long> winnerIds = toLongs(res.extract().jsonPath().getList(path + "winnerIds"));
 		int numBallots = res.extract().jsonPath().getInt(path + "numBallots");
 		List<List<Long>> publishedVoteOrders = res.extract().jsonPath().<List<Object>>getList(path + "ballots.voteOrder")
 				.stream().map(this::toLongs).toList();
@@ -102,6 +103,46 @@ public class PublishedTallyTest {
 				"The winner recomputed from the published ballots must match the one the server announced. " +
 				"If these differ, either the published set is incomplete or the announced result does not " +
 				"follow from it -- which is precisely what a verifiable tally exists to reveal.");
+		assertEquals(List.of(announcedWinner), winnerIds,
+				"With a decisive result, winnerIds must hold exactly the one announced winner");
+	}
+
+	@Test
+	@DisplayName("A genuine tie declares no single winner, but still reports every tied proposal")
+	public void aGenuineTieDeclaresNoSingleWinnerButReportsTheTiedProposals() {
+		// GIVEN two voters who disagree on A vs B, but both prefer both A and B over C
+		TeamDataResponse team = util.createFreshTeam("PublishedTallyTie");
+		PollEntity poll = util.createPoll("Poll that ends in a genuine tie", team.jwt);
+		poll = util.addProposal(poll.getId(), "Tie option A", "The first alternative in this poll, described at sufficient length.", "hand-peace", team.jwt);
+		poll = util.addProposal(poll.getId(), "Tie option B", "The second alternative in this poll, described at sufficient length.", "hand-rock", team.jwt);
+		poll = util.addProposal(poll.getId(), "Tie option C", "The third alternative in this poll, described at sufficient length.", "hand-scissors", team.jwt);
+		poll = util.startVotingPhase(poll.getId(), team.jwt);
+		Long pollId = poll.getId();
+
+		List<Long> ids = poll.getProposals().stream().map(LiquidoBaseEntity::getId).sorted().toList();
+		Long optionA = ids.get(0), optionB = ids.get(1), optionC = ids.get(2);
+
+		// Voter 1 ranks A > B > C, voter 2 ranks B > A > C: both A and B beat C unanimously (2:0 each),
+		// but split 1:1 against each other. Ranked Pairs DISCARDS an equal-votes pairwise result rather
+		// than resolving it, so neither A nor B ever locks in an edge against the other -- both remain
+		// undefeated sources in the lock-in graph.
+		castAs(team, pollId, List.of(optionA, optionB, optionC));
+		String memberJwt = util.joinTeam(team.team.getInviteCode(), null).jwt;
+		util.castVote(pollId, List.of(optionB, optionA, optionC), util.getVoterToken(pollId, memberJwt));
+
+		util.finishVotingPhase(pollId, team.jwt);
+
+		// WHEN we read the published tally
+		ValidatableResponse res = requestTally(pollId, team.jwt);
+		String path = "data.publishedTally.";
+		Object announcedWinner = res.extract().jsonPath().get(path + "winnerId");
+		List<Long> winnerIds = toLongs(res.extract().jsonPath().getList(path + "winnerIds"));
+
+		// THEN no single winner is announced -- an arbitrary pick would misrepresent what was voted --
+		assertNull(announcedWinner, "A genuine tie must not silently announce an arbitrary winner");
+		// ... but both undefeated proposals are still reported, so the frontend can show why.
+		assertEquals(List.of(optionA, optionB), winnerIds.stream().sorted().toList(),
+				"Both undefeated proposals must be reported as tied winners");
 	}
 
 	@Test
@@ -168,7 +209,7 @@ public class PublishedTallyTest {
 
 	private ValidatableResponse requestTally(Long pollId, String jwt) {
 		String query = "query publishedTally($pollId: BigInteger!) { publishedTally(pollId: $pollId) " +
-				"{ pollId proposalOrder winnerId numBallots duelMatrix ballots { checksum voteOrder } } }";
+				"{ pollId proposalOrder winnerId winnerIds numBallots duelMatrix ballots { checksum voteOrder } } }";
 		return given()
 				.contentType(ContentType.JSON)
 				.header("Authorization", "Bearer " + jwt)
