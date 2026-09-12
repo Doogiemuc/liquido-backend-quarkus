@@ -159,6 +159,15 @@ The voting process in this system is designed to support liquid democracy princi
   - `LIQUIDO-DEV` — restore the dump as superuser: `psql -h localhost -U postgres -d "LIQUIDO-DEV" -f liquido-testData.sql` against a freshly drop-and-created schema.
 
 ### Schema and seed data
+
+> ⚠️ **`drop-and-create` (and therefore `TestDataCreator.createTestData()`, which requires it) is
+> ONLY ever allowed on a local development laptop, against a local/throwaway database.** It is
+> **NEVER** allowed against GISMO's "integration" environment, any future staging environment, or
+> — above all — **PROD, ever, under any circumstances.** This wipes and recreates the entire
+> schema; running it against a shared or live environment destroys real data with no undo. If you
+> are not certain which database a `QUARKUS_DATASOURCE_JDBC_URL`/`QUARKUS_CONFIG_LOCATIONS`
+> combination actually points at before running this, stop and check first — do not guess.
+
 - Schema generation is deliberately **off** (`quarkus.hibernate-orm.database.generation=none` and `quarkus.hibernate-orm.schema-management.strategy=none`). Both the legacy and the newer key are set.
 - To create the schema once in an empty DB, override via environment rather than editing the config files:
   ```
@@ -215,6 +224,10 @@ Two traps worth knowing before you extend the seed:
 - **Assert only over your own data.** `UseCaseTests` used to assert the *whole* `voting_tokens` table was empty; one abandoned token anywhere broke it permanently and blamed the wrong test.
 
 Manual reseed procedure (never done automatically, never in a normal build):
+
+> ⚠️ **Local dev laptop only.** Never run this against GISMO, any staging environment, or PROD -
+> see the warning at the top of this section.
+
 1. Stop `quarkus:dev` first — it holds the old schema, and `clean` pulls `target/` out from under it.
 2. ```
    QUARKUS_HIBERNATE_ORM_SCHEMA_MANAGEMENT_STRATEGY=drop-and-create \

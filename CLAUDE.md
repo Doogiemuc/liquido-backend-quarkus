@@ -45,6 +45,10 @@ drop-and-create in the checked-in `application*.properties` files — every prof
 properties file, so it would wipe `LIQUIDO-DEV` on the next `quarkus:dev` run. Enable it only via
 the `QUARKUS_HIBERNATE_ORM_SCHEMA_MANAGEMENT_STRATEGY` env var for a one-off reseed, per AGENTS.md.
 
+⚠️ **`drop-and-create` (and `TestDataCreator.createTestData()`) is local-dev-laptop only.** Never
+run it against GISMO's integration environment, staging, or PROD — see AGENTS.md's "Schema and
+seed data" section for the full warning.
+
 `config/application-{dev,test}.properties` are gitignored (contain secrets/datasource creds) — a
 fresh clone must supply them.
 
