@@ -1,7 +1,7 @@
 #
 # Stage 1: Build my quarkus application with maven
 #
-FROM maven:3.9.16-eclipse-temurin-26 AS build
+FROM maven:3.9-eclipse-temurin-25 AS build
 
 WORKDIR /build
 
@@ -26,8 +26,11 @@ WORKDIR /build
 # Copy the Maven project files
 COPY pom.xml .
 
-# Pre-download dependencies to use cache effectively
-RUN mvn verify -DskipTests
+# Pre-download dependencies to use cache effectively.
+# NOTE: must NOT be `mvn verify`/`package` here - with only pom.xml present (no src/ yet)
+# quarkus:build still runs its CDI validation on an app with zero beans, and fails on
+# WebAuthnUserProvider (registered by the security-webauthn extension) having no implementation.
+RUN mvn -B dependency:go-offline
 
 # Copy sources and my quarkus configurations
 COPY config ./config/
@@ -42,7 +45,7 @@ RUN mvn -B package -DskipTests
 # Stage 2: Use a lightweight runtime image for the runtime container
 # Eclipse temurin is build on tip of alpine + Jave Runtime (JRE)
 #
-FROM eclipse-temurin:26-jre-alpine AS runtime
+FROM eclipse-temurin:25-jre-alpine AS runtime
 
 # Set the working directory inside the container
 WORKDIR /app

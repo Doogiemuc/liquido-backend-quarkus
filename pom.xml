@@ -9,14 +9,14 @@
     <properties>
         <compiler-plugin.version>3.11.0</compiler-plugin.version>
         <lombok.version>1.18.46</lombok.version>
-        <maven.compiler.release>26</maven.compiler.release>
+        <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
-        <!-- Quarkus >= 3.37 is required for Java 26: older versions bundle an ASM that cannot
-             read class file major version 70 and fail augmentation with
-             "Unsupported class file major version 70". -->
+        <!-- Quarkus >= 3.37 is required for Java 25+: older versions bundle an ASM that cannot
+             read the newer class file major versions and fail augmentation with
+             "Unsupported class file major version". -->
         <quarkus.platform.version>3.37.4</quarkus.platform.version>
         <skipITs>true</skipITs>
         <!-- webauthn4j.version>0.21.1.RELEASE</webauthn4j.version   use default version from quarkus BOM -->
