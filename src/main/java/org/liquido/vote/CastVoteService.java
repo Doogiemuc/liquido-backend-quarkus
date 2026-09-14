@@ -123,16 +123,29 @@ public class CastVoteService {
 		return voterToken.getRightToVote();
 	}
 
+	/** Separates the three concatenated parts of the voter-token hash input - see calcHashedVoterToken(). */
+	private static final String SEP = "|";
+
 	/**
 	 * Hash a plain voter token. Server will add an internal hashSecret for more security.
 	 * Keep in mind that the hashedVoterToken is anonymous. It is not traceable back to a voter.
+	 *
+	 * <p>This is the one derivation in the system that genuinely is {@code hash(data ‖ secret)}
+	 * rather than an HMAC - see docs/liquido-whitepaper.md Part V, Section 7.3 - which is exactly
+	 * why it uses SHA3-256 rather than SHA-256: SHA-3's sponge construction is not vulnerable to
+	 * the length-extension attack that form invites. The explicit separator matters here for the
+	 * same reason it does in {@link RightToVoteEntity} and {@code PollyKeys}: without one,
+	 * {@code plainVoterToken="ab"} with {@code pollId=1} and {@code plainVoterToken="ab1"} with a
+	 * one-digit-shorter representation elsewhere could in principle concatenate to the same input.
+	 * The token itself is a random UUID, so this is not exploitable today, but the discipline
+	 * should not have an unexplained exception.
 	 *
 	 * @param plainVoterToken the plain token
 	 * @param pollId voter token is only valid for this poll
 	 * @return the hashed voterToken
 	 */
 	private String calcHashedVoterToken(String plainVoterToken, Long pollId) {
-		return DigestUtils.sha3_256Hex(plainVoterToken + pollId + config.hashSecret());
+		return DigestUtils.sha3_256Hex(plainVoterToken + SEP + pollId + SEP + config.hashSecret());
 	}
 
 

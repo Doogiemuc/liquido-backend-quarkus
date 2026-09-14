@@ -13,9 +13,13 @@ import java.security.SecureRandom;
  * Derives Polly's two keys from a WebAuthn credential id, and mints opaque public ids.
  *
  * <pre>
- *   ownerKey  = HMAC(secret, credentialId)                    stable per credential
- *   voterKey  = HMAC(secret, credentialId | polly.publicId)   per credential AND polly
+ *   ownerKey  = HMAC(secret, "v1|" | credentialId)                    stable per credential
+ *   voterKey  = HMAC(secret, "v1|" | credentialId | polly.publicId)   per credential AND polly
  * </pre>
+ *
+ * <p>Version-prefixed for the same reason as the ballot checksum ({@link
+ * org.liquido.vote.BallotEntity#calcSha256Checksum()}): a future change to this canonical form
+ * can then coexist with this one without ambiguity, instead of silently colliding with it.</p>
  *
  * <p>The owner key is stable so that {@code myPollys} can find everything a passkey created -
  * that is what replaces "email me my link". The voter key is per polly so that the same
@@ -51,6 +55,9 @@ public class PollyKeys {
 	 */
 	private static final String SEPARATOR = "|";
 
+	/** Version prefix for both canonical forms below - see the class javadoc. */
+	private static final String VERSION = "v1" + SEPARATOR;
+
 	private static final SecureRandom RANDOM = new SecureRandom();
 
 	@Inject
@@ -70,11 +77,11 @@ public class PollyKeys {
 	// testable. The instance methods above just supply the configured secret.
 
 	public static String ownerKey(@NonNull String secret, @NonNull String credentialId) {
-		return hmac(secret, credentialId);
+		return hmac(secret, VERSION + credentialId);
 	}
 
 	public static String voterKey(@NonNull String secret, @NonNull String credentialId, @NonNull String pollyPublicId) {
-		return hmac(secret, credentialId + SEPARATOR + pollyPublicId);
+		return hmac(secret, VERSION + credentialId + SEPARATOR + pollyPublicId);
 	}
 
 	private static String hmac(String secret, String data) {
