@@ -395,13 +395,13 @@ As [Section 4.3](#43-which-victories-count-as-stronger) sets out, this choice ca
 
 ### 7.3 Hashing, keying and domain separation
 
-LIQUIDO uses **SHA3-256** (NIST FIPS 202) rather than the older SHA-2 family, because several of its derivations take the form `hash(data ‖ secret)` and SHA-3's sponge construction is not vulnerable to the length-extension attack that form invites.
+LIQUIDO uses **SHA3-256** (NIST FIPS 202) rather than the older SHA-2 family for the one derivation that genuinely takes the vulnerable form `hash(data ‖ secret)` — the one-time voter token's hash ([Section 9.3](#93-the-three-layer-anonymity-architecture)) — because SHA-3's sponge construction is not vulnerable to the length-extension attack that form invites, the way SHA-2 would be.
 
-Every pseudonym is computed with **HMAC-SHA256** under a server secret — the right to vote, the ballot pseudonym derived from it, and Polly's owner and voter keys — so that nobody holding a list of candidate email addresses can compute the corresponding pseudonyms offline. **[Implemented]**
+Everywhere a value needs keying, LIQUIDO uses **HMAC-SHA256** instead — the right to vote, the ballot pseudonym derived from it, and Polly's owner and voter keys — so that nobody holding a list of candidate email addresses can compute the corresponding pseudonyms offline. HMAC's construction defeats length-extension on its own, so SHA-3 buys nothing further there, and using it anyway would be a second primitive with no reason to justify it. **[Implemented]**
 
-The ballot checksum is the one derived value that is **not** keyed. It is an unkeyed SHA3-256 over a canonical form that already contains the ballot pseudonym, and it needs no key of its own, because that pseudonym is itself a 256-bit HMAC output which is never revealed to anybody. This is worth naming rather than leaving to be inferred, because it says where the checksum's secrecy actually rests: anyone who learned a voter's pseudonym could confirm that voter's published ballot offline and for ever, so the pseudonym is returned by no API, appears in no schema, and is never stored in any mapping. **[Implemented]**
+The ballot checksum is the one derived value that is **not** keyed, and the other place SHA3-256 appears. It is computed over a canonical form that already contains the ballot pseudonym, and it needs no key of its own, because that pseudonym is itself a 256-bit HMAC output which is never revealed to anybody. This is worth naming rather than leaving to be inferred, because it says where the checksum's secrecy actually rests: anyone who learned a voter's pseudonym could confirm that voter's published ballot offline and for ever, so the pseudonym is returned by no API, appears in no schema, and is never stored in any mapping. **[Implemented]**
 
-Polly's key derivation and the ballot checksum both use explicitly delimited, version-prefixed canonical forms, so that two different sets of inputs cannot serialise to the same string. **[Implemented]**
+Polly's key derivation and the ballot checksum both use explicitly delimited, version-prefixed canonical forms, so that two different sets of inputs cannot serialise to the same string. The voter token's hash gained the same explicit delimiter for the same reason, though deliberately not a version prefix: the value it protects lives for twenty minutes at most, so there is nothing that would ever need migrating. **[Implemented]**
 
 ### 7.4 What LIQUIDO does about the limits of Part I
 
@@ -525,6 +525,8 @@ Two permission rules in this phase are worth stating because their asymmetry is 
 
 **FINISHED.** The voting phase closes, the duel matrix is computed from all ballots, and Ranked Pairs determines the winner.
 
+[Section 4.2](#42-multiple-winners) already established that Ranked Pairs can report more than one winner. LIQUIDO does not resolve that tie by picking one of them — it shows the team exactly that: more than one proposal was left standing, and which ones. This is not a shortcoming to route around. It is what the team's joint rankings actually expressed, and resolving it further is a decision for the team to make some other way, not one the count is entitled to make for them. **[Implemented]**
+
 ### 9.3 The three-layer anonymity architecture
 
 This is the core of the system. It is best understood as three derived values with three different lifetimes: one scoped to a team, one scoped to a single vote-casting session, and one scoped to a single poll.
@@ -590,8 +592,8 @@ The one exception is not a voter changing their mind but the delegation hierarch
 
 ### 9.5 What the design gets right
 
-- **No timestamps on ballots.** A ballot deliberately carries no creation or modification date, and no "created by". Both would enable timing correlation against the authenticated token request. **[Implemented]**
-- **The list ballots is never exposed.** A poll has no link to its ballots at all, so the running tally cannot leak while voting is open. Clients that need a participation count get a computed field. **[Implemented]**
+- **No auto-increment keys and no timestamps on ballots.** A ballot deliberately carries no creation or modification date, and no "created by" — either would enable timing correlation against the authenticated token request. Its primary key is a random UUID rather than an auto-incrementing number, for the same reason: a sequential key exposed through the API leaks the order ballots were inserted in just as effectively as a timestamp would. **[Implemented]**
+- **The list of ballots is never exposed.** A poll has no link to its ballots at all, so the running tally cannot leak while voting is open. Clients that need a participation count get a computed field. **[Implemented]**
 - **Cross-tenant lookups are indistinguishable from missing records.** **[Implemented]**
 - **The published API surface is verified against the schema, not against intent.** **[Implemented]** Field-level hiding relies on annotations, and whether a given annotation reaches the published schema is a property of the framework version, not of the source code. The exposed surface is therefore asserted against the *generated* schema, by a test that fails the build if a sensitive field appears. That test found a real leak: an anonymous, deliberately unauthenticated verification endpoint could be walked from a ballot to its poll, from the poll to its team, and from the team to the invite code and the full member list. Nothing in the source code said those fields were public; the schema said so.
 
