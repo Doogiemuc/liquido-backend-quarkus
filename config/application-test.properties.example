@@ -1,0 +1,38 @@
+#
+# Example config for the "test" Quarkus profile, used by ./mvnw test.
+#
+# Copy this file to application-test.properties (gitignored) and fill in real values.
+# Needs its own, disposable Postgres database - never point this at the same database as
+# application-dev.properties. See AGENTS.md's "Local database" section:
+#
+#   CREATE DATABASE "LIQUIDO-TEST" OWNER postgres;
+#
+
+quarkus.datasource.jdbc.url=jdbc:postgresql://localhost:5432/LIQUIDO-TEST
+quarkus.datasource.username=postgres
+quarkus.datasource.password=CHANGE_ME
+
+# Secrets that every anonymous pseudonym in the system is derived from - see
+# docs/liquido-whitepaper.md Part V, Section 9.3. Any value works for a disposable test
+# database: there is nothing here worth protecting once the database is thrown away between runs,
+# but each one must still be SET, or Quarkus refuses to start.
+liquido.hash-secret=CHANGE_ME
+liquido.polly.hmac-secret=CHANGE_ME
+
+# RS256 JWT signing keypair - see the comment on mp.jwt.verify.issuer in application.properties
+# for why no key material lives in a tracked file. Generate a throwaway test-only keypair, e.g.:
+#   openssl genpkey -algorithm RSA -out test-private.pem -pkeyopt rsa_keygen_bits:2048
+#   openssl rsa -pubout -in test-private.pem -out test-public.pem
+# then paste each PEM's content below with real newlines replaced by literal "\n".
+smallrye.jwt.sign.key=CHANGE_ME
+mp.jwt.verify.publickey=CHANGE_ME
+
+# Fixed tokens the test suite and TestDataCreator authenticate with directly - see
+# LiquidoTestUtils and TestFixtures. Any value works, it just has to be set.
+liquido.dev-login-token=CHANGE_ME
+liquido.test-password-reset-token=CHANGE_ME
+
+# Twilio SMS - dummy values are fine unless a test actually exercises phone login.
+liquido.twilio.account-sid=CHANGE_ME
+liquido.twilio.service-sid=CHANGE_ME
+liquido.twilio.auth-token=CHANGE_ME

@@ -151,7 +151,7 @@ The voting process in this system is designed to support liquid democracy princi
   CREATE DATABASE "LIQUIDO-DEV" OWNER postgres;
   CREATE DATABASE "LIQUIDO-TEST" OWNER postgres;
   ```
-- Datasource settings live in `config/application-{dev,test}.properties`. These are **gitignored** because they contain secrets, so a fresh clone must supply them.
+- Datasource settings live in `config/application-{dev,test}.properties`. These are **gitignored** because they contain secrets, so a fresh clone must supply them. `config/application-test.properties.example` lists every key the test profile needs, with placeholder values — copy it to `application-test.properties` and fill them in (see the hash-secret note just below).
 - These two used to be the **same** database (until 2026-08-14), which meant `mvn test` wrote into the data you demo from, every run left residue there, and enabling `drop-and-create` for the test profile destroyed dev data outright. If you ever point them back at one database, all three problems return.
 - Keep `liquido.hash-secret` **identical** across the two profiles. It keys `RightToVoteEntity` (`HMAC-SHA256(secret, email | teamId)`) and, through it, every ballot pseudonym, so a mismatch means ballots created under one profile cannot be found under the other — see the "two different salts" story in `docs/liquido-vibe-coding-stories.md`.
 - **Seeding is now per database:**

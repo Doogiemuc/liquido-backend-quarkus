@@ -50,7 +50,9 @@ run it against GISMO's integration environment, staging, or PROD — see AGENTS.
 seed data" section for the full warning.
 
 `config/application-{dev,test}.properties` are gitignored (contain secrets/datasource creds) — a
-fresh clone must supply them.
+fresh clone must supply them. `config/application-test.properties.example` has the full list of
+keys the test profile needs, with no real values — copy it to `application-test.properties` and
+fill them in.
 
 ## Architecture
 
