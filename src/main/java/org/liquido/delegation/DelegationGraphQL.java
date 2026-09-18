@@ -61,6 +61,16 @@ public class DelegationGraphQL {
 		delegationService.acceptDelegationRequests(delegationRequestIds);
 	}
 
+	@Mutation
+	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
+	@Description("Become a public proxy that accepts every delegation automatically, or stop being one.")
+	@Transactional
+	public void becomePublicProxy(
+			@Name("isPublicProxy") @NonNull Boolean isPublicProxy
+	) throws LiquidoException {
+		delegationService.becomePublicProxy(isPublicProxy);
+	}
+
 	@Query
 	@RolesAllowed(JwtTokenUtils.LIQUIDO_USER_ROLE)
 	@Description("Count how many voters delegate to a proxy, including transitive delegations.")

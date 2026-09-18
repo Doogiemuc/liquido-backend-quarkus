@@ -485,6 +485,12 @@ public class LiquidoTestUtils {
 				.extract().jsonPath().getList("data.delegationRequests.id", Long.class);
 	}
 
+	/** Declare the caller a public proxy (auto-accepts delegations), or stop being one. */
+	public void becomePublicProxy(boolean isPublicProxy, String proxyJwt) {
+		String query = "mutation becomePublicProxy($isPublicProxy: Boolean!) { becomePublicProxy(isPublicProxy: $isPublicProxy) }";
+		sendGraphQL(query, new Lson("isPublicProxy", isPublicProxy), proxyJwt);
+	}
+
 	public void acceptDelegationRequests(List<Long> delegationRequestIds, String proxyJwt) {
 		String query = "mutation acceptDelegationRequests($ids: [BigInteger!]!) { acceptDelegationRequests(delegationRequestIds: $ids) }";
 		Lson vars = new Lson("ids", delegationRequestIds);

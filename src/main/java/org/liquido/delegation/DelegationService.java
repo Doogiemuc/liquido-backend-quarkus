@@ -147,6 +147,44 @@ public class DelegationService {
 	}
 
 	/**
+	 * Declare (or stop being) a public proxy in the team the caller is logged into.
+	 *
+	 * <p>A public proxy accepts delegations automatically: {@link #delegateTo(UserEntity)} creates the
+	 * edge immediately instead of a pending request. This is how a party's position-holder maps onto
+	 * the model -- "membership" becomes a delegation that can be withdrawn at any moment.
+	 *
+	 * <p>Declaring yourself public deliberately links your named user to your otherwise anonymous
+	 * right to vote. That is the nature of the role rather than a leak: a proxy nobody can find cannot
+	 * be delegated to. The link is still never exposed through the API -- {@code publicProxy} is
+	 * asserted absent from the generated schema by {@code GraphQLSchemaExposureTest}.
+	 *
+	 * <p>Turning this off only stops FUTURE requests from being auto-accepted. Delegations already
+	 * accepted stay, and pending requests stay pending -- revoking somebody else's delegation is
+	 * theirs to do ({@link #removeDelegation()}), not the proxy's.
+	 *
+	 * @param isPublicProxy true to accept delegations automatically, false to require acceptance again
+	 */
+	@Transactional
+	public void becomePublicProxy(boolean isPublicProxy) throws LiquidoException {
+		UserEntity currentUser = jwtTokenUtils.getCurrentUser()
+				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.UNAUTHORIZED, "Must be logged in to become a public proxy."));
+		TeamEntity team = currentTeam();
+		RightToVoteEntity rightToVote = RightToVoteEntity.findByVoterAndTeam(currentUser, team, config)
+				.orElseThrow(LiquidoException.supply(LiquidoException.Errors.CANNOT_ASSIGN_PROXY, "Cannot become a public proxy. You have no right to vote in this team."));
+
+		// Same revival rule as delegating and casting: a member returning after their right lapsed gets
+		// it back, a departed member does not - see RightToVoteEntity.renewIfMemberOf().
+		if (!rightToVote.renewIfMemberOf(team, currentUser, config.rightToVoteExpirationDays()))
+			throw new LiquidoException(LiquidoException.Errors.CANNOT_ASSIGN_PROXY,
+					"Your right to vote has expired and you are no longer a member of this team.");
+
+		rightToVote.setPublicProxy(isPublicProxy ? currentUser : null);
+		rightToVote.persist();
+		log.info("Delegations: {} is {}a public proxy in team.id={}",
+				currentUser.toStringShort(), isPublicProxy ? "" : "no longer ", team.id);
+	}
+
+	/**
 	 * Count how many voters delegate to this proxy, including transitive delegations.
 	 */
 	public long countDelegationsTo(@NonNull UserEntity proxy) throws LiquidoException {
