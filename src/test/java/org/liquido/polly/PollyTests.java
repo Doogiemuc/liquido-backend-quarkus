@@ -621,6 +621,25 @@ public class PollyTests {
 				"the user handle cookie must be set alongside the challenge");
 	}
 
+	@Test
+	@DisplayName("The user handle cookie is scoped to / , so it survives the reverse proxy's path prefix")
+	public void userHandleCookieIsPathScopedToRoot() {
+		var detailed = given().when().get(TestFixtures.LIQUIDO_API + "/polly/webauthn/register-options-challenge")
+				.then().statusCode(200).extract()
+				.detailedCookie(PollyWebAuthnRestApi.USER_HANDLE_COOKIE);
+
+		assertNotNull(detailed, "the user handle cookie must be set");
+
+		// This is the assertion that a released, visibly working Polly still failed in production.
+		// The browser talks to /api/v2/polly/webauthn/... and Caddy strips /api/v2 before we see the
+		// request, so a cookie pinned to the path WE see (/polly/webauthn) is not a prefix of the path
+		// the BROWSER used, and is therefore never sent back. Registration then dies on a 401
+		// NEED_PASSKEY - no passkey, no identity, no Polly, for every new visitor. Nothing caught it
+		// because every test mocked the ceremony away.
+		assertEquals("/", detailed.getPath(),
+				"the polly user handle cookie must be scoped to / or it never comes back through the proxy");
+	}
+
 	// ================================================================= devLoginPolly
 
 	private static final String DEV_LOGIN_POLLY =

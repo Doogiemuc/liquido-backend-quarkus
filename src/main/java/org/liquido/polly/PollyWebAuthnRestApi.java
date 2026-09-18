@@ -178,9 +178,26 @@ public class PollyWebAuthnRestApi {
 
 	// ================================================================= helpers
 
+	/**
+	 * Path is "/" on purpose, and this is not cosmetic - it is what makes registration work at all
+	 * behind a reverse proxy.
+	 *
+	 * <p>This used to be {@code /polly/webauthn}, the path THIS SERVER sees. The browser does not see
+	 * that path: on the deployment the frontend calls {@code /api/v2/polly/webauthn/...} and Caddy
+	 * strips the {@code /api/v2} prefix before the request reaches us. A cookie is only sent back when
+	 * its Path is a prefix of the request path, and {@code /polly/webauthn} is not a prefix of
+	 * {@code /api/v2/polly/webauthn/register} - so the handle never came back, and every real passkey
+	 * registration died on the {@code NEED_PASSKEY} above with a 401. Polly's whole identity model is
+	 * one passkey and no account, so that broke the product for every new visitor, while every test
+	 * that mocked the ceremony away kept passing.
+	 *
+	 * <p>Quarkus' own {@code _quarkus_webauthn_challenge} cookie, set beside this one in the same
+	 * response, already uses "/" for the same reason. The value is an opaque handle, HttpOnly, Secure
+	 * and lives five minutes, so widening the path costs nothing worth protecting.
+	 */
 	private void setUserHandleCookie(RoutingContext ctx, String userHandle) {
 		ctx.response().addCookie(Cookie.cookie(USER_HANDLE_COOKIE, userHandle)
-				.setPath("/polly/webauthn")
+				.setPath("/")
 				.setHttpOnly(true)
 				.setSecure(ctx.request().isSSL())
 				.setSameSite(CookieSameSite.NONE)     // the frontend is a different origin than the API
@@ -193,8 +210,9 @@ public class PollyWebAuthnRestApi {
 	}
 
 	private void clearUserHandleCookie(RoutingContext ctx) {
+		// Same path the cookie was set with, or the browser keeps the original instead of expiring it.
 		Cookie cookie = ctx.request().getCookie(USER_HANDLE_COOKIE);
-		if (cookie != null) cookie.setPath("/polly/webauthn");
+		if (cookie != null) cookie.setPath("/");
 		ctx.response().removeCookie(USER_HANDLE_COOKIE);
 	}
 
