@@ -2,7 +2,7 @@
 
 ## A Whitepaper on Secure, Anonymous and Liquid Voting
 
-**Version 0.5 — 2026**
+**Version 0.6 — 2026**
 
 ---
 
@@ -363,7 +363,7 @@ The distinction matters for a specific reason. If a voter's pseudonym were `hash
 
 [Part I](#part-i--foundations-of-democratic-voting) to [Part IV](#part-iv--cryptographic-building-blocks) made no claims about any particular system. From here on the document does: it states the decisions LIQUIDO has taken, the reasons for each, and how it addresses the limits described above.
 
-Chapters [7](#7-the-choices-liquido-makes) to [9](#9-tier-2--liquido-team-polls) describe systems that are running. [Chapter 10](#10-tier-3--liquid-democracy-with-proxies) describes one that is designed but not yet released; it is written in the present tense because it specifies a settled design rather than an aspiration. Where the distinction matters, a claim carries one of three markers:
+Chapters [7](#7-the-choices-liquido-makes) to [9](#9-tier-2--liquido-team-polls) describe systems that are running. [Chapter 10](#10-tier-3--liquid-democracy-with-proxies) describes one whose mechanics are built and served by the API, but which has no user interface yet and is therefore not a released product; it is written in the present tense because it specifies a settled design rather than an aspiration. Where the distinction matters, a claim carries one of three markers:
 
 | Marker | Meaning |
 |---|---|
@@ -371,7 +371,7 @@ Chapters [7](#7-the-choices-liquido-makes) to [9](#9-tier-2--liquido-team-polls)
 | **[Designed]** | Specified and settled; some or all of it not yet built |
 | **[Envisioned]** | The direction of travel, with open research or engineering problems named honestly |
 
-A reader who wants to know only what exists today should read Chapters [7](#7-the-choices-liquido-makes) to [9](#9-tier-2--liquido-team-polls), and take [Chapter 10](#10-tier-3--liquid-democracy-with-proxies) as a statement of intent.
+A reader who wants to know only what a LIQUIDO *user* can do today should read Chapters [7](#7-the-choices-liquido-makes) to [9](#9-tier-2--liquido-team-polls). [Chapter 10](#10-tier-3--liquid-democracy-with-proxies) is not merely a statement of intent, and should not be read as one: its delegation mechanics are implemented and reachable through the GraphQL API of the current release. What is missing is the interface, the proxy-privacy disclosure that must accompany it ([Section 10.4](#104-the-privacy-cost-of-being-a-proxy)), and the operational readiness that makes a capability a product.
 
 ## 7. The choices LIQUIDO makes
 
@@ -437,13 +437,19 @@ The three products in this section are not three implementations of one design. 
 | Login | None | Yes | Yes |
 | Identity pseudonym scope | Per poll | Per team | Per team |
 | Ballot pseudonym scope | Per poll | Per poll | Per poll |
-| Cross-poll linkability | No | Yes, by the operator | No |
+| Cross-poll linkability | Only by the operator | Only by the operator | Only by the operator |
 | Individual verifiability | No | Yes (checksum) | Yes (checksum) |
 | Universal verifiability | No | Yes (published tally) | Yes |
 | Coercion-resistance | No | No | Required |
 | Delegation | No | No | Yes |
 | One ballot per voter enforced by | Database constraint | Database constraint | Database constraint |
-| Status | Released | Released | Designed |
+| Status | Released | Released | Built in the API; no interface yet |
+
+Two rows deserve a word, because a table cell cannot carry a qualifier.
+
+**Cross-poll linkability names one adversary and only one.** Every tier derives its ballot value per poll, so nobody working from a database dump can group one voter's ballots — and that is the threat the scoping was built to close. The operator is the exception in all three tiers, not in one of them: the same server secret produces every derivation, so whoever holds it recomputes any link at will. An earlier version of this table recorded this only against the team poll, which read as though the other two tiers escaped it. They do not, and no arrangement of scopes inside the current architecture would let them ([Section 10.5](#105-how-delegation-and-unlinkability-were-reconciled)).
+
+**Universal verifiability is scoped to the electorate.** For a team poll the electorate is the team, so the published tally is fetched by team members rather than by the public: a private group's decisions are not public records, and the tally carries every ballot's ranking. For a binding public election the electorate is everybody and the same endpoint becomes genuinely public — a different tier with a different threat model, not a setting to flip.
 
 ---
 
@@ -654,7 +660,9 @@ A delegation may be revoked at any time. The tree is therefore in permanent flux
 
 ### 10.3 Public proxies
 
-A voter who wants to accept delegations from as many people as possible can declare themselves a **public proxy**, at which point delegation requests to them are accepted automatically. This is how political parties map onto the model: the party's position-holder is a public proxy, and "membership" is a delegation that can be withdrawn at any moment.
+A voter who wants to accept delegations from as many people as possible can declare themselves a **public proxy**, at which point delegation requests to them are accepted automatically. This is how political parties map onto the model: the party's position-holder is a public proxy, and "membership" is a delegation that can be withdrawn at any moment. The declaration is reversible: withdrawing it makes further delegations require acceptance again, and leaves delegations already accepted untouched — undoing somebody else's delegation is theirs to do, not the proxy's. **[Implemented]**
+
+Being a public proxy deliberately links a named user to their otherwise anonymous right to vote, which is the one place in the system where that link is written down on purpose. It is inherent to the role rather than a concession: a proxy nobody can find cannot be delegated to. The link is still never published — it appears in no API response and in no schema — so it discloses the proxy to the server, not to the team.
 
 ### 10.4 The privacy cost of being a proxy
 
@@ -668,7 +676,7 @@ This is where [Section 3.7](#37-should-a-voter-see-how-his-proxy-voted) has to b
 
 The same principle decides what a finished poll publishes. The tally lists every counted ballot's ranking **beside its checksum** ([Section 9.4](#94-the-ballot-and-its-checksum)), which is what lets a voter find his own ballot in it and lets anybody recompute the winner from the same rows. A delegee's ballot is in that set like any other, so the visibility described above is not a special channel built for delegation; it is the ordinary verification path, applied to a ballot somebody else cast.
 
-The API methods that let a voter inspect their direct proxy's ballot, their top proxy's ballot, and the identity of the proxy that actually cast their vote exist in the backend today. They are deliberately not yet exposed.
+The API methods that let a voter inspect their direct proxy's ballot, their top proxy's ballot, and the identity of the proxy that actually cast their vote exist in the backend today, and — unlike the rest of the delegation API, which the current release serves — they are deliberately **not** exposed. They stay closed until the interface tells a proxy plainly, at the moment they accept a delegation, what accepting costs them. A delegee reading the ballot cast for him does not need them in any case: it is his own ballot, returned by the ordinary path.
 
 ### 10.5 How delegation and unlinkability were reconciled
 
@@ -780,7 +788,7 @@ The table describes the system **as it runs today**, not a target architecture.
 
 **Medium term — from verifiable arithmetic to a verifiable record.** Publishing the tally proves the announced winner follows from the published ballots. It does not prove the published ballots are the ballots that were cast. Closing that gap needs a public bulletin board on which voters confirm their own ballot is present, so that omission is detectable by the person who was omitted. This is the step that turns individual and universal verifiability into end-to-end verifiability, and it is a prerequisite for anything binding.
 
-**Medium term — release Tier 3.** Expose delegation, with the proxy-privacy consequences of [Section 10.4](#104-the-privacy-cost-of-being-a-proxy) surfaced in the interface rather than in this document alone. Its correctness prerequisite, cycle prevention, is in place. A related capability belongs here too: allowing a team admin to revoke a right to vote, which the current model grants at membership and never withdraws before expiry.
+**Medium term — release Tier 3.** The delegation API is already served by the current release; what is missing is the product around it. Build the interface, and surface the proxy-privacy consequences of [Section 10.4](#104-the-privacy-cost-of-being-a-proxy) at the moment a voter accepts a delegation rather than in this document alone — a proxy who has not understood that their delegees will read their ballot has not really consented to it. Expose the three proxy-ballot lookups that section describes, which remain deliberately unexposed until that disclosure exists. Its correctness prerequisite, cycle prevention, is in place. A related capability belongs here too: allowing a team admin to revoke a right to vote, which the current model grants at membership and never withdraws before expiry.
 
 **The long road — governmental elections.** The six prerequisites of [Section 10.7](#107-what-must-be-true-first-envisioned), in roughly that order of difficulty, with coercion-resistance last because it is hardest and because the other five are worth having regardless of whether the last one is ever achieved. This is a multi-year research and engineering programme, not a backlog. It is also the reason the rest of the system is built the way it is.
 
@@ -789,6 +797,18 @@ The table describes the system **as it runs today**, not a target architecture.
 ## Changelog
 
 This document is versioned, and each version records what changed in it. A whitepaper that quietly revises its own claims is not auditable; one that states when a claim became true, or stopped being true, can be checked against the system it describes.
+
+### Version 0.6
+
+This version corrects claims that had drifted from the code, in the direction the discipline above exists to catch: the document was understating what runs.
+
+**Chapter 10 was described as unexposed. It is not.** Version 0.5 said its mechanics sat "behind an unexposed API" and that nothing in the chapter described what a user could do today. In fact the current release serves `delegateTo`, `removeDelegation`, `getDelegationRequests`, `acceptDelegationRequests` and `delegationCount` as ordinary authenticated GraphQL operations, and a proxy's ballot has been cascading to their delegees in production for as long as those operations have been live. What Tier 3 lacks is an interface and the proxy-privacy disclosure that must accompany one — not an implementation. The chapter preamble, the tier table's status row and the roadmap now say so. Three methods genuinely are unexposed, and [Section 10.4](#104-the-privacy-cost-of-being-a-proxy) already named exactly those.
+
+**Public proxies became real.** [Section 10.3](#103-public-proxies) described declaring oneself a public proxy as though a voter could do it; until now no API could set the flag, so every delegation required explicit acceptance and the auto-accept branch was unreachable. A `becomePublicProxy` mutation now exists, the section carries an **[Implemented]** marker, and the reversibility and disclosure consequences of the role are stated rather than left implicit.
+
+**One tier-table row was wrong about the system.** Cross-poll linkability was recorded as defeated for Polly and for Tier 3 but present "by the operator" for team polls. All three tiers derive their ballot value per poll and all three derive it under one server secret, so the row was drawing a distinction between tiers where the real distinction is between adversaries. It now names the adversary, and a note under the table explains why the answer cannot differ by tier while one key produces every derivation.
+
+**Universal verifiability is stated with its scope.** The published tally is fetched by members of the team whose poll it is, because for a team poll the electorate is the team. The claim was never that a stranger may audit a private group's decisions, but the table cell did not say so.
 
 ### Version 0.5
 
