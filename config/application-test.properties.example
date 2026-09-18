@@ -28,8 +28,11 @@ smallrye.jwt.sign.key=CHANGE_ME
 mp.jwt.verify.publickey=CHANGE_ME
 
 # Fixed tokens the test suite and TestDataCreator authenticate with directly - see
-# LiquidoTestUtils and TestFixtures. Any value works, it just has to be set.
-liquido.dev-login-token=CHANGE_ME
+# LiquidoTestUtils and TestFixtures.
+# dev-login-token is NOT free to choose: PollyTests hardcodes "devLoginTokenTest" as the token it
+# logs in with, so any other value fails devLoginPollyMintsAWorkingSession and
+# devLoginPollyCredentialIdIsTheIdentity with a puzzling NEED_PASSKEY.
+liquido.dev-login-token=devLoginTokenTest
 liquido.test-password-reset-token=CHANGE_ME
 
 # Twilio SMS - dummy values are fine unless a test actually exercises phone login.
