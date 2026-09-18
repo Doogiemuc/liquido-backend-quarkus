@@ -36,7 +36,7 @@
 
 				<tr>
 					<td align="center" style="padding:0 32px 24px 32px;">
-						<span style="font-family:Helvetica, Arial, sans-serif; font-size:13px; color:#959cab;">Sicher und anonym abstimmen</span>
+						<span style="font-family:Helvetica, Arial, sans-serif; font-size:13px; color:#959cab;">Sichere, anonyme, faire und liquide Abstimmungen für alle.</span>
 					</td>
 				</tr>
 
@@ -47,37 +47,65 @@
 							Willkommen, {name}!
 						</h1>
 						<p style="margin:0 0 16px 0; font-family:Helvetica, Arial, sans-serif; font-size:15px; line-height:1.6; color:#3d4451;">
-							Du hast gerade das Team <strong style="color:#1e3a5f;">{teamName}</strong> gegründet. Ab jetzt könnt ihr
-							gemeinsam Entscheidungen treffen &ndash; fair, nachvollziehbar und ohne dass jemand sehen kann, wer wie
-							abgestimmt hat.
+							Du hast in der LIQUIDO App gerade das Team <strong style="color:#1e3a5f;">{teamName}</strong> gegründet. Ab
+							jetzt könnt ihr gemeinsam Entscheidungen treffen &ndash; fair, nachvollziehbar und ohne dass jemand sehen
+							kann, wer wie abgestimmt hat.
 						</p>
 					</td>
 				</tr>
 
+				<!-- Verify email: CTA to confirm the address, only shown while it is still unverified -->
+				{#if verifyUrl}
+				<tr>
+					<td align="center" style="padding:24px 32px 24px 32px;">
+						<table role="presentation" cellpadding="0" cellspacing="0" border="0">
+							<tr>
+								<td align="center" style="background-color:#1e3a5f; border-radius:6px;">
+									<a href="{verifyUrl}"
+									   style="display:inline-block; padding:14px 32px; font-family:Helvetica, Arial, sans-serif; font-size:16px; font-weight:bold; color:#ffffff; text-decoration:none;">
+										E-Mail Adresse bestätigen
+									</a>
+								</td>
+							</tr>
+						</table>
+					</td>
+				</tr>
+				<tr>
+					<td style="padding:0 32px;">
+						<p style="margin:0; font-family:Helvetica, Arial, sans-serif; font-size:14px; line-height:1.6; color:#3d4451;">
+							Bitte bestätige kurz deine E-Mail Adresse, mit einem Klick auf diesen Button. Falls du es nicht schon
+							getan hast, kannst du dann auch noch deinen Passkey (Fingerprint / Face-ID) einrichten, um dich noch
+							einfacher einloggen zu können.
+						</p>
+					</td>
+				</tr>
+				{/if}
+
 				<!-- What makes LIQUIDO different -->
 				<tr>
-					<td style="padding:8px 32px 0 32px;">
+					<td style="padding:28px 32px 0 32px;">
 						<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
 						       style="background-color:#f7f9fc; border:1px solid #e3e8ef; border-radius:8px;">
 							<tr>
 								<td style="padding:20px 24px;">
 									<h2 style="margin:0 0 10px 0; font-family:'Libre Baskerville', Georgia, serif; font-size:16px; color:#1e3a5f; font-weight:bold;">
-										Warum LIQUIDO anders abstimmt
+										Vorschläge sortieren
 									</h2>
 									<p style="margin:0 0 12px 0; font-family:Helvetica, Arial, sans-serif; font-size:14px; line-height:1.6; color:#3d4451;">
-										In LIQUIDO stimmst du nicht nur für <em>einen</em> Vorschlag. Du bringst die Vorschläge, die du
-										unterstützen möchtest, in eine <strong>Rangfolge</strong> &ndash; dein Favorit ganz oben.
-										Vorschläge, die du nicht unterstützen möchtest, lässt du einfach weg.
+										In LIQUIDO stimmst du nicht nur für <em>einen</em> Vorschlag, sondern du bringst die Vorschläge,
+										die du unterstützen möchtest, in eine <strong>Rangfolge</strong> auf deinem Stimmzettel.
+										Vorschläge, die du nicht unterstützen möchtest, kannst du einfach weg lassen.
 									</p>
 									<p style="margin:0 0 12px 0; font-family:Helvetica, Arial, sans-serif; font-size:14px; line-height:1.6; color:#3d4451;">
 										Ausgezählt wird dann nach <strong>Ranked Pairs</strong>: LIQUIDO vergleicht jeden Vorschlag
 										einzeln mit jedem anderen und schaut, welcher von beiden der Mehrheit lieber ist. Aus all diesen
-										Duellen entsteht der Sieger. Das Ergebnis bildet den Willen eurer Gruppe deutlich besser ab als
-										ein einfaches Kreuz &ndash; und der Vorschlag, mit dem die meisten leben können, gewinnt auch dann,
-										wenn sich die lautesten Lager gegenseitig blockieren.
+										Duellen entsteht der Gesamtsieger. Das Ergebnis bildet den Willen eurer Gruppe deutlich besser
+										ab als ein einfaches Kreuz &ndash; und der Vorschlag, mit dem die meisten leben können, gewinnt
+										auch dann, wenn sich die lautesten Lager gegenseitig blockieren.
 									</p>
 									<p style="margin:0; font-family:Helvetica, Arial, sans-serif; font-size:14px; line-height:1.6; color:#3d4451;">
-										Deine Stimme ist dabei sicher und anonym. Niemand kann zurückverfolgen, wie du abgestimmt hast.
+										Jede Stimme ist dabei absolut sicher und anonym. Niemand kann zurückverfolgen, wie du
+										abgestimmt hast.
 									</p>
 								</td>
 							</tr>
@@ -92,21 +120,18 @@
 							Lade dein Team ein
 						</h2>
 						<p style="margin:0 0 12px 0; font-family:Helvetica, Arial, sans-serif; font-size:14px; line-height:1.6; color:#3d4451;">
-							Ein Team mit nur einer Person stimmt schlecht ab. :-) Leite diesen Link an alle weiter, die
-							mitmachen sollen:
+							Mit diesem Link kannst du Freunde in dein Team einladen. Teile diesen Link einfach an alle die
+							mitmachen wollen:
 						</p>
-						<p style="margin:0 0 8px 0; padding:12px 16px; background-color:#f7f9fc; border:1px dashed #c9d2e0; border-radius:6px; font-family:Helvetica, Arial, sans-serif; font-size:13px; line-height:1.5; word-break:break-all;">
+						<p style="margin:0; padding:12px 16px; background-color:#f7f9fc; border:1px dashed #c9d2e0; border-radius:6px; font-family:Helvetica, Arial, sans-serif; font-size:13px; line-height:1.5; word-break:break-all;">
 							<a href="{inviteUrl}" style="color:#1e3a5f; text-decoration:none;">{inviteUrl}</a>
-						</p>
-						<p style="margin:0; font-family:Helvetica, Arial, sans-serif; font-size:13px; line-height:1.5; color:#959cab;">
-							Wer darauf klickt, landet direkt bei <strong>{teamName}</strong> und muss sich nur noch einen Spitznamen geben.
 						</p>
 					</td>
 				</tr>
 
 				<!-- CTA -->
 				<tr>
-					<td align="center" style="padding:32px 32px 8px 32px;">
+					<td align="center" style="padding:32px 32px 32px 32px;">
 						<table role="presentation" cellpadding="0" cellspacing="0" border="0">
 							<tr>
 								<td align="center" style="background-color:#1e3a5f; border-radius:6px;">
@@ -117,14 +142,6 @@
 								</td>
 							</tr>
 						</table>
-					</td>
-				</tr>
-
-				<tr>
-					<td align="center" style="padding:0 32px 32px 32px;">
-						<p style="margin:0; font-family:Helvetica, Arial, sans-serif; font-size:13px; line-height:1.5; color:#959cab;">
-							Du meldest dich wie gewohnt mit deiner E-Mail und deinem Passwort an.
-						</p>
 					</td>
 				</tr>
 
@@ -143,15 +160,5 @@
 	</tr>
 </table>
 
-{#if verifyUrl}
-		<h2>Bitte bestätige deine E-Mail-Adresse</h2>
-		<p>
-			Klicke einmal auf diesen Link, damit wir wissen, dass diese Adresse wirklich dir gehört:
-		</p>
-		<p><a href="{verifyUrl}">E-Mail-Adresse bestätigen</a></p>
-		<p>
-			Das ist freiwillig &ndash; du kannst LIQUIDO auch ohne Bestätigung ganz normal benutzen.
-		</p>
-{/if}
 </body>
 </html>
