@@ -64,6 +64,17 @@ public class PollEntity extends LiquidoBaseEntity {
 		 Do not simply add to this Set. Instead, use PollService.addProposal(...)
 	*/
 	@OneToMany(cascade = CascadeType.ALL, mappedBy="poll", fetch = FetchType.EAGER) //, orphanRemoval = true/false ?? Should a proposals be removed when the poll is deleted? => NO. Liquido Proposals may join other polls ...
+	/*
+	 * Ordered by id, which is the order they were added in - NOT the HashSet's iteration order.
+	 *
+	 * Without @OrderBy this is a plain HashSet, so the order depends on ProposalEntity.hashCode() -
+	 * which is @EqualsAndHashCode(of={"title","status"}) and therefore CHANGES when finishVotingPhase()
+	 * rewrites every status to LOST/LAW. The list a voter sorts on the ballot, the proposals on the
+	 * poll page and the rows in the editor all reshuffled between requests, and again when the poll
+	 * changed phase. PollService.calcWinnerOfPoll() already sorts the duel matrix axes by id for
+	 * exactly this reason; this makes what the user sees agree with that instead of being arbitrary.
+	 */
+	@OrderBy("id")
 	Set<ProposalEntity> proposals = new HashSet<>();
 
 	// Some older notes, when proposals still was a SortedSet.  Not relevant anymore, but still very interesting reads!
