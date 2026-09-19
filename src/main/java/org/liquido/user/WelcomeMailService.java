@@ -120,7 +120,7 @@ public class WelcomeMailService {
 				? "Willkommen bei LIQUIDO - dein Team " + teamName + " ist da"
 				: "Willkommen bei LIQUIDO - du bist jetzt im Team " + teamName;
 
-		log.info("Sending welcome mail ({}) to {}", isAdmin ? "admin" : "member", email);
+		log.info("Sending welcome mail to {}", isAdmin ? "admin" : "member");
 		return mail.to(email)
 				.subject(subject)
 				.from(config.mailFrom())
