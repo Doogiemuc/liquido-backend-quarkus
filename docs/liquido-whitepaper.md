@@ -104,8 +104,6 @@ Liquid Democracy is a dynamic proxy voting architecture in which every eligible 
 
 A voter who delegates does not surrender their ballot; they nominate someone to cast it on their behalf until they take it back. The proxy then votes once, and that single act counts once for the proxy and once for every voter who has delegated to them. 
 
-Unlike formal elections in representative systems, becoming a delegate requires no costly campaign, party approval, or minimum electoral threshold. Any participant can serve as a proxy.
-
 Formally, representative democracy is the point in the space where every voter delegates all topics to a single proxy for a fixed term, and direct democracy is the point where nobody delegates at all. Both are corners of the same space. Liquid democracy does not *replace* direct or representative democracy. It *contains* them. It is the space itself.
 
 ### 3.3 How Liquid Democracy mitigates the above challenges
@@ -113,6 +111,7 @@ Formally, representative democracy is the point in the space where every voter d
 Liquid Democracy bridges this dichotomy by introducing fluid, dynamic representation:
 
 - **Mitigating Voter Fatigue**: Citizens delegate their votes on topics where they lack time or expertise, reducing cognitive overhead.
+- **Cheap**: Unlike formal elections in representative systems, becoming a delegate requires no costly campaign, party approval, or minimum electoral threshold. Any participant can serve as a proxy.
 - **Eliminating the “Missing Control”**: Voters are never locked into a multi-year mandate. Because delegation can be revoked instantly or overridden on any single issue, representatives and proxies face continuous, real-time accountability.
 - **Optimizing Expertise (Epistemic Efficiency)**: By enabling domain-specific transitive delegations, vote weight naturally flows toward trusted domain experts, increasing the competence of the decision-making body without stripping individual voters of their rights.
 
@@ -120,14 +119,14 @@ None of this obliges anyone to participate. There is no penalty for delegating, 
 
 ### 3.4 Delegation to a proxy
 
-A delegation in Liquid Democracy has the following properties:
+In Liquid Democracy a voter can delegate his voting power, his right to vote to another voter who then becomes his "proxy". This delegation has the following properties:
 
-- **Direct Override**: Voters retains absolute sovereignty over their vote. When a voters disagrees with their delegate’s vote on a specific issue, or simply wishes to participate directly in a specific poll, then the voter can **always** cast a direct ballot. Even after the proxy has already voted for them. Then the direct ballot automatically **overrides the proxies vote** for that specific poll.
+- **Direct Override**: Voters retain absolute sovereignty over their vote. When a voter disagrees with their delegate’s vote on a specific issue, or simply wishes to participate directly in a specific poll, then the voter can **always** cast a direct ballot. Even after the proxy has already voted for them. Then the voter's own direct ballot automatically overrides the proxies' for that specific poll.
 - **Granular and Domain-Specific Delegation**: Voters can assign delegates based on topic expertise (e.g., delegating environmental policy to expert $X$ and economic policy to expert $Y$).
-- **Time-sensitive Delegation** Voters can decide to divest their vote only for a certain period of time or delegations need to be re-confirmed regularly.
+- **Time-sensitive Delegation** Voters can decide to divest their vote only for a certain period of time. It's also possible to implement that delegations need to be re-confirmed regularly.
 - **Revocation**: A delegation **can be revoked at any time.** It can also be reassigned to another proxy at any time. This dynamic is the most important, newly introduced concept by Liquid Democracy. 
 - **Transitive**: Delegations are transitive across a directed graph. A proxy may in turn decide to delegate his (accumulated) right to votes to another upper proxy. 
-- **Acyclic**: A delegation may not close a cycle. Every chain has to end at a voter who has not delegated, because that is the only person in it who can actually cast the accumulated vote. A cycle has no such voter: its delegations point only at each other and never reach anybody who will decide, so the delegated power is simply never exercised. A voter therefore cannot delegate to somebody who already delegates, directly or transitively, to him.
+- **Acyclic**: A delegation may not close a cycle. Every chain has to end at a voter who has not delegated, because that is the only person in it who can actually cast the accumulated vote. A voter therefore cannot delegate to somebody who already delegates, directly or transitively, to him.
 
 Together these make a delegation provisional rather than a transfer. It is a default that holds only for as long as the voter leaves it in place, and because delegations can be granted and withdrawn continuously, the resulting graph is never at rest. Hence *liquid*.
 
@@ -186,9 +185,9 @@ When a proxy casts a ballot, a ballot is created for each delegee carrying the p
 1. **Ballot secrecy** says a delegee should not learn how any other voter voted — his own proxy included.
 2. **Individual verifiability** says a voter must be able to check the ballot that was counted for him — and that ballot carries exactly that ranking.
 
-It is worth being exact about where this bites, because it is not the same for everybody. A voter who casts in person cannot have one without the other: checking that a ballot was recorded *as cast* means comparing it against what he submitted. A delegee is differently placed. He submitted nothing. A system could tell him only that a ballot exists for him, placed by his proxy, and withhold the ranking — and that would still verify the one act he actually performed, which was delegating. So the two can be separated for a delegee. Whether they should be is a decision, not a consequence.
+It is worth being exact about where this bites, because it is not the same for everybody. A voter who casts in person cannot have one without the other: checking that a ballot was recorded *as cast* means comparing it against what he submitted. A delegee is differently placed. He submitted nothing. A system could theoretically tell him only that a ballot exists for him, placed by his proxy, and withhold the ranking — and that would still verify the one act he actually performed, which was delegating. So the two could be separated for a delegee. Whether they should be is a decision, not a consequence.
 
-The decision taken here is that they should not be. **Every voter can check his own vote, and this does not weaken when somebody else casts it.** A voter who has handed his voting power to another person has the strongest claim of anyone to see what was done with it; telling him only that *something* was done in his name verifies the bookkeeping rather than the vote. So a delegee reads his own ballot in full, and thereby learns how his effective proxy voted. (Whether he should also see *who* that proxy was is a separate question, taken up in [Section 3.9](#39-privacy-of-the-delegation-tree).)
+The decision taken here is that they should not be. **Every voter can check his own vote, and this does not weaken when somebody else casts it.** A voter who has handed his voting power to another person has the strongest claim of anyone to see what was done with it; telling him only that *something* was done in his name verifies the bookkeeping rather than the vote. So a delegee reads his own ballot in full, and thereby learns **how** his effective proxy voted. (Whether he should also see *who* that proxy was is a separate question, taken up in [Section 3.9](#39-privacy-of-the-delegation-tree).)
 
 That decision has a price, and it falls on the proxy rather than on the delegee: accepting a delegation costs a proxy the secrecy of his own ballot toward everyone below him, and nothing restores it. What can be done is to make the loss deliberate rather than accidental.
 
@@ -199,7 +198,10 @@ That decision has a price, and it falls on the proxy rather than on the delegee:
 A very similar issue as down the delegation tree from the previous chapter arisis upwards along the delegation chain. When a voter decides to delegate his vote to a proxy, he does not only trust the proxy to vote for him, but he also trusts the proxy that he might in turn delegate both their (collected) votes further upwards. Maybe to someone he doesn’t even know.
 
 A voter may designate a delegation as **non-transitive**, thereby restricting the designated proxy from further propagating that delegation to another proxy. Consequently, a proxy may hold two distinct classes of delegated voting rights: **transitive delegations**, which may be forwarded further upstream, and **non-transitive delegations**, which may be exercised only by the proxy itself.
-This distinction introduces a subtle issue in the voting protocol. An intermediate proxy may incorrectly assume that no action is required once an upstream proxy has cast a vote on its behalf. However, the intermediate proxy must still cast a vote independently in order to establish a ballot for any downstream non-transitive delegations. This remains necessary even when the intermediate proxy intends to cast the same vote as the upstream proxy.
+
+This distinction introduces a subtle issue in the voting protocol. When voters non-transitively delegate their vote to a proxy, they would expect that their direct proxy now votes for them. But when this direct proxy now in turn decides to delegate, then he becomes an intermediate proxy and may incorrectly assume that no action is required once an upstream proxy has cast a vote on its behalf. However, the intermediate proxy must still cast a vote independently in order to establish a ballot for any downstream non-transitive delegations. This remains necessary even when the intermediate proxy intends to cast the same vote as the upstream proxy. Otherwise the votes of the downstream voters would not be casted.
+
+Therefore in Liquid Democracy delegations are always transitive.
 
 ### 3.9 Privacy of the delegation tree
 
@@ -207,11 +209,13 @@ Which parts of the delegation tree should be visible for whom?
 
 | **Entity** | **Visible to whom** |
 |---|---|
-| Direct Proxy | Is known to the voter who delegated. He knows his direct proxy anyway |
+| Direct Proxy | Is known to the voter who delegated, because they chose it. |
 | Top Proxy | May be shown to a voter. |
-| Effective Proxy (per poll) | A voter already can see how his effective proxy voted. It would make sense to also show who voted for him. Especially if its not his direct proxy. |
-| The full delegation chain of a voter | Questionable. One migth consider this a privacy issue for proxies along the chain |
-| The full tree of all delegations |  Should remain private. Publishing it creates bias. And possible also supports larger proxies that they would receive even more delegations. | 
+| Effective Proxy (per poll) | A voter already can see how his effective proxy voted. It would make sense to also show **who** voted for them. Especially if its not the direct proxy. |
+| The subtree of voters that delegate to one proxy | The list of individual names must not be public. Only the sum of all voters that transitively delegate to a proxy should be shown. |
+| The upwards delegation chain from one specific voter to their top proxy | Questionable. One migth consider this a privacy issue for proxies along the chain. |
+| The full tree of all delegations | Should remain private. Publishing it creates bias. And possible also supports larger proxies that they would receive even more delegations. | 
+| The largest N proxies or proxies with more than M delegations | Only makes sense in larger voting communities. But also then this supports large proxies. Proxies could advertise that they are 'large', as parties do in representative democracies. But then proxies need a way to prove the number of their collected delegations in the system. |
 
 ### 3.10 Criticism of Liquid Democracy
 
@@ -223,13 +227,13 @@ What follows are the objections that survive once that assumption is removed: co
 
 **Delegation destroys the independence its own epistemic case requires.** [Section 3.1](#31-literature-overview-and-historical-context) invoked Condorcet's Jury Theorem, which holds only if voters judge independently of one another. Delegation attacks that premise by construction. A hundred voters behind one proxy do not contribute a hundred judgements; they contribute one judgement counted a hundred times. Kahng, Mackenzie and Procaccia (2021) show that liquid democracy can be *less* accurate at recovering a ground truth than everyone simply voting for themselves, and that no delegation rule using only local information can guarantee otherwise. The expertise routing claimed in [Section 3.3](#33-how-liquid-democracy-mitigates-the-above-challenges) is a possible outcome of the mechanism, not a property of it — and the better a proxy is at attracting delegations, the weaker the statistical argument for trusting the result becomes.
 
-**A proxy has no ballot secrecy.** [Section 3.7](#37-should-a-voter-see-how-his-proxy-voted) showed that this cannot be avoided: a delegee who can check his own ballot thereby learns his proxy's ranking. Every other arrangement in this document can offer a secret ballot to every participant. Liquid democracy cannot offer one to anybody who accepts a delegation. A system in which taking responsibility is paid for in privacy may select for the people least troubled by being watched, which is not the same as selecting for the people best suited to decide.
+**A proxy has no ballot secrecy.** [Section 3.7](#37-should-a-voter-see-how-his-proxy-voted) showed that this cannot be avoided: a delegee who can check his own ballot thereby learns his proxy's ranking. Liquid democracy cannot offer ballot secrecy to anybody who accepts a delegation. A system in which taking responsibility is paid for in privacy may select for the people least troubled by being watched, which is not the same as selecting for the people best suited to decide.
 
 **Concentration makes coercion cheap.** The previous point is about privacy; this one is about what an adversary does with it. Buying or coercing an electorate is expensive because it has to be done retail. Delegation opens a wholesale market: a proxy holding ten thousand delegations is a single point at which ten thousand votes can be bought — and, because his ballot is readable by everyone below him, a single point at which the buyer can *verify* the purchase. Kling, Kunegis, Hartmann, Strohmaier and Staab (2015) found that concentration of this order does occur in practice, in the German Pirate Party's use of LiquidFeedback. That it occurs is not by itself the objection. The objection is that when it does, the coercion-resistance discussed in [Part III](#part-iii--the-limits-of-this-approach) is defeated at a handful of nodes rather than across a population.
 
 **Revocability is exit, not voice.** A parliamentarian sits inside institutions: a public record of how they voted, a chamber in which they must argue, an opposition, a press that reports on a known list of office holders. A proxy has none of that. Blum and Zuber (2016) argue that instant revocability, offered as the stronger form of accountability, is in fact a different and thinner one. A voter can leave his proxy, but he has no standing to make that proxy explain himself, and a delegation withdrawn in silence produces no public argument at all. Liquid democracy increases an individual's control over his own vote while removing the forum in which collective reasoning used to happen.
 
-None of these is a demonstration that liquid democracy fails, and none of them has been answered either. They are the open questions, and the arrangement should be judged on what it does about them in practice rather than on what its definition promises. One thing it certainly does not do is escape the impossibility results of social choice theory ([Section 5.3](#53-what-no-voting-rule-can-do)): liquid democracy changes *who* casts a ballot, not *what a ballot can express*.
+None of these is a demonstration that liquid democracy fails, and none of them has been answered either. They are the open questions, and the arrangement should be judged on what it does about them in practice rather than on what its definition promises. One thing it certainly does not do is escape the impossibility results of social choice theory ([Section 5.3](#53-what-no-voting-rule-can-do)): liquid democracy changes *who* casts a ballot, not *what a ballot can express*. The latter is discussed in the next chapter:
 
 ---
 
@@ -243,21 +247,36 @@ Most [electoral systems](https://en.wikipedia.org/wiki/Electoral_system) ask for
 
 A ranked ballot is also what makes delegation meaningful. A proxy who inherits a single cross expresses one bit on behalf of their delegees; a proxy who inherits a ranking expresses a *preference structure*, and a delegee reading it back can see not only which proposal won their vote but how the alternatives were ordered beneath it. 
 
-The reason for ranking at all is Condorcet's. In his *Essai sur l'application de l'analyse à la probabilité des décisions rendues à la pluralité des voix* (1785), Condorcet observed that plurality voting can elect an option that a majority would have rejected in a head-to-head comparison against another candidate. A ranked ballot contains enough information to detect this: from the individual orderings one can construct the **pairwise duel matrix**, counting for each pair of proposals how many voters preferred one to the other.
+The reason for ranking at all dates back to Nicolas de Condorcet. In his *Essai sur l'application de l'analyse à la probabilité des décisions rendues à la pluralité des voix* (1785), Condorcet observed that plurality voting can elect an option that a majority would have rejected in a head-to-head comparison against another candidate. A ranked ballot contains enough information to detect this: from the individual orderings one can construct the **pairwise duel matrix**, counting for each pair of proposals how many voters preferred one to the other.
 
 If some option beats every other option in a pairwise duel, it is the **Condorcet winner**, and there is a strong argument that it should win. The complication is that pairwise majorities can create a cycle: A beats B, B beats C, and C beats A. Like in the stone-paper-scissors game. A voting rule must specify what to do then.
 
 ### 4.1  Nicolaus Tideman’s Ranked Pairs Algorithm (1987)
 
-**Ranked Pairs** (Tideman, *Independence of clones as a criterion for voting rules*, 1987) answers it. The algorithm first calculates all pairwise comparissons in a duel matrix, then sorts all pairwise victories by strength, then locks them in one at a time from strongest to weakest, skipping any victory that would create a cycle with those already locked. The result is an acyclic ordering whose source is the winner. 
+**Ranked Pairs** (Tideman, *Independence of clones as a criterion for voting rules*, 1987) answers it. The algorithm runs in four steps:
 
-**Properties of the Ranked Pairs Algorithm**
+1. **TALLY**: Count every pairwise comparison of proposals (or candidates) accross all ballots. For each pair $A,B$, record how many ballots prefere $A$ over $B$?
+2. **SORT**: List all pairwise victories $A>B$ and sort them from strongest to weakest according to the chosen strength measure (see below).
+3. **LOCK IN**: Process the victories in that order. Add an edge $A -> B$ to a directed graph unless doing so would create a directed cycle. If it would create a cycle, skip that victory.
+4. **WINNERS**: The winner is the candidate at the root of the resulting acyclic directed graph—that is, the candidate with no incoming locked edge. If more than one candidate has no incoming edge, then there is no unique winner.
+
+**Properties of the Ranked Pairs Algorithm in Voting Theory**
 
 - **Condorcet Consistency**: If a Condorcet winner, that beats every other cancidate in a pairwise comparison, exists, then it will be elected.
 - **Independence of Clones**: Introducing multiple near-identical alternatives cannot artificially alter the outcome by splitting the preferences for an existing alternative.
 - **Monotonicity**: Increasing a winning candidate’s position on any voter’s ballot cannot cause that candidate to lose.
 
-### 4.2 Multiple winners
+### 4.2 Which Victories Count as Stronger
+
+Ranked Pairs requires a measure of victory strength to determine which pairwise preferences take precedence when resolving a cycle. Two established measures are commonly used:
+
+- **Winning votes:** the number of voters preferring the winner.
+- **Winning margin:** the difference between votes for the winner and the loser.
+
+With complete ballots, when every voter has to rank all candidates, both measures produce **exactly the same ordering** of victories. With partial ballots, when a voter may only sort some candidates into his ballit however, they may differ.
+This distinction **matters only when the pairwise preferences would create a cycle**. If no cycle exists, all victories can be locked without conflict, and the choice of strength measure cannot affect the result. The two measures therefore represent alternative policies for the exceptional case in which a cycle must be resolved.
+
+### 4.3 Multiple winners
 
 Locking in pairwise victories builds a directed graph: an edge from winner to loser for every victory that did not close a cycle. The winner of the poll is that graph's **source** — the proposal with no incoming edge. Nothing in the procedure guarantees there is only one.
 
@@ -265,20 +284,12 @@ A second source appears whenever two proposals are never joined by a locked-in e
 
 This is a genuine tie, not a defect in the count. A Condorcet method is only obliged to report what the pairwise votes actually establish, and here they establish that two outcomes are equally supported. Resolving it further requires a rule the method itself does not supply.
 
+If just one more ballot is cast that *does* express a preference between these two winners, then the result is unique. So this case becomes more and more improbable as more votes are cast.
 
-### 4.3 Which Victories Count as Stronger
-
-Ranked Pairs requires a measure of victory strength to determine which pairwise preferences take precedence when resolving a cycle. Two established measures are commonly used:
-
-- **Winning votes:** the number of voters preferring the winner.
-- **Winning margin:** the difference between votes for the winner and the loser.
-
-With complete ballots, when every voter has to rank all candidates, both measures produce exactly the same ordering of victories. With partial ballots, when a voter may only sort some candidates into his ballit however, they may differ.
-This distinction matters **only when the pairwise preferences would create a cycle**. If no cycle exists, all victories can be locked without conflict, and the choice of strength measure cannot affect the result. The two measures therefore represent alternative policies for the exceptional case in which a cycle must be resolved.
 
 ---
 
-# Part III — The Limits of This Approach
+# Part III — The Limits of Preferential Voting
 
 ## 5. The limits of this approach
 
@@ -296,7 +307,7 @@ This is not an engineering oversight that a better implementation would fix. It 
 
 Helios (Adida, 2008) made the opposite choice explicitly: it offers strong verifiability and openly states that it is *not* coercion-resistant, on the grounds that it targets settings — professional societies, university elections, clubs — where coercion is not the dominant threat.
 
-**The three LIQUIDO tears anser this in different ways.**
+**The three LIQUIDO tears answer this in different ways.**
 
 Which way a given system should resolve this depends entirely on the setting it serves. A group deciding where to hold its offsite is not a national election: there, the ability to confirm one's own ballot is worth more than protection against a coercer who has easier avenues anyway. An election whose outcome binds a population is the opposite case — coercion and vote-buying are the dominant threats, and the electorate contains people who can be leaned on by an employer, a spouse, a party or a buyer. A system aiming at that setting must *acquire* coercion-resistance rather than trade it away, without surrendering the verifiability that makes a result trustworthy. [Section 7.4](#74-what-liquido-does-about-the-limits-of-part-i) states where LIQUIDO stands on this, and [Section 10.7](#107-what-must-be-true-first-envisioned) what the harder case would require.
 
@@ -309,20 +320,20 @@ There is a distinction that marketing language tends to blur, and that this whit
 
 The distinction matters because a system may be anonymous against one adversary and merely pseudonymous against another, and an honest claim must name the adversary it is made against. Achieving anonymity against the party that holds the keys requires either threshold cryptography with distributed key holders, or a verifiable mix network. [Section 7.4](#74-what-liquido-does-about-the-limits-of-part-i) states which of the two descriptions applies to LIQUIDO today, and against whom; [Section 11.3](#113-who-can-learn-what) sets out precisely who can learn what.
 
-### 5.3 What no voting rule can do
+### 5.3 What no voting system can do
 
 The ranked ballot of [Chapter 4](#4-ranking-proposals-instead-of-choosing-only-one-alternative) is a better instrument than a single cross, but it is not an escape from social choice theory. Two results bound what any rule built on it can achieve, and they bound Ranked Pairs exactly as they bound everything else.
 
-**Arrow’s impossibility theorem** (1951) establishes a fundamental limitation of ranked voting systems. It considers any rule that takes the individual rankings of three or more alternatives and produces a collective ranking. Arrow proved that no such rule can simultaneously satisfy the following four conditions:
+**Arrow’s impossibility theorem** (1951) establishes a fundamental limitation of ranked voting systems. It considers any algorithm that takes the individual rankings of three or more alternatives and produces a collective ranking. Arrow proved that no such algorithm can simultaneously satisfy the following four conditions:
 
-1. **Unrestricted domain** — the rule must work for any combination of individual rankings. Voters may rank the options however they like, and the rule must return a result.
+1. **Unrestricted domain** — the algorithm must work for any combination of individual rankings. Voters may rank the options however they like, and the algorithm must return a result.
 2. **Non-dictatorship** — no single voter's preferences decide the collective ranking regardless of what everyone else submitted.
 3. **Pareto efficiency** — if every voter prefers A to B, the collective ranking must place A above B.
 4. **Independence of irrelevant alternatives (IIA)** — whether the collective ranking puts A above B depends only on how voters ranked A against B, and not on where any of them placed some third option C.
 
-Arrow proved that any rule satisfying 1, 3 and 4 must violate 2: it must be a dictatorship. Equivalently, no non-dictatorial rule satisfies Pareto and IIA together.
+Arrow proved that any algorithm satisfying 1, 3 and 4 must violate 2: it must be a dictatorship. Equivalently, no non-dictatorial algorithm can satisfy Pareto(3) and IIA(4) together.
 
-The first three conditions are ones no serious voting rule would give up, which is why **IIA is where every rule breaks** — and Ranked Pairs is no exception. In Ranked Pairs the violation is not subtle and not hidden: it is the cycle-breaking step of [Section 4.3](#43-which-victories-count-as-stronger). Whether a pairwise victory is skipped depends on which victories were already locked in, which is to say on how voters ranked options *other than* the two being compared. A and B can therefore change places in the final ordering because voters changed their minds about C. Plurality, Borda and instant-runoff violate IIA too, by different routes.
+The first three conditions are the ones that no serious voting rule would give up, which is why **Indipendance of irrelevant alternatives (IAA) is where every rule breaks** — and Ranked Pairs is no exception. In Ranked Pairs the violation is not subtle and not hidden: it is the cycle-breaking step of [Section 4.3](#43-which-victories-count-as-stronger). Whether a pairwise victory is skipped depends on which victories were already locked in, which is to say on how voters ranked options *other than* the two being compared. A and B can therefore change places in the final ordering because voters changed their minds about C. Plurality, Borda and instant-runoff violate IIA too, by different routes.
 
 That is not an implementation defect any of them could repair. It is the price of insisting that the output be a consistent ranking at all — the same insistence that forces the cycle-breaking in the first place. Ranked Pairs is therefore a defensible compromise, not an optimum, and any claim that some future rule will be strictly better on every axis is a claim Arrow has already refuted.
 
@@ -377,7 +388,7 @@ A reader who wants to know only what a LIQUIDO *user* can do today should read C
 
 [Part I](#part-i--foundations-of-democratic-voting) set out what a ballot must guarantee, which of those guarantees are mutually incompatible, and what no voting rule can deliver at all. This chapter turns that background into a set of concrete decisions. Everything here applies to all three tiers; the chapters that follow show each tier applying them at a different point on the trade-off surface.
 
-### 7.1 A ranked ballot, counted by Ranked Pairs
+### 7.1 Partially ranked ballots, counted by Ranked Pairs
 
 LIQUIDO asks the voter to **sort the proposals into their preferred order**, and permits **partial ballots**: a voter ranks only the options they have an opinion about and leaves the rest unordered. An unranked proposal is treated as ranked below every proposal that voter did rank, while the unranked remain neutral among themselves.
 
