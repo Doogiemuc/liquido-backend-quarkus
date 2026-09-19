@@ -45,7 +45,11 @@ fills the DB with test data.
 The first time you run `TestDataCreator` you must drop-and-create the database as described above! All
 future tests can then rely on this set of fixed test data.
 
-//MAYBE: implement a maven pre-test-execution
+    QUARKUS_DATASOURCE_JDBC_URL="jdbc:postgresql://localhost:5432/liquido-int" \
+    QUARKUS_HIBERNATE_ORM_SCHEMA_MANAGEMENT_STRATEGY=drop-and-create \
+    QUARKUS_HIBERNATE_ORM_DATABASE_GENERATION=drop-and-create \
+    LIQUIDO_HASH_SECRET="$LIQUIDO_HASH_SECRET" \
+    timeout 900 ./mvnw -B test -Dmaven.surefire.includedGroups=testDataCreator -Dmaven.surefire.excludedGroups=""
 
 # Security
 
