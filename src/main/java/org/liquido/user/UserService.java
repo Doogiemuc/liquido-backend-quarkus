@@ -1,7 +1,9 @@
 package org.liquido.user;
 
 import io.quarkus.mailer.Mail;
+import io.quarkus.mailer.MailTemplate;
 import io.quarkus.mailer.Mailer;
+import io.quarkus.qute.CheckedTemplate;
 import io.quarkus.runtime.LaunchMode;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -33,6 +35,16 @@ public class UserService {
 	JwtTokenUtils jwtTokenUtils;
 
 	/**
+	 * Qute mail template. Resolves to BOTH templates/PasswordReset/resetPassword.html and .txt, which
+	 * become the HTML and plain-text parts of a multipart mail. Same styling as the WelcomeMails
+	 * templates in {@link WelcomeMailService}.
+	 */
+	@CheckedTemplate(basePath = "PasswordReset")
+	static class Templates {
+		static native MailTemplate.MailTemplateInstance resetPassword(String name, String resetBaseUrl, String email, String resetToken);
+	}
+
+	/**
 	 * Password Reset - Step 1
 	 * Create a one time token for this user.
 	 * Send a mail with a link to reset password. The link contains the OTT and is only valid once!
@@ -56,25 +68,19 @@ public class UserService {
 		// Create a one time token that allows to reset user's password exactly once.
 		PasswordResetToken ott = PasswordResetToken.build(UUID.randomUUID().toString(), user, config.loginLinkExpirationMinutes());
 
-		// This link is parsed in a cypress test case. You must also update that test if you change this.
-		String resetPasswordLink = "<a id='resetPasswordLink' style='font-size: 20pt;' href='" + config.frontendUrl() + "/resetPassword?email=" + user.getEmail() + "&resetPasswordToken=" + ott.getNonce() + "'>Reset Password</a>";
-		String body = String.join(
-				System.lineSeparator(),
-				"<html><h1>LIQUIDO - Reset Password</h1>",
-				"<h3>Hello " + user.getName() + "</h3>",
-				"<p>With this link you can reset your password.</p>",
-				"<p>&nbsp;</p>",
-				"<b>" + resetPasswordLink + "</b>",
-				"<p>&nbsp;</p>",
-				"<p>This link can only be used once!</p>",
-				"<p style='color:grey; font-size:10pt;'>You received this email, because you used the reset password function in <a href='https://www.liquido.net'>LIQUIDO</a>.</p>",
-				"</html>"
-		);
+		// The reset link's markup - id before style before href, href last - is parsed by
+		// AuthenticationTests with a regex. You must also update that test if you change it.
+		String resetBaseUrl = config.frontendUrl() + "/resetPassword";
 
 		log.info("sending mail to {}", emailLowerCase);
 		//BUG Reactive clients have problems inside GraphQL queries: https://github.com/quarkusio/quarkus/issues/29141
 		//FIX: is on the way https://github.com/quarkusio/quarkus/pull/54927
-		mailer.send(Mail.withHtml(emailLowerCase, "Reset Password for LIQUIDO", body).setFrom("info@liquido.vote"));
+		Templates.resetPassword(user.getName(), resetBaseUrl, user.getEmail(), ott.getNonce())
+				.to(emailLowerCase)
+				.subject("Reset Password for LIQUIDO")
+				.from(config.mailFrom())
+				.send()
+				.await().indefinitely();
 		log.info("mail sent successfully to {}", emailLowerCase);
 	}
 
