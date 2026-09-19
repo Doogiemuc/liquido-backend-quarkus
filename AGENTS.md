@@ -204,7 +204,7 @@ The voting process in this system is designed to support liquid democracy princi
 
 Consequences, all deliberate trade-offs for speed over textbook test hygiene:
 
-- **Other tests are not atomic or independent.** Many tests (`UseCaseTests`, `AuthenticationTests`, etc.) assume specific pre-existing data this method creates: a team named `testTeam4711`, an admin `testadmin4711@liquido.vote`, a fixed set of members, polls in various states (ELABORATION, VOTING, FINISHED). This is intentional — re-deriving that whole scenario per test would be much slower. If you add a test that needs its own team, do **not** assume you can just call `TestDataCreator.createTestData()` again or reuse `LiquidoTestUtils.createTeam()` a second time: that helper hardcodes a mobile-phone number tied to the fixed seed constants and will collide. Use `LiquidoTestUtils.createFreshTeam(prefix)` instead (timestamp-based, safe to call any number of times) if a test needs an isolated team rather than the shared seeded one.
+- **Other tests are not atomic or independent.** Many tests (`UseCaseTests`, `AuthenticationTests`, etc.) assume specific pre-existing data this method creates: a seed team found by PREFIX via `util.getSeedTeam()` (its name is `testTeam<millis>`, so it must never be looked up by an exact constant), its admin via `util.getSeedAdmin()`, a fixed set of members, polls in various states (ELABORATION, VOTING, FINISHED). This is intentional — re-deriving that whole scenario per test would be much slower. If you add a test that needs its own team, do **not** assume you can just call `TestDataCreator.createTestData()` again or reuse `LiquidoTestUtils.createTeam()` a second time: that helper hardcodes a mobile-phone number tied to the fixed seed constants and will collide. Use `LiquidoTestUtils.createFreshTeam(prefix)` instead (timestamp-based, safe to call any number of times) if a test needs an isolated team rather than the shared seeded one.
 - **`TeamEntity.members` is an unordered `java.util.HashSet`.** Never assume `team.getMembers().stream().toList().get(0)` is "the admin" or "the first member" — use explicit role/email filters (see `proxyCastsVoteForVoter` for the pattern), or better, use a dedicated fresh team so ordering doesn't matter at all.
 - **`@TestTransaction` does not roll back HTTP-triggered mutations.** Tests call the running server over real HTTP (RestAssured against `localhost:8081`), which runs on its own thread/transaction and commits independently of the test method's own `@TestTransaction` wrapper. That annotation only rolls back the test method's *own direct* Panache calls. Practical fallout: (a) any test that adds members/polls/delegations to the **shared seeded team** via an HTTP call leaves that data behind permanently for every later test in the same run — prefer an isolated fresh team instead; (b) if a test needs to directly persist something via JPA (e.g. `RightToVoteEntity.setPublicProxy(...)`) *and then* make an HTTP call that must see that change, the direct write must be committed in its own transaction first (`io.quarkus.narayana.jta.QuarkusTransaction.requiringNew().run(...)`), since it would otherwise still be uncommitted and invisible to the separate HTTP-request transaction.
 - **Precondition changes must be documented and kept in sync.** Since so much depends on this one method's exact output, any change to `createTestData()` (new poll, changed proposal count, etc.) can silently break unrelated tests elsewhere that count on the old shape. Grep for the specific IDs/emails/titles it creates before changing them.
@@ -280,5 +280,37 @@ happy-path e2e and every `createFreshTeam(prefix)` call leave their teams behind
 - **The same `@OneToOne` bug bit a second time, in `TeamMemberEntity.user` (fixed 2026-08-13).** A user has one `TeamMemberEntity` row *per team*, so it must be `@ManyToOne`. As `@OneToOne` it generated `UNIQUE(user_id)` on `team_members`, capping every user at exactly one team membership system-wide. Joining a *first* team worked, so nothing looked broken; joining a *second* one failed at commit with a raw `ConstraintViolationException` surfaced as an opaque `INTERNAL_ERROR` — pointing at neither the mapping nor the real cause. `findTeamsByMember()` returning `List<TeamEntity>` had always shown the intent; only the annotation disagreed. **When you see `@OneToOne` on a join entity in this codebase, treat it as suspect until proven otherwise** — all three known instances were wrong, and each stayed invisible until the second row was inserted.
 - **And a third time, in `RightToVoteEntity.publicProxy` (2026-09-03).** Harmless while a user held exactly one right to vote; the moment rights to vote became per-team, one user could legitimately be a public proxy in several teams, and `@OneToOne` would have generated `UNIQUE(publicproxy_id)` capping them at one. Caught while making that change *because* this list already recorded the pattern twice — which is the whole reason to write these down.
 - **The GraphQL layer is meant to be a thin adapter.** `PollsGraphQL`, `DelegationGraphQL` etc. should just parse input and delegate to the matching `*Service` class, which owns all the actual invariants. Nearly every security bug found this session was a GraphQL resolver doing its own ad hoc entity lookup instead of calling an already-correct service helper that sat a few lines away.
+### Cleaning up test data
+
+Nothing cleans up automatically, by design: tests ask for fixtures BY NAME, so leftovers are
+structurally irrelevant rather than merely harmless. They do accumulate though — `liquido-int` had
+grown to 71 teams and `LIQUIDO-TEST` to over 800.
+
+`TestDataPurgeSweep` (`@Tag("purgeTestData")`) is the manual, on-demand broom. It is **dry-run by
+default**, refuses any database outside `TestDataPurger.PURGEABLE_DATABASES`, and when actually
+deleting also requires `-Dpurge.confirm=<dbname>` matching the JDBC URL — the target is named twice,
+by two different mechanisms.
+
+```
+# See what WOULD go (deletes nothing):
+QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://localhost:5432/liquido-int \
+  ./mvnw -B test -Dmaven.surefire.includedGroups=purgeTestData -Dmaven.surefire.excludedGroups=""
+
+# Do it:
+QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://localhost:5432/liquido-int \
+  ./mvnw -B test -Dmaven.surefire.includedGroups=purgeTestData -Dmaven.surefire.excludedGroups="" \
+  -Dpurge.dry-run=false -Dpurge.confirm=liquido-int
+```
+
+It removes: teams the e2e suite created (`Cypress *`), seed teams older than the newest 5, polls that
+tests appended to the current seed team, and users left with no membership at all. It does **not**
+touch `createFreshTeam` leftovers — those have no shared prefix, so there is nothing safe to match on.
+
+⚠️ It is deliberately NOT reachable from the product API. Quarkus' `LaunchMode` is `NORMAL` on the
+GISMO deployment — exactly where the residue is — so the guard that protects `devLogin` would disable
+a purge endpoint precisely where it is needed, and the alternative (a config flag) is a destructive
+endpoint one copied properties line away from production. Keeping the sweep in `src/test` means no
+destructive code ships in the deployed artifact at all.
+
 - **No migration tool yet.** Schema is whatever the current entity annotations produce via `drop-and-create`; there's no Flyway baseline. This means an entity-mapping bug (like the `@OneToOne`/`@ManyToOne` one above) can lurk indefinitely in a long-lived database that was never regenerated, and won't surface until someone does a fresh `drop-and-create` or until enough concurrent users hit the hidden constraint.
 - **HQL/JPQL gotcha:** comparing an entity-valued (association) field to `null` with `!=` (e.g. `requestedDelegationFrom != null`) silently matched zero rows in this Hibernate version, even though the same rows are found fine with `is not null`. Prefer `is not null` / `is null` for association fields, not `!=`/`=`.
