@@ -95,10 +95,9 @@ public class AuthenticationTests {
 	 */
 	@Test
 	public void testLoginWithUsernameAndPassword() throws Exception {
-		// GIVEN a random user
-		UserEntity user = UserEntity.findByEmail(TestFixtures.adminEmail).orElseThrow(
-				() -> new Exception("Need user to test login. Cannot find "+TestFixtures.adminEmail)
-		);
+		// GIVEN the seed team's admin, resolved through the team rather than by an email constant -
+		// the seed admin's email carries the timestamp of the run that seeded it.
+		UserEntity user = util.getSeedAdmin();
 		String plainPassword = user.email + TestFixtures.PASSWORD_SUFFIX;  // easy hack for testing
 		String query = "query loginWithEmailPassword($email: String!, $password: String!) {" +
 				" loginWithEmailPassword(email: $email, password: $password)" + CREATE_OR_JOIN_TEAM_RESULT + "}";

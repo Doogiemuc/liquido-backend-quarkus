@@ -86,7 +86,16 @@ Key invariants worth knowing before changing poll/vote/team code (full detail in
 
 ## Test data / fixtures
 
-Most integration tests depend on the shared seed team (`testTeam4711`) created by
+**Two tiers of fixture, with different contracts.** `TestDataCreator` ADDS a `testTeam<millis>` on
+every run and never deletes the old ones — so tests resolve it by PREFIX via `util.getSeedTeam()`,
+never by `TestFixtures.teamName` (that constant names the team *this* JVM would create, not the one
+that was seeded). Alongside it, four FIXED-name teams are purged and recreated each run:
+`scratchTeam` (assume nothing about it; any test may change anything in it), `loginTeam` and
+`multiTeamA`/`multiTeamB` (owned by the Cypress specs, which is why their names and emails are
+constants). Leftovers are never cleaned automatically — run `TestDataPurgeSweep` on demand; it is
+dry-run by default and refuses any database outside `TestDataPurger.PURGEABLE_DATABASES`.
+
+Most integration tests depend on the shared seed team (found by prefix) created by
 `TestDataCreator`. Rules for extending it safely (enforced by `SeedContractTests`):
 1. Append freely (new polls/proposals/ballots) — never assert on exact seed counts.
 2. Never change identity/relationships of existing seed rows (delegations, team membership,

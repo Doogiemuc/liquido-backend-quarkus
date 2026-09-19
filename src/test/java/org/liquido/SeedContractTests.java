@@ -52,7 +52,10 @@ public class SeedContractTests {
 	@DisplayName("Seed team exists, with the members and single admin the suite relies on")
 	public void seedTeamHasTheExpectedShape() {
 		TeamEntity team = util.getSeedTeam();
-		assertEquals(TestFixtures.teamName, team.getTeamName());
+		// By PREFIX, not by equality with TestFixtures.teamName: that constant carries THIS JVM's
+		// timestamp, while the seeded team carries the timestamp of the run that created it.
+		assertTrue(team.getTeamName().startsWith(TestFixtures.SEED_TEAM_PREFIX),
+				"Seed team name must start with '" + TestFixtures.SEED_TEAM_PREFIX + "' but was " + team.getTeamName());
 
 		Set<TeamMemberEntity> members = team.getMembers();
 		// The tightest consumer is TestDataCreator's seedRandomProposals(poll, team, 5): it needs one
@@ -122,14 +125,18 @@ public class SeedContractTests {
 	@DisplayName("Seed lookups are immune to leftover data from other tests")
 	public void seedLookupsIgnoreResidue() {
 		TeamEntity before = util.getSeedTeam();
+		Long adminBefore = util.getSeedAdmin().id;
+		Long memberBefore = util.getSeedMember().id;
 
 		util.createFreshTeam("SeedContractResidue");   // exactly the shape that used to poison the lookups
 
+		// Compared by IDENTITY rather than against an email constant: the seed admin's email carries
+		// the seeding run's timestamp, so only "the same row as before" is a meaningful assertion here.
 		assertEquals(before.id, util.getSeedTeam().id,
 				"getSeedTeam() must still resolve to the seed team after another team was created");
-		assertEquals(TestFixtures.adminEmail, util.getSeedAdmin().email,
+		assertEquals(adminBefore, util.getSeedAdmin().id,
 				"getSeedAdmin() must still resolve to the seed admin after another ADMIN was created");
-		assertEquals(TestFixtures.memberEmail, util.getSeedMember().email,
+		assertEquals(memberBefore, util.getSeedMember().id,
 				"getSeedMember() must still resolve to the seed member");
 	}
 

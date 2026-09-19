@@ -97,6 +97,9 @@ public class TestDataCreator {
 	@Inject
 	LiquidoTestUtils util;
 
+	@Inject
+	org.liquido.util.TestDataPurger purger;
+
   	String sampleDbFile = "liquido-testData.sql";
 
 
@@ -127,7 +130,16 @@ public class TestDataCreator {
 
 		log.info("Creating test data in {} for team {}", url, teamName);
 
-		// Create a new team
+		// The FIXED-name teams are replaced wholesale on every run, so their names, emails and display
+		// names can stay constants the Cypress specs hard-code. Members are deleted unconditionally:
+		// multiTeamMember belongs to BOTH multi teams by design, so a purge that spared users who are
+		// in another team could never delete them, and recreating that fixed email would then fail.
+		// Purged in ONE call for the same reason - see TestDataPurger.purgeTeams().
+		purger.purgeTeams(List.of(SCRATCH_TEAM_NAME, LOGIN_TEAM_NAME, multiTeamAName, multiTeamBName), true);
+
+		// The SEED team, in contrast, is ADDED: its name carries a timestamp and previous ones are left
+		// alone, so a suite already running against the old seed is not pulled out from under it.
+		// Old seed teams are removed later, on demand, by PurgeTestData.
 		TeamDataResponse adminRes = util.createTeam(teamName, adminEmail, 5);
 
 		// Let another user join that team
@@ -200,6 +212,8 @@ public class TestDataCreator {
 		log.info("Winner: {}", winner.toString());
 
 		createMultiTeamMemberWhoVotesInSecondTeam();
+		createScratchTeam();
+		createLoginTeam();
 
 		try {
 			extractSql();          // no-op unless dbKind=h2 (old Spring+H2+Quartz era, kept for reference)
@@ -243,6 +257,40 @@ public class TestDataCreator {
 	 * <i>by name</i> ({@code getSeedTeam()} and friends), so position no longer carries meaning.
 	 * The quarantine itself is now defence-in-depth rather than structurally required.
 	 */
+	/**
+	 * The team tests are allowed to WRECK.
+	 *
+	 * <p>Nothing may assume anything about it beyond its existence: any test may rename its users,
+	 * change its polls, add whatever it likes. That is only affordable because this whole team is
+	 * purged and rebuilt on every seed run, so drift can never accumulate past one run.
+	 *
+	 * <p>It deliberately gets a member as well as an admin, so a test needing "a non-admin to mutate"
+	 * does not have to invent one.
+	 */
+	private void createScratchTeam() {
+		log.info("--- The scratch team: anything goes in here ---");
+		TeamDataResponse scratch = util.createTeam(
+				SCRATCH_TEAM_NAME, SCRATCH_ADMIN_EMAIL, SCRATCH_ADMIN_MOBILE, SCRATCH_ADMIN_NAME, 0);
+		util.joinTeam(scratch.team.inviteCode, SCRATCH_MEMBER_EMAIL);
+	}
+
+	/**
+	 * A team whose only job is to own the identity login-tests.cy.js signs in as.
+	 *
+	 * <p>Kept separate from the scratch team on purpose: that spec asserts the admin's DISPLAY NAME
+	 * appears in #memberCircles, and scratchTeam's contract explicitly lets any test rename anybody.
+	 * Kept separate from the seed team because the seed admin's email carries a timestamp, which a
+	 * hard-coded Cypress constant cannot follow.
+	 *
+	 * <p>Both login specs are non-destructive by construction: the password-login case only reads, and
+	 * the forgot-password case resets the password back to the same derived value, so this team
+	 * survives any number of runs between seeds.
+	 */
+	private void createLoginTeam() {
+		log.info("--- The login team: fixed identity for the frontend login specs ---");
+		util.createTeam(LOGIN_TEAM_NAME, LOGIN_ADMIN_EMAIL, LOGIN_ADMIN_MOBILE, LOGIN_ADMIN_NAME, 0);
+	}
+
 	private void createMultiTeamMemberWhoVotesInSecondTeam() {
 		log.info("--- A registered user joins a second team and votes there ---");
 

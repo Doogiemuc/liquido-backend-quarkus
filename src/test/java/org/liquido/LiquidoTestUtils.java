@@ -79,11 +79,25 @@ public class LiquidoTestUtils {
 	 * just need their own throwaway team should use {@link #createFreshTeam(String)}.
 	 */
 	public TeamDataResponse createTeam(String teamName, String adminEmail, String adminMobilephone, int numMembers) {
-		if (teamName == null) teamName = "TestTeam" + now;
+		return createTeam(teamName, adminEmail, adminMobilephone, null, numMembers);
+	}
+
+	/**
+	 * Same again, but with an explicit admin DISPLAY NAME.
+	 *
+	 * <p>Needed by the fixed-name teams: login-tests.cy.js asserts the admin's name appears in
+	 * #memberCircles, so that name has to be a stable constant rather than "TestAdmin &lt;millis&gt;".
+	 */
+	public TeamDataResponse createTeam(String teamName, String adminEmail, String adminMobilephone, String adminName, int numMembers) {
+		// NOT "TestTeam" + now: that shares a prefix with SEED_TEAM_PREFIX ("testTeam") under any
+		// case-insensitive comparison, and getSeedTeam() resolves the seed BY that prefix - an unnamed
+		// throwaway team could then be picked up as "the newest seed team".
+		if (teamName == null) teamName = "FreshTeam" + now;
 		log.info("Creating new team "+teamName);
-		if (adminEmail == null) adminEmail = "testadmin" + now + "@liquido.vote";
+		if (adminEmail == null) adminEmail = TestFixtures.SEED_ADMIN_PREFIX + now + "@liquido.vote";
+		if (adminName == null) adminName = "TestAdmin " + now;
 		Lson admin = Lson.builder()
-				.put("name", "TestAdmin " + now)
+				.put("name", adminName)
 				.put("email", adminEmail)
 				.put("mobilephone", adminMobilephone)
 				.put("picture", "Avatar1.png");
@@ -590,22 +604,55 @@ public class LiquidoTestUtils {
 			"  QUARKUS_HIBERNATE_ORM_DATABASE_GENERATION=drop-and-create \\\n" +
 			"  ./mvnw -B test -Dmaven.surefire.includedGroups=testDataCreator -Dmaven.surefire.excludedGroups=\"\"";
 
-	/** The shared seeded team, by name. Immune to any amount of leftover data from other tests. */
+	/** Resolved once per JVM, so every test in a run agrees on which seed team "the" seed team is. */
+	private TeamEntity seedTeam;
+
+	/**
+	 * The newest seeded team, by PREFIX.
+	 *
+	 * <p>Not by exact name: TestDataCreator adds a new {@code testTeam<millis>} on every run, so
+	 * {@link TestFixtures#teamName} names the team THIS JVM would create, not the one that was
+	 * actually seeded. Looking the seed up by that constant would find nothing.
+	 *
+	 * <p>Memoized because this bean is {@code @ApplicationScoped}: without it, a seed run happening
+	 * mid-suite could move "newest" underneath tests that already resolved it, and two tests in one
+	 * run would disagree about which team they share.
+	 */
 	public TeamEntity getSeedTeam() {
-		return TeamEntity.findByTeamName(TestFixtures.teamName)
-				.orElseThrow(() -> new RuntimeException("No seed team '" + TestFixtures.teamName + "'." + RESEED_HINT));
+		if (seedTeam == null) {
+			seedTeam = TeamEntity.findNewestByPrefix(TestFixtures.SEED_TEAM_PREFIX)
+					.orElseThrow(() -> new RuntimeException(
+							"No seed team matching '" + TestFixtures.SEED_TEAM_PREFIX + "*'." + RESEED_HINT));
+		}
+		return seedTeam;
 	}
 
-	/** The admin of the seed team, by email. */
+	/**
+	 * The admin of the seed team - resolved through the team, not by an email constant, because the
+	 * seed admin's email carries the same timestamp the team name does.
+	 */
 	public UserEntity getSeedAdmin() {
-		return UserEntity.findByEmail(TestFixtures.adminEmail)
-				.orElseThrow(() -> new RuntimeException("No seed admin <" + TestFixtures.adminEmail + ">." + RESEED_HINT));
+		TeamEntity team = getSeedTeam();
+		return TeamMemberEntity.<TeamMemberEntity>find("team = ?1 and role = ?2 order by id", team, TeamMemberEntity.Role.ADMIN)
+				.firstResultOptional()
+				.map(TeamMemberEntity::getUser)
+				.orElseThrow(() -> new RuntimeException(
+						"Seed team '" + team.getTeamName() + "' has no ADMIN." + RESEED_HINT));
 	}
 
-	/** The well-known non-admin member of the seed team, by email. */
+	/**
+	 * The well-known non-admin member of the seed team: the one whose email starts with
+	 * {@link TestFixtures#SEED_MEMBER_PREFIX}. Unambiguous - the other seeded members are named
+	 * {@code membrN...}, so only this one matches.
+	 */
 	public UserEntity getSeedMember() {
-		return UserEntity.findByEmail(TestFixtures.memberEmail)
-				.orElseThrow(() -> new RuntimeException("No seed member <" + TestFixtures.memberEmail + ">." + RESEED_HINT));
+		TeamEntity team = getSeedTeam();
+		return TeamMemberEntity.<TeamMemberEntity>list("team", team).stream()
+				.map(TeamMemberEntity::getUser)
+				.filter(u -> u.getEmail() != null && u.getEmail().startsWith(TestFixtures.SEED_MEMBER_PREFIX))
+				.findFirst()
+				.orElseThrow(() -> new RuntimeException("Seed team '" + team.getTeamName() + "' has no member named '"
+						+ TestFixtures.SEED_MEMBER_PREFIX + "*'." + RESEED_HINT));
 	}
 
 	/**

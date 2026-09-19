@@ -129,6 +129,21 @@ public class TeamEntity extends LiquidoBaseEntity {
 		return find("teamName", teamName).firstResultOptional();
 	}
 
+	/**
+	 * Find the most recently created team whose name starts with this prefix.
+	 *
+	 * <p>Exists for the test seed, whose team name carries a timestamp: a constant computed in one JVM
+	 * cannot be used to look up a team created by an earlier one, so the seed is addressed by prefix
+	 * instead. Ordered by id rather than by a timestamp column because the id is monotonic and cannot
+	 * tie - two teams created in the same millisecond would otherwise return in arbitrary order.
+	 *
+	 * @param teamNamePrefix the literal prefix, e.g. "testTeam". Not a pattern - "%" and "_" in here
+	 *                       would be interpreted by SQL LIKE.
+	 */
+	public static Optional<TeamEntity> findNewestByPrefix(String teamNamePrefix) {
+		return find("teamName like ?1 order by id desc", teamNamePrefix + "%").firstResultOptional();
+	}
+
 	public static Optional<TeamEntity> findByInviteCode(String inviteCode) {
 		return find("inviteCode", inviteCode).firstResultOptional();
 	}

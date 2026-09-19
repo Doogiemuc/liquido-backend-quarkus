@@ -8,6 +8,8 @@ import org.apache.http.HttpHeaders;
 import org.hamcrest.core.DescribedAs;
 import org.liquido.util.Lson;
 
+import java.util.Date;
+
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
 
@@ -20,13 +22,57 @@ public class TestFixtures {
 
 	// Test Data Set
 
-	// every test data item will contain this "now" in one of its attributes
-	public static Long   now          = 4711L; //new Date().getTime() % 1000000;
-	public static String teamName     = "testTeam" + now;
-	public static String adminEmail   = "testadmin" + now + "@liquido.vote";
-	public static String memberEmail  = "testmember" + now + "@liquido.vote";
-	public static String pollTitle    = "TestPoll " + now;
-	public static final String PASSWORD_SUFFIX = "_PWD"; // must be same as in cypress.config.js
+	/*
+	 * ======================= The SEED team: timestamped, found by PREFIX =======================
+	 *
+	 * TestDataCreator ADDS a new seed team on every run rather than replacing the previous one, so its
+	 * name carries a timestamp. That means no later JVM can find it by recomputing a constant - the
+	 * timestamp would differ - so the seed is always resolved by PREFIX via
+	 * LiquidoTestUtils.getSeedTeam() / TeamEntity.findNewestByPrefix(). Never look the seed up by
+	 * TestFixtures.teamName from a test: that field only names the team THIS JVM would create.
+	 *
+	 * Full milliseconds, deliberately not "% 1000000": that wraps every ~16.7 minutes, so two seed
+	 * runs that far apart would collide on the unique email and mobilephone constraints.
+	 */
+	public static final String SEED_TEAM_PREFIX   = "testTeam";
+	public static final String SEED_ADMIN_PREFIX  = "testadmin";
+	public static final String SEED_MEMBER_PREFIX = "testmember";
+	public static final String SEED_POLL_PREFIX   = "TestPoll ";
+
+	public static Long   now          = new Date().getTime();
+	public static String teamName     = SEED_TEAM_PREFIX + now;
+	public static String adminEmail   = SEED_ADMIN_PREFIX + now + "@liquido.vote";
+	public static String memberEmail  = SEED_MEMBER_PREFIX + now + "@liquido.vote";
+	public static String pollTitle    = SEED_POLL_PREFIX + now;
+	public static final String PASSWORD_SUFFIX = "_PWD"; // must be same as in cypress-base-config.js
+
+	/*
+	 * ======================= FIXED-name teams: purged and recreated each run =======================
+	 *
+	 * Everything the frontend or the purge sweep refers to by constant lives here. These names must
+	 * NOT carry a timestamp: Cypress specs hard-code them (see cypress-base-config.js), and they can
+	 * only stay hard-coded because TestDataCreator purges and recreates these teams on every run.
+	 *
+	 * Each admin needs a DISTINCT mobilephone, or createNewTeam is rejected with
+	 * USER_MOBILEPHONE_EXISTS.
+	 */
+
+	/** Anything goes. No test may assume ANY property of this team beyond its existence. */
+	public static final String SCRATCH_TEAM_NAME    = "scratchTeam";
+	public static final String SCRATCH_ADMIN_EMAIL  = "scratchadmin@liquido.vote";
+	public static final String SCRATCH_ADMIN_NAME   = "Scratch Admin";
+	public static final String SCRATCH_ADMIN_MOBILE = "0151 555 0001";
+	public static final String SCRATCH_MEMBER_EMAIL = "scratchmember@liquido.vote";
+
+	/** Owned by login-tests.cy.js. Fixed email AND display name - the spec asserts both. */
+	public static final String LOGIN_TEAM_NAME    = "loginTeam";
+	public static final String LOGIN_ADMIN_EMAIL  = "loginadmin@liquido.vote";
+	public static final String LOGIN_ADMIN_NAME   = "Login Admin";
+	public static final String LOGIN_ADMIN_MOBILE = "0151 555 0004";
+
+	/** Team names the e2e suite creates for itself, which the purge sweep matches on. */
+	public static final String E2E_TEAM_PREFIX  = "Cypress ";
+	public static final String E2E_EMAIL_PREFIX = "cypress";
 
 	// A self-contained TWO-TEAM scenario: one user who is a member of both teams (see TestDataCreator).
 	//
@@ -37,14 +83,19 @@ public class TestFixtures {
 	// teams means it can never disturb the shared fixtures.
 	//
 	// Each admin needs a distinct mobilephone or createNewTeam is rejected with USER_MOBILEPHONE_EXISTS.
-	public static String multiTeamAName          = "multiTeamA" + now;
-	public static String multiTeamAAdminEmail    = "multiteamadmina" + now + "@liquido.vote";
-	public static String multiTeamAAdminMobile   = "0151 666 " + now % 1000000;
-	public static String multiTeamBName          = "multiTeamB" + now;
-	public static String multiTeamBAdminEmail    = "multiteamadminb" + now + "@liquido.vote";
-	public static String multiTeamBAdminMobile   = "0151 777 " + now % 1000000;
+	//
+	// FIXED names, because switch-team.cy.js hard-codes them. The multi-team MEMBER below is the one
+	// user who deliberately belongs to two teams, which is why purging these teams has to delete
+	// members unconditionally: a purge that spares users belonging to another team could never delete
+	// them, and the next run would then collide on the unique email.
+	public static final String multiTeamAName        = "multiTeamA";
+	public static final String multiTeamAAdminEmail  = "multiteamadmina@liquido.vote";
+	public static final String multiTeamAAdminMobile = "0151 666 0002";
+	public static final String multiTeamBName        = "multiTeamB";
+	public static final String multiTeamBAdminEmail  = "multiteamadminb@liquido.vote";
+	public static final String multiTeamBAdminMobile = "0151 777 0003";
 	/** The user who is a member of BOTH multiTeamA and multiTeamB, and who votes in the second one. */
-	public static String multiTeamMemberEmail    = "multiteammember" + now + "@liquido.vote";
+	public static final String multiTeamMemberEmail  = "multiteammember@liquido.vote";
 
 	public static final String staticDummyEmail = "staticDummyEmail@liquido.vote";
 
