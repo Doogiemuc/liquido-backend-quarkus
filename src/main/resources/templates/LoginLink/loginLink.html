@@ -1,0 +1,94 @@
+{@java.lang.String name}
+{@java.lang.String loginBaseUrl}
+{@java.lang.String email}
+{@java.lang.String emailToken}
+<!DOCTYPE html>
+<html lang="de">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>LIQUIDO - Login Link</title>
+</head>
+<!--
+	Same structure and styling as the WelcomeMails / PasswordReset templates - table layout with
+	inlined CSS and a text wordmark, since this is an HTML email and many mail clients strip <style>
+	blocks.
+
+	The login link's markup - id before style before href, href last and immediately followed by
+	'> - is load-bearing: AuthenticationTests parses it out of the raw HTML with a regex that
+	expects exactly that shape (see UserService.requestEmailLoginLink). Don't reorder the anchor's
+	attributes or add one after href.
+-->
+<body style="margin:0; padding:0; background-color:#f4f6f9; -webkit-font-smoothing:antialiased;">
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#f4f6f9;">
+	<tr>
+		<td align="center" style="padding:24px 12px;">
+
+			<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600"
+			       style="max-width:600px; width:100%; background-color:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+
+				<!-- Wordmark -->
+				<tr>
+					<td align="center" style="padding:32px 32px 8px 32px;">
+						<span style="font-family:'Libre Baskerville', Georgia, 'Times New Roman', serif; font-weight:bold; font-size:28px; letter-spacing:0.5px; color:#1e3a5f;">LIQUIDO</span>
+					</td>
+				</tr>
+
+				<tr>
+					<td align="center" style="padding:0 32px 24px 32px;">
+						<span style="font-family:Helvetica, Arial, sans-serif; font-size:13px; color:#959cab;">Sichere, anonyme, faire und liquide Abstimmungen für alle.</span>
+					</td>
+				</tr>
+
+				<!-- Greeting -->
+				<tr>
+					<td style="padding:0 32px;">
+						<h1 style="margin:0 0 16px 0; font-family:'Libre Baskerville', Georgia, serif; font-size:22px; line-height:1.35; color:#1e3a5f; font-weight:bold;">
+							Dein Login-Link
+						</h1>
+						<p style="margin:0 0 16px 0; font-family:Helvetica, Arial, sans-serif; font-size:15px; line-height:1.6; color:#3d4451;">
+							Hallo {name}, mit diesem Link kannst du dich direkt bei LIQUIDO anmelden.
+						</p>
+					</td>
+				</tr>
+
+				<!-- CTA -->
+				<tr>
+					<td align="center" style="padding:8px 32px 24px 32px;">
+						<table role="presentation" cellpadding="0" cellspacing="0" border="0">
+							<tr>
+								<td align="center" style="background-color:#1e3a5f; border-radius:6px;">
+									<a id='loginLink' style="display:inline-block; padding:14px 32px; font-family:Helvetica, Arial, sans-serif; font-size:16px; font-weight:bold; color:#ffffff; text-decoration:none;" href='{loginBaseUrl}?email={email}&emailToken={emailToken}'>Jetzt einloggen</a>
+								</td>
+							</tr>
+						</table>
+					</td>
+				</tr>
+
+				<tr>
+					<td style="padding:0 32px;">
+						<p style="margin:0; font-family:Helvetica, Arial, sans-serif; font-size:14px; line-height:1.6; color:#3d4451;">
+							Dieser Login-Link kann nur einmal verwendet werden.
+						</p>
+					</td>
+				</tr>
+
+				<!-- Footer -->
+				<tr>
+					<td style="padding:20px 32px 28px 32px; border-top:1px solid #e3e8ef;">
+						<p style="margin:0; font-family:Helvetica, Arial, sans-serif; font-size:12px; line-height:1.6; color:#959cab;">
+							Du bekommst diese E-Mail, weil ein Login-Link für die
+							<a href="https://www.liquido.net" style="color:#959cab;">LIQUIDO</a> eVoting-App angefordert wurde.
+							Wenn du das nicht warst, kannst du diese Nachricht einfach ignorieren.
+						</p>
+					</td>
+				</tr>
+
+			</table>
+		</td>
+	</tr>
+</table>
+
+</body>
+</html>

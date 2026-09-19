@@ -1,0 +1,18 @@
+{@java.lang.String name}
+{@java.lang.String loginBaseUrl}
+{@java.lang.String email}
+{@java.lang.String emailToken}
+LIQUIDO - Sichere, anonyme, faire und liquide Abstimmungen für alle.
+
+Dein Login-Link
+
+Hallo {name}, mit diesem Link kannst du dich direkt bei LIQUIDO anmelden:
+
+{loginBaseUrl}?email={email}&emailToken={emailToken}
+
+Dieser Login-Link kann nur einmal verwendet werden.
+
+--
+Du bekommst diese E-Mail, weil ein Login-Link für die LIQUIDO eVoting-App
+angefordert wurde. Wenn du das nicht warst, kannst du diese Nachricht einfach
+ignorieren.

@@ -1,8 +1,6 @@
 package org.liquido.user;
 
-import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.MailTemplate;
-import io.quarkus.mailer.Mailer;
 import io.quarkus.qute.CheckedTemplate;
 import io.quarkus.runtime.LaunchMode;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -29,9 +27,6 @@ public class UserService {
 	LiquidoConfig config;
 
 	@Inject
-	Mailer mailer;
-
-	@Inject
 	JwtTokenUtils jwtTokenUtils;
 
 	/**
@@ -42,6 +37,15 @@ public class UserService {
 	@CheckedTemplate(basePath = "PasswordReset")
 	static class Templates {
 		static native MailTemplate.MailTemplateInstance resetPassword(String name, String resetBaseUrl, String email, String resetToken);
+	}
+
+	/**
+	 * Qute mail template. Resolves to BOTH templates/LoginLink/loginLink.html and .txt, which become
+	 * the HTML and plain-text parts of a multipart mail. Same styling as the WelcomeMails templates.
+	 */
+	@CheckedTemplate(basePath = "LoginLink")
+	static class LoginLinkTemplates {
+		static native MailTemplate.MailTemplateInstance loginLink(String name, String loginBaseUrl, String email, String emailToken);
 	}
 
 	/**
@@ -157,24 +161,18 @@ public class UserService {
 		oneTimeToken.persist();
 		log.info("User " + user.getEmail() + " may login via email link.");
 
-		// This link is parsed in a cypress test case. Must update test if you change this.
-		String loginLink = "<a id='loginLink' style='font-size: 20pt;' href='" + config.frontendUrl() + "/login?email=" + user.getEmail() + "&emailToken=" + oneTimeToken.getNonce() + "'>Login " + user.getName() + "</a>";
-		String body = String.join(
-				System.lineSeparator(),
-				"<html><h1>Liquido Login Token</h1>",
-				"<h3>Hello " + user.getName() + "</h3>",
-				"<p>With this link you can login to Liquido.</p>",
-				"<p>&nbsp;</p>",
-				"<b>" + loginLink + "</b>",
-				"<p>&nbsp;</p>",
-				"<p>This login link can only be used once!</p>",
-				"<p style='color:grey; font-size:10pt;'>You received this email, because a login token for the <a href='https://www.liquido.net'>LIQUIDO</a> eVoting webapp was requested. If you did not request a login yourself, than you may simply ignore this message.</p>",
-				"</html>"
-		);
+		// The login link's markup - id before style before href, href last - is parsed by
+		// AuthenticationTests with a regex. You must also update that test if you change it.
+		String loginBaseUrl = config.frontendUrl() + "/login";
 
 		try {
 			log.info("Sending mail with login link to {}", emailLowerCase);
-			mailer.send(Mail.withHtml(emailLowerCase, "Login Link for LIQUIDO", body).setFrom("info@liquido.vote"));
+			LoginLinkTemplates.loginLink(user.getName(), loginBaseUrl, user.getEmail(), oneTimeToken.getNonce())
+					.to(emailLowerCase)
+					.subject("Login Link for LIQUIDO")
+					.from(config.mailFrom())
+					.send()
+					.await().indefinitely();
 		} catch (Exception e) {
 			throw new LiquidoException(LiquidoException.Errors.CANNOT_LOGIN_INTERNAL_ERROR, "Internal server error: Cannot send Email: " + e, e);
 		}
