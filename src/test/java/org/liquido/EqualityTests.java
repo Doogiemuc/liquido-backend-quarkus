@@ -7,6 +7,7 @@ import io.quarkus.test.security.jwt.Claim;
 import io.quarkus.test.security.jwt.JwtSecurity;
 import jakarta.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.liquido.poll.PollEntity;
 import org.liquido.poll.PollService;
@@ -17,6 +18,8 @@ import org.liquido.util.LiquidoException;
 import org.liquido.vote.RightToVoteEntity;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -101,6 +104,32 @@ public class EqualityTests {
 		assertNotNull(p1.getId(), "Proposal1 should now have an ID");
 		assertNotNull(p2.getId(), "Proposal2 should now have an ID");
 		assertNotEquals(p1, p2, "two different saved ProposalEntities should NOT be equal.");
+	}
+
+	@Test
+	@TestTransaction
+	@DisplayName("A proposal stays findable in a Set after its status changes")
+	public void proposalStaysInASetWhenItsStatusChanges() {
+		// A proposal's identity must not move when its status does. finishVotingPhase() rewrites every
+		// proposal in a poll to LOST or LAW while they sit in PollEntity.proposals, a HashSet. While
+		// equals/hashCode included status, that silently left each element in the wrong bucket: the set
+		// still holds it, and contains() no longer finds it.
+		ProposalEntity proposal = new ProposalEntity("Prop Title", "Prop Description");
+		proposal.setStatus(ProposalEntity.LawStatus.VOTING);
+		proposal.persist();
+		assertNotNull(proposal.getId(), "the proposal needs an id to have an identity at all");
+
+		Set<ProposalEntity> proposals = new HashSet<>();
+		proposals.add(proposal);
+		int hashBefore = proposal.hashCode();
+
+		// WHEN the poll closes and this proposal loses
+		proposal.setStatus(ProposalEntity.LawStatus.LOST);
+
+		assertEquals(hashBefore, proposal.hashCode(),
+				"a proposal's hashCode must not change when its status does - it is keyed on the id");
+		assertTrue(proposals.contains(proposal),
+				"a proposal must still be findable in the Set it was put into before its status changed");
 	}
 
 	@Test

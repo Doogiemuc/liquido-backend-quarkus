@@ -17,7 +17,17 @@ import java.util.Set;
 import org.eclipse.microprofile.graphql.Ignore;
 
 @Data
-@EqualsAndHashCode(of={"title", "status"}, callSuper = true)  // Two proposals are equal when their ID, their title and status match
+// Identity is the database id and nothing else, inherited from LiquidoBaseEntity - which is why no
+// field is included here. This used to be of={"title","status"}, and status is MUTABLE:
+// finishVotingPhase() rewrites every proposal to LOST or LAW. A proposal's hashCode therefore changed
+// while the object was already sitting in PollEntity's HashSet, leaving it in the wrong bucket, where
+// contains() and remove() can silently stop finding an element that is demonstrably in the set.
+// Not theoretical: the ballot checksum was once derived from these hash codes, and closing a poll
+// made every stored checksum unreproducible - by the server too - at exactly the moment voters
+// needed to verify it. See BallotEntity.calcSha256Checksum.
+// The transient case is handled by the superclass rather than ignored: its equals() returns false
+// while id is null, so two unsaved proposals are not equal to each other.
+@EqualsAndHashCode(onlyExplicitlyIncluded = true, callSuper = true)
 @NoArgsConstructor(force = true)      // Lombok's Data does NOT include a default no args constructor!
 @RequiredArgsConstructor
 @Entity(name = "proposals")
